@@ -86,7 +86,7 @@ async def apply_model_bootstrap(provider_manager: Any) -> int:
                 )
                 applied += 1
                 logger.info(
-                    "model bootstrap: registered provider %s " "(%d models)",
+                    "model bootstrap: registered %s (%d models)",
                     provider_id,
                     len(entry.get("models") or []),
                 )

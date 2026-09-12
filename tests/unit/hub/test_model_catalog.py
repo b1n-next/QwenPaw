@@ -164,11 +164,11 @@ def _payload(entries):
 
 class TestRuntimeBootstrap:
     def test_parse_rejects_garbage(self):
-        assert parse_bootstrap_payload(None) == []
-        assert parse_bootstrap_payload("") == []
-        assert parse_bootstrap_payload("not-json") == []
-        assert parse_bootstrap_payload('{"not":"a list"}') == []
-        assert parse_bootstrap_payload('[{"id":"x"}]') == []
+        assert not parse_bootstrap_payload(None)
+        assert not parse_bootstrap_payload("")
+        assert not parse_bootstrap_payload("not-json")
+        assert not parse_bootstrap_payload('{"not":"a list"}')
+        assert not parse_bootstrap_payload('[{"id":"x"}]')
 
     async def test_registers_absent_providers(self, monkeypatch):
         monkeypatch.setenv(
@@ -211,7 +211,7 @@ class TestRuntimeBootstrap:
         )
         manager = FakeProviderManager(existing_ids=["corp-gpt"])
         assert await apply_model_bootstrap(manager) == 0
-        assert manager.added == []
+        assert not manager.added
 
     async def test_active_model_never_overridden(self, monkeypatch):
         monkeypatch.setenv(
@@ -230,7 +230,7 @@ class TestRuntimeBootstrap:
         )
         manager = FakeProviderManager(active_model=object())
         await apply_model_bootstrap(manager)
-        assert manager.activations == []
+        assert not manager.activations
 
     async def test_default_model_must_be_in_models(self, monkeypatch):
         monkeypatch.setenv(
@@ -249,7 +249,7 @@ class TestRuntimeBootstrap:
         )
         manager = FakeProviderManager()
         await apply_model_bootstrap(manager)
-        assert manager.activations == []
+        assert not manager.activations
 
     async def test_broken_entry_does_not_block_others(self, monkeypatch):
         monkeypatch.setenv(
