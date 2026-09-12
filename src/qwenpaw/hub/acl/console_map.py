@@ -60,7 +60,7 @@ _DENIED_ROUTES: Dict[str, FrozenSet[str]] = {
             "core.agents",
             # pawport whole-workspace import (top-level entry)
             "core.import",
-        }
+        },
     ),
 }
 

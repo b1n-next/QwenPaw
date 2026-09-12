@@ -169,7 +169,10 @@ class AclEngine:
             )
             return ()
         if not isinstance(raw, dict):
-            logger.warning("Ignoring non-object ACL config %s", self._config_path)
+            logger.warning(
+                "Ignoring non-object ACL config %s",
+                self._config_path,
+            )
             return ()
         parsed: List[RuleSpec] = []
         for index, entry in enumerate(raw.get("rules", [])):
@@ -201,7 +204,9 @@ class AclEngine:
                 re.compile(pattern)
             except re.error as exc:
                 logger.warning(
-                    "Skipping uncompilable ACL pattern %r: %s", pattern, exc
+                    "Skipping uncompilable ACL pattern %r: %s",
+                    pattern,
+                    exc,
                 )
                 continue
             parsed.append(
@@ -210,7 +215,7 @@ class AclEngine:
                     pattern=pattern,
                     methods=method_set,
                     name=str(entry.get("name", f"overlay-{index}")),
-                )
+                ),
             )
         return tuple(parsed)
 
@@ -221,7 +226,7 @@ class AclEngine:
         config_dir: Optional[Path] = None,
         env: Optional[Any] = None,
     ) -> "AclEngine":
-        """Build the production engine (config path from env or *config_dir*)."""
+        """Build the engine (config path from env or *config_dir*)."""
         environ = env if env is not None else os.environ
         explicit = environ.get("QWENPAW_HUB_ACL_CONFIG", "").strip()
         if explicit:

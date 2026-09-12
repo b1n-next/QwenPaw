@@ -959,7 +959,8 @@ def test_deleted_personal_runtime_is_recreated_on_next_proxy(
         member, member_token = _create_user(client, "member")
         member_headers = _headers(member_token)
         assert (
-            client.get("/api/agents", headers=member_headers).status_code == 200
+            client.get("/api/agents", headers=member_headers).status_code
+            == 200
         )
         runtime_id = f"personal-{member.user_id[:24]}"
         original = client.app.state.runtime_service.get(runtime_id)
@@ -1121,7 +1122,8 @@ def test_admin_stop_and_disable_have_distinct_owner_recovery(
         member, member_token = _create_user(client, "member")
         member_headers = _headers(member_token)
         assert (
-            client.get("/api/agents", headers=member_headers).status_code == 200
+            client.get("/api/agents", headers=member_headers).status_code
+            == 200
         )
         runtime_id = f"personal-{member.user_id[:24]}"
 
@@ -1188,7 +1190,8 @@ def test_admin_stop_and_disable_have_distinct_owner_recovery(
         assert enabled.status_code == 200
         assert enabled.json()["start_policy"] == "owner_allowed"
         assert (
-            client.get("/api/agents", headers=member_headers).status_code == 200
+            client.get("/api/agents", headers=member_headers).status_code
+            == 200
         )
         assert (
             client.post(

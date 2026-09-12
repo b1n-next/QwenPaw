@@ -97,7 +97,11 @@ DEFAULT_RULES: tuple[RuleSpec, ...] = (
     # 9. Approval inbox is a per-user chat-adjacent flow.
     _allow(r"^/api/approval(?:/|$)", "approval"),
     # 10. Personal usage stats (read-only).
-    _allow(r"^/api/token-usage(?:/|$)", "token-usage.read", frozenset({"GET"})),
+    _allow(
+        r"^/api/token-usage(?:/|$)",
+        "token-usage.read",
+        frozenset({"GET"}),
+    ),
     # 11. In-chat tool call inspection and user-triggered cancels.
     _allow(r"^/api/tool-calls(?:/|$)", "tool-calls"),
     # 12. Installed apps: list/detail/settings/static (writes denied in #5).

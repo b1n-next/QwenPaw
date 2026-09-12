@@ -73,7 +73,8 @@ def test_console_debug_denied() -> None:
     ],
 )
 def test_agent_reads_and_scoped_chat_allowed(
-    method: str, path: str
+    method: str,
+    path: str,
 ) -> None:
     assert _user(AclEngine(), method, path)
 
@@ -219,9 +220,9 @@ def test_overlay_deny_shadows_default_allow(tmp_path: Path) -> None:
                         "name": "no-market",
                         "effect": "deny",
                         "pattern": "^/api/market(?:/|$)",
-                    }
-                ]
-            }
+                    },
+                ],
+            },
         ),
         encoding="utf-8",
     )
@@ -242,9 +243,9 @@ def test_overlay_allow_opens_admin_plane(tmp_path: Path) -> None:
                         "effect": "allow",
                         "pattern": "^/api/harnesses",
                         "methods": ["GET"],
-                    }
-                ]
-            }
+                    },
+                ],
+            },
         ),
         encoding="utf-8",
     )
@@ -275,9 +276,9 @@ def test_overlay_hot_reload(tmp_path: Path) -> None:
                         "name": "no-market",
                         "effect": "deny",
                         "pattern": "^/api/market",
-                    }
-                ]
-            }
+                    },
+                ],
+            },
         ),
         encoding="utf-8",
     )

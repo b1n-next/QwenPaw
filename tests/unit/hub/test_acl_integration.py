@@ -26,7 +26,9 @@ from tests.unit.hub.test_control_app import (
 def _ok_transport() -> MockTransport:
     # A fresh streaming Response per request — mirrors the upstream
     # fixtures (the proxy consumes the upstream body as a stream).
-    return MockTransport(lambda request: httpx.Response(200, stream=_ProxyStream()))
+    return MockTransport(
+        lambda request: httpx.Response(200, stream=_ProxyStream()),
+    )
 
 
 def test_member_gets_403_with_acl_detail_and_audit(tmp_path: Path) -> None:
@@ -69,14 +71,16 @@ def test_member_chat_plane_passes_and_admin_bypasses(
         )
         assert (
             client.get(
-                "/api/agents", headers=_headers(member_token)
+                "/api/agents",
+                headers=_headers(member_token),
             ).status_code
             == 200
         )
         # admin plane for admin role is untouched
         assert (
             client.get(
-                "/api/config", headers=_headers(admin_token)
+                "/api/config",
+                headers=_headers(admin_token),
             ).status_code
             == 200
         )
@@ -134,9 +138,9 @@ def test_acl_json_overlay_via_env(
                         "name": "no-market",
                         "effect": "deny",
                         "pattern": "^/api/market",
-                    }
-                ]
-            }
+                    },
+                ],
+            },
         ),
         encoding="utf-8",
     )
@@ -146,19 +150,22 @@ def test_acl_json_overlay_via_env(
         _register(client, "owner")
         _, member_token = _create_user(client, "member")
         admin_token = client.app.state.auth_service.authenticate(
-            "owner", "safe-password"
+            "owner",
+            "safe-password",
         )[1]
 
         assert (
             client.get(
-                "/api/market/providers", headers=_headers(member_token)
+                "/api/market/providers",
+                headers=_headers(member_token),
             ).status_code
             == 403
         )
         # admin is unaffected by user-role overlays
         assert (
             client.get(
-                "/api/market/providers", headers=_headers(admin_token)
+                "/api/market/providers",
+                headers=_headers(admin_token),
             ).status_code
             == 200
         )
