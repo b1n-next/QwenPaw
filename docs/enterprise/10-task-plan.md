@@ -13,7 +13,7 @@
 | EP-0-4 ☑ | permissions 下发 + 映射表 | `GET /api/hub/me/permissions` + console_map.py | user/admin 返回正确 denied 集 | 0.5d | EP-0-1 |
 | EP-0-5 ☑ | console 过滤（复用 capabilities 管线 + vitest） | registry/permissions.ts + hubPermissionsStore + Sidebar/useSidebarEntryGroups/MainLayout | 菜单隐藏 + `/chat` 重定向 + 无 permissions 全量渲染（9 用例过） | 2d | EP-0-4 |
 | EP-0-6 ☑ | 集成回归 + acl.json 运维说明 | tests/unit/hub/test_acl_integration.py（5 用例）+ examples/acl.json.example + 03 附录 B | 集成/回归全过（hub 214 通过；console 3520 通过） | 1d | EP-0-3/5 |
-| EP-0-7 ◐ | fork 工程化：远程布局/CI/文档库 | 09 落地 + CI 跑通上游测试 | push 到 fork 成功；CI 绿 | 0.5d | remote 已配好（origin=fork/upstream=官方）；文档已落 feature/enterprise；**剩 CI** |
+| EP-0-7 ◐ | fork 工程化：远程布局/CI/文档库 | `.github/workflows/enterprise-ci.yml`（hub-backend + console 两 job） | push 到 fork 成功；CI 绿 | 0.5d | remote/文档已就绪；workflow 已推送，等待首次运行结论 |
 
 **Phase 0 DoD**：内网两角色实测——user 干净的对话+应用视图且 API 不可越权；admin 无感；
 打 tag `enterprise/v0.1`。
@@ -66,3 +66,18 @@ SCIM/LDAP｜SIEM｜组织四级｜数据驻留——**全部未承诺**，立项
 | RT-2 | 季度 rebase 到新 tag + 白名单复核 | 每季 0.5d |
 | RT-3 | 撞车复评（#7318/release notes/PR 搜索） | 每周 10min |
 | RT-4 | 02 台账状态同步（完成项链接 PR） | 每阶段末 |
+
+
+## Phase 0 验收操作单（手工，内网）
+
+前置：`qwenpaw hub` 起控制面（console bundle 已构建进包或 `QWENPAW_CONSOLE_STATIC_DIR` 指向 `console/dist`）。
+
+1. **admin 侧**：注册首个账号（自动 admin）→ 控制台全菜单可见；`curl -H "Authorization: Bearer <admin>" http://<hub>/api/config` 返回 200。
+2. **user 侧**：管理员在控制台创建 member → member 登录后侧边栏只剩 收件箱/市场/应用+对话；
+   `curl -H "Authorization: Bearer <member>" http://<hub>/api/config` → **403** `detail.code=ACL_DENIED`；
+   浏览器直输 `http://<hub>/settings/general` → 弹回 `/chat`。
+3. **WS**：member 用 WS 客户端连 `/api/voice/ws` → 关闭码 **1008**。
+4. **审计**：控制台审计页（或 sqlite 查 `hub_audit_events`）出现 `acl.denied` 行，detail 含 reason/method。
+5. **回归**：admin 关闭再启动 member 的 runtime、member 正常对话一轮（chat 面未被误伤）。
+
+全部通过 → `git tag -a enterprise/v0.1 && git push origin enterprise/v0.1`，并执行一次 09 月度对齐例程。
