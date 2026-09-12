@@ -130,7 +130,7 @@ def test_offload_policy_is_admin_plane() -> None:
         ("POST", "/api/messages/send"),
         ("GET", "/api/portability/imports/sources"),  # pawport import
         ("POST", "/api/portability/imports/jobs"),
-        ("GET", "/api/models"),  # providers
+        ("POST", "/api/models"),  # provider writes (GET is models.read)
         ("WS", "/api/voice/ws"),
         ("GET", "/api/envs"),
         ("GET", "/api/backups/jobs/active"),
@@ -302,3 +302,12 @@ def test_permissions_payload_user_vs_admin() -> None:
     admin_payload = permissions_payload("admin")
     assert admin_payload["denied_routes"] == []
     assert admin_payload["denied_groups"] == []
+
+
+def test_model_catalog_reads_allowed_writes_denied() -> None:
+    """EP-1-3: catalog reads open for chat UX; writes stay admin-plane."""
+    engine = AclEngine()
+    assert engine.decide("user", "GET", "/api/models").allowed is True
+    assert engine.decide("user", "GET", "/api/models/corp-gpt").allowed is True
+    assert engine.decide("user", "POST", "/api/models").allowed is False
+    assert engine.decide("user", "PUT", "/api/models/x").allowed is False

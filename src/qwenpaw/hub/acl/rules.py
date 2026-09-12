@@ -117,6 +117,14 @@ DEFAULT_RULES: tuple[RuleSpec, ...] = (
         r"^/api/settings/(?:language|upload-limit)$",
         "settings.personal",
     ),
+    # 16. Read-only model catalog (EP-1-3): the chat composer lists
+    #     models via GET /api/models; provider writes stay admin-plane
+    #     and are denied by the fail-closed default.
+    _allow(
+        r"^/api/models(?:/|$)",
+        "models.read",
+        frozenset({"GET"}),
+    ),
     # Everything else (config, envs, providers, files, workspace, backups,
     # plugins, loops, harnesses, mcp, skills, tools, voice, messages,
     # portability/imports, local-models, agent-stats, schemas, ...) is

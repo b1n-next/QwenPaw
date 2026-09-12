@@ -32,7 +32,9 @@ git push -u origin feature/enterprise
 | 文件 | 改动 | 所属 |
 |---|---|---|
 | `src/qwenpaw/hub/control_app.py` | ACL 两处接入 + /api/version permissions | Ph0 |
-| `src/qwenpaw/app/_app.py`（或 providers loader） | 模型 bootstrap env 分支 | Ph1 |
+| `src/qwenpaw/app/_app.py` | 模型 bootstrap 调用（+4 行，lifespan 内 lazy import） | Ph1 |
+| `src/qwenpaw/hub/local_provisioner.py` | +6 行：`QWENPAW_MODEL_BOOTSTRAP_JSON` 过滤后显式放行（仿 internal token 既有模式） | Ph1 |
+| `src/qwenpaw/hub/docker_provisioner.py` | +4 行：同上，docker env update 字典 | Ph1 |
 | runtime usage 上报 hook（1 文件） | usage flush | Ph1 |
 | `console/src/App.tsx` + `builtinMenu.ts` 相邻新增文件 | permissions 过滤（组合进 capabilities 管线） | Ph0 |
 | `tests/unit/hub/test_control_app.py` | 2 处 member 探针 `/api/probe`→`/api/agents`（ACL 后未知路径对 user 拒绝） | Ph0 |

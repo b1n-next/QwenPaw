@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -49,6 +50,7 @@ from .api_models import (
 from .auth import HubAuthService, HubUser
 from .config import HubConfig, HubConfigStore
 from .credentials import TenantCredentialVault
+from .model_catalog import ModelCatalogStore
 from .provisioner import RuntimeProvisionerUnavailableError
 from .local_provisioner import LocalProcessRuntimeProvisioner
 from .docker_images import DockerImagePullStore
@@ -100,6 +102,10 @@ def build_runtime_service(
         registry.database_path,
         resolved_root / "secrets" / ".vault_key",
     )
+    model_catalog = ModelCatalogStore(
+        registry.database_path,
+        resolved_root / "secrets" / ".model_catalog_key",
+    )
     local_provisioner = LocalProcessRuntimeProvisioner()
     docker_provisioner = DockerRuntimeProvisioner(resolved_root)
 
@@ -115,6 +121,13 @@ def build_runtime_service(
             runtime_id=record.runtime_id,
             name="QWENPAW_RUNTIME_INTERNAL_TOKEN",
         )
+        # EP-1-2: inject the admin-maintained model catalog (decrypted
+        # server-side only; consumed by the runtime bootstrap hook).
+        bootstrap = model_catalog.bootstrap_payload()
+        if bootstrap:
+            environment["QWENPAW_MODEL_BOOTSTRAP_JSON"] = json.dumps(
+                bootstrap,
+            )
         return environment
 
     return RuntimeService(
@@ -215,6 +228,13 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.state.docker_pulls = docker_pulls
     # Enterprise ACL: optional overlay at <hub root>/acl.json (hot reload).
     app.state.acl = AclEngine.from_env(config_dir=runtime_service.root_dir)
+    # EP-1-1: central model provider catalog (shares control.db + its
+    # own secrets key under <hub root>/secrets/).
+    app.state.model_catalog = ModelCatalogStore(
+        runtime_service.registry.database_path,
+        runtime_service.root_dir / "secrets" / ".model_catalog_key",
+    )
+    model_catalog = app.state.model_catalog
 
     def require_loopback_runtime(record: RuntimeRecord) -> None:
         if not is_loopback_host(record.host):
@@ -1186,6 +1206,163 @@ def create_hub_app(  # pylint: disable=too-many-statements
             outcome=outcome,
         )
         return _page_payload(events, page, page_size, total)
+
+    def _provider_payload(record: Any) -> dict[str, object]:
+        """Masked provider view: api_key is never echoed."""
+        return {
+            "provider_id": record.provider_id,
+            "name": record.name,
+            "base_url": record.base_url,
+            "models": record.models,
+            "default_model": record.default_model,
+            "enabled": record.enabled,
+            "api_key_set": record.api_key_set,
+            "created_at": record.created_at,
+            "updated_at": record.updated_at,
+        }
+
+    @app.get("/api/hub/admin/models/providers")
+    async def list_model_providers(
+        _admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """List catalog providers (masked, secrets never echoed)."""
+        records = await run_in_threadpool(model_catalog.list_providers)
+        return {
+            "providers": [_provider_payload(r) for r in records],
+            "total": len(records),
+        }
+
+    @app.post(
+        "/api/hub/admin/models/providers",
+        status_code=201,
+    )
+    async def upsert_model_provider(
+        body: dict[str, Any],
+        admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Create or replace a catalog provider."""
+        try:
+            record = await run_in_threadpool(
+                model_catalog.upsert_provider,
+                provider_id=str(body.get("provider_id") or ""),
+                name=str(body.get("name") or body.get("provider_id") or ""),
+                base_url=str(body.get("base_url") or ""),
+                api_key=body.get("api_key"),
+                models=[str(m) for m in body.get("models") or []],
+                default_model=body.get("default_model"),
+                enabled=bool(body.get("enabled", True)),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        await record_audit(
+            admin,
+            "model_catalog.upsert",
+            "model_provider",
+            record.provider_id,
+            detail={
+                "base_url": record.base_url,
+                "models": len(record.models),
+                "enabled": record.enabled,
+            },
+        )
+        return _provider_payload(record)
+
+    @app.patch("/api/hub/admin/models/providers/{provider_id}")
+    async def patch_model_provider(
+        provider_id: str,
+        body: dict[str, Any],
+        admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Partial update; omitted api_key keeps the stored secret."""
+        existing = model_catalog.get_provider(provider_id)
+        if existing is None:
+            raise HTTPException(status_code=404, detail="provider not found")
+        try:
+            record = await run_in_threadpool(
+                model_catalog.upsert_provider,
+                provider_id=provider_id,
+                name=str(body.get("name", existing.name)),
+                base_url=str(body.get("base_url", existing.base_url)),
+                api_key=body.get("api_key"),
+                models=list(
+                    body.get("models", existing.models),
+                ),
+                default_model=body.get(
+                    "default_model",
+                    existing.default_model,
+                ),
+                enabled=bool(body.get("enabled", existing.enabled)),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        await record_audit(
+            admin,
+            "model_catalog.patch",
+            "model_provider",
+            provider_id,
+            detail={"enabled": record.enabled},
+        )
+        return _provider_payload(record)
+
+    @app.delete("/api/hub/admin/models/providers/{provider_id}")
+    async def delete_model_provider(
+        provider_id: str,
+        admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Remove a catalog provider (runtimes sync on next restart)."""
+        deleted = await run_in_threadpool(
+            model_catalog.delete_provider,
+            provider_id,
+        )
+        if not deleted:
+            raise HTTPException(status_code=404, detail="provider not found")
+        await record_audit(
+            admin,
+            "model_catalog.delete",
+            "model_provider",
+            provider_id,
+            detail={},
+        )
+        return {"deleted": provider_id}
+
+    @app.post("/api/hub/admin/models/providers/{provider_id}/test")
+    async def test_model_provider(
+        provider_id: str,
+        admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Server-side connectivity probe (sanitized, no key echo)."""
+        record = model_catalog.get_provider(provider_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="provider not found")
+        base_url = record.base_url.rstrip("/")
+        try:
+            api_key = model_catalog.get_api_key(provider_id)
+        except KeyError:
+            api_key = ""
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                response = await client.get(
+                    f"{base_url}/models",
+                    headers=headers,
+                )
+            ok = response.status_code < 500
+            message = (
+                f"upstream responded HTTP {response.status_code}"
+                if ok
+                else f"upstream error HTTP {response.status_code}"
+            )
+        except httpx.HTTPError as exc:
+            ok = False
+            message = f"connection failed: {type(exc).__name__}"
+        await record_audit(
+            admin,
+            "model_catalog.test",
+            "model_provider",
+            provider_id,
+            detail={"reachable": ok},
+        )
+        return {"success": ok, "message": message}
 
     @app.get(
         "/api/hub/oauth/callback/{runtime_id}/{callback_route:path}",

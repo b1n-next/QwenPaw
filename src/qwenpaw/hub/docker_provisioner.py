@@ -135,6 +135,12 @@ class DockerRuntimeProvisioner(RuntimeProvisioner):
                 "QWENPAW_RUNTIME_ID": record.runtime_id,
                 "QWENPAW_TENANT_ID": record.tenant_id,
                 "QWENPAW_RUNTIME_INTERNAL_TOKEN": runtime_token,
+                # Hub-controlled model catalog bootstrap (EP-1-2),
+                # re-projected past the generic QWENPAW_* filter.
+                "QWENPAW_MODEL_BOOTSTRAP_JSON": credentials.get(
+                    "QWENPAW_MODEL_BOOTSTRAP_JSON",
+                    "",
+                ),
             },
         )
         labels = self._labels(record.runtime_id, record.owner_user_id)

@@ -442,6 +442,11 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
             elif app.state.startup_ready.is_set():
                 startup_display.mark_finalizing()
 
+            # EP-1-2: hub-pushed model catalog (env bootstrap) runs before
+            # provider sync so catalog providers join the first sync.
+            from .model_bootstrap import apply_model_bootstrap
+
+            await apply_model_bootstrap(provider_manager)
             provider_manager.start_local_model_resume(local_model_manager)
             startup_provider_ids = provider_manager.startup_sync_provider_ids()
             asyncio.create_task(
