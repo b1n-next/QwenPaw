@@ -119,7 +119,7 @@ config_dir=<hub root>)`——默认读 `<hub root>/acl.json` 覆盖层（mtime �
 `console/src/layouts/registry/builtinRoutes.tsx` 的 `core.*` id 对齐；上游新增
 菜单时在 EP 例程中同步本映射（纯数据文件，零逻辑改动）。
 
-### 4.4 console 侧改动（v1.1 修订：复用上游 capabilities 过滤管线）
+### 4.4 console 侧改动 ✅ 已实现（v1.1 方案：复用上游 capabilities 过滤管线）
 
 > 修订背景：v2.2.1 后上游新增 `console/src/layouts/registry/capabilities.ts`
 > （`filterMenuForAgentCapabilities`，按 agent 后端能力过滤内置菜单），已在
@@ -157,16 +157,16 @@ config_dir=<hub root>)`——默认读 `<hub root>/acl.json` 覆盖层（mtime �
 |---|---|---|
 | 单测（tests/unit/hub/test_acl.py） | 规则匹配、方法级、fail-closed、acl.json 覆盖层（含损坏回退/热加载）、路径归一化（`..`、%2e%2e、多斜杠、控制字符、根逃逸）、admin 旁路、菜单 payload | ✅ 67 用例全绿 |
 | 集成（control_app 既有套件） | 上游 hub 套件 209 通过（含代理重建、启停恢复）；仅 2 处 member 探针 `/api/probe` 改为 `/api/agents`（见 09 白名单备注） | ✅（1 例 seatbelt 环境性失败与本次无关，干净树同败） |
-| 403/1008 专项（EP-0-6） | user→admin 面 API 403 + `acl.denied` 审计；WS 1008；`/api/hub/me/permissions` 正确 | ☐ 随 e2e 补 |
-| console（vitest，EP-0-5） | denied_routes 下菜单不渲染；直达 `/settings` 重定向 `/chat`；无 permissions 全量渲染 | ☐ |
+| 403/1008 专项（EP-0-6） | user→admin 面 API 403 + `acl.denied` 审计；WS 1008；`/api/hub/me/permissions` 正确 | ✅ tests/unit/hub/test_acl_integration.py 5 用例（含 acl.json 覆盖层端到端） |
+| console（vitest，EP-0-5） | denied_routes 下菜单不渲染；直达 `/settings` 重定向 `/chat`；无 permissions 全量渲染 | ✅ permissions.test.ts 9 用例（过滤器/路由守卫/降级），tsc+eslint 过 |
 
 ## 6. 交付物清单
 
 - [x] `hub/acl/` 新模块（rules/engine/console_map）+ 67 单测
 - [x] `control_app.py` 接入（HTTP 403 / WS 1008 / 审计事件）
 - [x] `/api/hub/me/permissions` 端点 + 角色映射（console_map.py）
-- [ ] console 侧 permissions 过滤（EP-0-5，复用 capabilities 管线）+ vitest
-- [ ] `acl.json.example` + 运维说明（EP-0-6）
+- [x] console 侧 permissions 过滤（EP-0-5）：registry/permissions.ts + hubPermissionsStore + 两处组合点 + MainLayout 路由守卫 + 9 vitest 用例
+- [x] `acl.json.example`（docs/enterprise/examples/）+ 附录 B 运维说明
 - [x] EP-0-1 盘点报告 → 本文件附录 A
 
 ## 附录 A · EP-0-1 分组定稿（983b3ceb 实测，39 个路由文件）
@@ -212,3 +212,37 @@ config_dir=<hub root>)`——默认读 `<hub root>/acl.json` 覆盖层（mtime �
 2. settings 公共路径 → 仅 language/upload-limit 放行，PUT language 属用户偏好放行；
 3. cron-jobs → 归管理面（agent-scoped `cron` 子树 + `loops` 路由均拒）；
 4. core.import/pawport → 归管理面（导入含 settings/plugins/projects 全量）。
+
+## 附录 B · 运维说明（acl.json 覆盖层）
+
+**放置与生效**
+
+- 默认路径：`<hub root>/acl.json`（hub root 即 `QWENPAW_HUB_DIR`，缺省 `~/.qwenpaw/hub`）；
+- 或环境变量 `QWENPAW_HUB_ACL_CONFIG` 指定任意绝对路径（优先级更高）；
+- mtime 变化即热加载，无需重启；每写一个完整 JSON 再原子替换（写临时文件后 mv）。
+
+**规则语义**
+
+```json
+{"rules": [{"name": "...", "effect": "allow|deny", "pattern": "^/api/...", "methods": ["GET"]}]}
+```
+
+- 覆盖层规则**先于**内置规则评估（可用来给 user 开一个管理面只读口，或反向收紧对话面）；
+- 仅影响非 admin 角色；admin 恒放行；
+- `pattern` 为 Python 正则（re.match 语义，锚定开头）；`methods` 缺省=全部方法（含 WS 伪方法）；
+- 全部落空 → 回到内置规则 → 仍未匹配 → 拒绝。**任何配置错误都不会 fail-open**。
+
+**审计与排障**
+
+- 每次拒绝写一条 `acl.denied` 审计事件（action 可筛），detail 含 `reason`（规则名）与 `method`；
+- 客户端收到的 403 body：`detail.code="ACL_DENIED"`、`detail.reason=规则名`——
+  `default-deny` 表示未匹配任何规则（新上游接口默认拒绝，需评估后在覆盖层或内置规则中放行）；
+- console 侧菜单过滤失败（如旧后端无 `/api/hub/me/permissions`）只影响 UX：后端 403 不受影响。
+
+**常见处置**
+
+| 症状 | 处置 |
+|---|---|
+| 升级后 user 某新功能 403（reason=default-deny） | 评估该 API 归属；确属对话面则在覆盖层放行并反馈到 03 附录 A 更新内置规则 |
+| 想临时给某用户组开只读管理面 | 覆盖层 `allow` + `methods:["GET"]`（用户组维度属 Phase 2 RBAC） |
+| acl.json 写错 | 日志出现 `Ignoring unreadable ACL config` warning；修复文件即可，期间内置规则持续生效 |

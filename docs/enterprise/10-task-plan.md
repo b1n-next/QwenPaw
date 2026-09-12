@@ -11,8 +11,8 @@
 | EP-0-2 ☑ | `hub/acl/` 策略引擎 + 单测 | rules/engine/console_map + tests/unit/hub/test_acl.py | 67 用例全绿（fail-closed/归一化/覆盖层） | 2d | EP-0-1 |
 | EP-0-3 ☑ | 代理接入：HTTP + WS + 审计事件 | control_app.py（deny 先于供给，`acl.denied` 审计） | 上游 hub 套件 209 通过 | 1d | EP-0-2 |
 | EP-0-4 ☑ | permissions 下发 + 映射表 | `GET /api/hub/me/permissions` + console_map.py | user/admin 返回正确 denied 集 | 0.5d | EP-0-1 |
-| EP-0-5 | console 过滤（复用 capabilities 管线 + vitest） | permissions.ts + 两处组合点 + App.tsx | 菜单隐藏 + 路由重定向 + 兼容无 permissions | 2d | EP-0-4 |
-| EP-0-6 | 集成回归 + acl.json 运维说明 | e2e 用例 + 运维附录 | 03 §5 集成/回归全过 | 1d | EP-0-3/5 |
+| EP-0-5 ☑ | console 过滤（复用 capabilities 管线 + vitest） | registry/permissions.ts + hubPermissionsStore + Sidebar/useSidebarEntryGroups/MainLayout | 菜单隐藏 + `/chat` 重定向 + 无 permissions 全量渲染（9 用例过） | 2d | EP-0-4 |
+| EP-0-6 ☑ | 集成回归 + acl.json 运维说明 | tests/unit/hub/test_acl_integration.py（5 用例）+ examples/acl.json.example + 03 附录 B | 集成/回归全过（hub 214 通过；console 3520 通过） | 1d | EP-0-3/5 |
 | EP-0-7 ◐ | fork 工程化：远程布局/CI/文档库 | 09 落地 + CI 跑通上游测试 | push 到 fork 成功；CI 绿 | 0.5d | remote 已配好（origin=fork/upstream=官方）；文档已落 feature/enterprise；**剩 CI** |
 
 **Phase 0 DoD**：内网两角色实测——user 干净的对话+应用视图且 API 不可越权；admin 无感；

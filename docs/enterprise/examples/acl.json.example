@@ -1,0 +1,25 @@
+{
+  "$comment": [
+    "QwenPaw Hub ACL 覆盖层示例（enterprise layer Phase 0）",
+    "放置路径：<hub root>/acl.json（QWENPAW_HUB_DIR 下的 acl.json），",
+    "或用环境变量 QWENPAW_HUB_ACL_CONFIG 指定任意路径。",
+    "语义：本文件规则先于内置规则评估（first-match-wins）；仅影响非 admin 角色；",
+    "未匹配任何规则仍走内置规则，内置未匹配则拒绝（fail-closed）。",
+    "热加载：文件 mtime 变化即生效，无需重启 hub。",
+    "损坏回退：JSON 解析失败或规则非法时记 warning 并忽略该文件（绝不 fail-open）。",
+    "methods 可选值：GET/POST/PUT/PATCH/DELETE/HEAD/OPTIONS/WS；缺省=全部方法。"
+  ],
+  "rules": [
+    {
+      "name": "allow-harnesses-readonly",
+      "effect": "allow",
+      "pattern": "^/api/harnesses",
+      "methods": ["GET"]
+    },
+    {
+      "name": "deny-market-for-contractors",
+      "effect": "deny",
+      "pattern": "^/api/market(?:/|$)"
+    }
+  ]
+}
