@@ -29,10 +29,7 @@ export function filterMenuForPermissions(
     const treeItem = item as MenuTreeItem;
     if (!treeItem.__children) return [item];
 
-    const children = filterMenuForPermissions(
-      treeItem.__children,
-      deniedIds,
-    );
+    const children = filterMenuForPermissions(treeItem.__children, deniedIds);
     // Group header left without any visible child is removed too.
     if (children.length === 0 && treeItem.isGroup) return [];
     return [{ ...treeItem, __children: children }];

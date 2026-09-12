@@ -42,10 +42,7 @@ describe("filterMenuForPermissions", () => {
   });
 
   it("drops denied leaf items and keeps allowed siblings", () => {
-    const filtered = filterMenuForPermissions(
-      items,
-      new Set(["core.import"]),
-    );
+    const filtered = filterMenuForPermissions(items, new Set(["core.import"]));
     expect(filtered.map((item) => item.id)).toEqual([
       "core.chat",
       "core.workspace-group",
@@ -66,10 +63,7 @@ describe("filterMenuForPermissions", () => {
   });
 
   it("keeps a group when at least one child remains", () => {
-    const filtered = filterMenuForPermissions(
-      items,
-      new Set(["core.models"]),
-    );
+    const filtered = filterMenuForPermissions(items, new Set(["core.models"]));
     const group = filtered.find((item) => item.id === "core.settings-group") as
       | { __children?: MenuItem[] }
       | undefined;

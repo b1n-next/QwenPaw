@@ -16,10 +16,7 @@ import styles from "../index.module.less";
 import { useRoutes } from "../../plugins/registry/hooks";
 import { Slot } from "../../plugins/registry/Slot";
 import { pickSelectedKey } from "./routeSelection";
-import {
-  deniedPathsForRoutes,
-  isPathDenied,
-} from "../registry/permissions";
+import { deniedPathsForRoutes, isPathDenied } from "../registry/permissions";
 
 const { Content } = Layout;
 

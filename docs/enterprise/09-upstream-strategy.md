@@ -36,6 +36,7 @@ git push -u origin feature/enterprise
 | runtime usage 上报 hook（1 文件） | usage flush | Ph1 |
 | `console/src/App.tsx` + `builtinMenu.ts` 相邻新增文件 | permissions 过滤（组合进 capabilities 管线） | Ph0 |
 | `tests/unit/hub/test_control_app.py` | 2 处 member 探针 `/api/probe`→`/api/agents`（ACL 后未知路径对 user 拒绝） | Ph0 |
+| `console/.prettierignore` | +1 行：忽略 `pnpm-lock.yaml`（pnpm 每次重生成，格式不受 prettier 管） | Ph0 |
 
 **附加层**（全部新文件/目录，rebase 零冲突）：
 `hub/acl/`、`hub/provisioners/k8s/`、`hub/models_catalog/`、`deploy/helm/`、
