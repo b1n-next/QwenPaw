@@ -13,7 +13,7 @@
 | EP-0-4 ☑ | permissions 下发 + 映射表 | `GET /api/hub/me/permissions` + console_map.py | user/admin 返回正确 denied 集 | 0.5d | EP-0-1 |
 | EP-0-5 ☑ | console 过滤（复用 capabilities 管线 + vitest） | registry/permissions.ts + hubPermissionsStore + Sidebar/useSidebarEntryGroups/MainLayout | 菜单隐藏 + `/chat` 重定向 + 无 permissions 全量渲染（9 用例过） | 2d | EP-0-4 |
 | EP-0-6 ☑ | 集成回归 + acl.json 运维说明 | tests/unit/hub/test_acl_integration.py（5 用例）+ examples/acl.json.example + 03 附录 B | 集成/回归全过（hub 214 通过；console 3520 通过） | 1d | EP-0-3/5 |
-| EP-0-7 ◐ | fork 工程化：远程布局/CI/文档库 | `.github/workflows/enterprise-ci.yml`（hub-backend + console 两 job） | push 到 fork 成功；CI 绿 | 0.5d | remote/文档已就绪；workflow 已推送，等待首次运行结论 |
+| EP-0-7 ☑ | fork 工程化：远程布局/CI/文档库 | `.github/workflows/enterprise-ci.yml`（hub-backend + console 两 job） | push 到 fork 成功；CI 绿 | 0.5d | Enterprise CI 两轮全绿（py3.12 + node24）；NPM Format 修复后绿；Pre-commit 修复项（black/flake8）本地同版本钩子全过，远程结论待网关恢复后补看 |
 
 **Phase 0 DoD**：内网两角色实测——user 干净的对话+应用视图且 API 不可越权；admin 无感；
 打 tag `enterprise/v0.1`。
