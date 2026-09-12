@@ -94,25 +94,30 @@ hub/acl/
 
 语义：默认分组表 + overrides 逐条覆盖（含方法级）；未匹配 → **fail-closed（deny）**。
 
-### 4.2 代理层接入（对上游文件的**最小修改**，两处）
+### 4.2 代理层接入（对上游文件的**最小修改**，两处）✅ 已实现
 
-1. `hub/control_app.py` `personal_runtime_proxy`：进入函数后、构造上游请求前插入
-   `decision = acl.decide(user.role, request.method, path)`；deny → `HTTPException(403, detail=...)`
-   并写审计事件（reason=acl_denied, group, pattern）。
-2. `hub/control_app.py` websocket 入口（`@app.websocket("/api/{path:path}")`，L1421 附近）：
-   同一 `AclEngine.decide`，deny → close(code=1008)。
+1. `hub/control_app.py` `personal_runtime_proxy`：函数入口、`ensure_personal_runtime`
+   **之前**插入 `app.state.acl.decide(user.role, request.method, request.url.path)`
+   （denied 请求不触发 runtime 供给）；deny → `HTTPException(403,
+   detail={code:"ACL_DENIED", message, reason})` 并写审计事件 `acl.denied`。
+2. `hub/control_app.py` websocket 入口（`@app.websocket("/api/{path:path}")`）：
+   token 校验后同一 `decide(role, "WS", path)`，deny → close(code=1008) + 审计。
 
-### 4.3 `/api/version` 下发权限（对 hub 已有重写点扩展）
+引擎初始化：`create_hub_app` 内 `app.state.acl = AclEngine.from_env(
+config_dir=<hub root>)`——默认读 `<hub root>/acl.json` 覆盖层（mtime 热加载），
+`QWENPAW_HUB_ACL_CONFIG` 可显式指定路径。
 
-`control_app.py` 的 `/api/version` 响应中，hub 模式追加：
+### 4.3 `/api/hub/me/permissions` 下发权限 ✅ 已实现（v1.2 修订）
 
-```json
-"permissions": {"denied_groups": ["workspace", "settings", "control"],
-                 "denied_routes": ["core.files", "core.channels", ...]}
-```
+> 修订：原方案挂 `/api/version`，实现时改为 **`GET /api/hub/me/permissions`**
+> （`require_user` 保护）。理由：console 的 hub 模式探测来自 `/api/auth/status`
+> （`console/src/auth/gate.ts`），`/api/version` 是公开安全端点且无认证上下文，
+> 不适合承载角色信息；紧邻现有 `/api/hub/me` 更自然。
 
-生成逻辑：`user.role → groups → 映射到 console 菜单 route id 列表`（映射表与
-`console/src/layouts/registry/builtinRoutes.tsx` 的 `core.*` id 对齐，随上游菜单演进在 EP 例程中同步）。
+响应由 `hub/acl/console_map.py` 的 `permissions_payload(role)` 生成：
+`{"role","denied_groups","denied_routes"}`。`denied_routes` 与
+`console/src/layouts/registry/builtinRoutes.tsx` 的 `core.*` id 对齐；上游新增
+菜单时在 EP 例程中同步本映射（纯数据文件，零逻辑改动）。
 
 ### 4.4 console 侧改动（v1.1 修订：复用上游 capabilities 过滤管线）
 
@@ -140,25 +145,70 @@ hub/acl/
 
 ### 4.5 兼容与降级
 
-- 非 hub 部署（直连 runtime）：`/api/version` 无 `permissions` → console 全量菜单，行为与上游一致；
-- `acl.json` 缺失/损坏 → 使用内置默认分组表（代码内常量），**deny 管理面**（fail-closed）；
-- hub 升级替换 `control_app.py`：ACL 接入点以独立装饰器/依赖注入形式写成
-  `hub/acl/dependencies.py`，rebase 时只需重挂一行。
+- 非 hub 部署（直连 runtime）：无 `/api/hub/me/permissions` → console 全量菜单，行为与上游一致；
+- `acl.json` 缺失/损坏 → 使用内置默认规则表（`rules.py` 常量），**deny 管理面**（fail-closed，
+  损坏文件记 warning 后忽略，绝不 fail-open）；
+- hub 升级替换 `control_app.py`：ACL 接入为 3 个小块（import、app.state 初始化、proxy/WS 各一段），
+  rebase 时重挂即可。
 
 ## 5. 测试计划
 
-| 层 | 用例 |
-|---|---|
-| 单测（hub/acl） | 分组匹配、方法级 override、fail-closed、acl.json 热加载、恶意路径（`/api/config/../messages`）归一化后判定 |
-| 集成（control_app） | user→admin 面 API 403 且有审计事件；admin→全放行；WS deny 关闭码 1008；`/api/version` 携带正确 permissions |
-| console（vitest） | denied_groups 下菜单不渲染；直接访问 `/settings` 重定向 `/chat`；无 permissions 字段时全量渲染 |
-| 回归 | 非 hub 模式 console 全功能；hub admin 全功能 |
+| 层 | 用例 | 状态 |
+|---|---|---|
+| 单测（tests/unit/hub/test_acl.py） | 规则匹配、方法级、fail-closed、acl.json 覆盖层（含损坏回退/热加载）、路径归一化（`..`、%2e%2e、多斜杠、控制字符、根逃逸）、admin 旁路、菜单 payload | ✅ 67 用例全绿 |
+| 集成（control_app 既有套件） | 上游 hub 套件 209 通过（含代理重建、启停恢复）；仅 2 处 member 探针 `/api/probe` 改为 `/api/agents`（见 09 白名单备注） | ✅（1 例 seatbelt 环境性失败与本次无关，干净树同败） |
+| 403/1008 专项（EP-0-6） | user→admin 面 API 403 + `acl.denied` 审计；WS 1008；`/api/hub/me/permissions` 正确 | ☐ 随 e2e 补 |
+| console（vitest，EP-0-5） | denied_routes 下菜单不渲染；直达 `/settings` 重定向 `/chat`；无 permissions 全量渲染 | ☐ |
 
 ## 6. 交付物清单
 
-- [ ] `hub/acl/` 新模块 + 单测
-- [ ] `control_app.py` 两处接入（≤30 行改动）
-- [ ] `/api/version` permissions 扩展
-- [ ] console 三文件改动 + vitest
-- [ ] `acl.json.example` + 运维说明（本文档 §3 定稿表同步进 groups.py）
-- [ ] EP-0-1 盘点报告（40 router 逐条归组及理由，附在本文件附录）
+- [x] `hub/acl/` 新模块（rules/engine/console_map）+ 67 单测
+- [x] `control_app.py` 接入（HTTP 403 / WS 1008 / 审计事件）
+- [x] `/api/hub/me/permissions` 端点 + 角色映射（console_map.py）
+- [ ] console 侧 permissions 过滤（EP-0-5，复用 capabilities 管线）+ vitest
+- [ ] `acl.json.example` + 运维说明（EP-0-6）
+- [x] EP-0-1 盘点报告 → 本文件附录 A
+
+## 附录 A · EP-0-1 分组定稿（983b3ceb 实测，39 个路由文件）
+
+> 数据来源：`src/qwenpaw/app/routers/` 逐文件提取 `APIRouter(prefix)` + 全部
+> method/path（`schemas_config.py` 仅 Pydantic 模型无路由，不计）。
+> 机器可读形态 = `hub/acl/rules.py`（注释含编号，与本表对应）。
+
+**对话面（user 放行）**
+
+| 路由 | 前缀 | 关键端点 | 归组理由 |
+|---|---|---|---|
+| console | `/console` | POST chat、chat/stop、upload；GET push-messages、inbox | **主对话入口**（`agent.ts:49`）；仅 debug 子树拒绝 |
+| agents（读） | `/agents` | GET 列表/详情/memory-backends | 会话切换器与 PawApp 列表必需；写操作按方法拒绝 |
+| agent_scoped（对话子树） | `/agents/{id}` | console/chats/chat/agent-status 子路由 | **PawApp 对话面**（`agent_scoped.py` 复合路由）；其余子树全拒 |
+| agent_status | `/agent-status` | GET | 会话状态展示 |
+| approval | `/approval` | GET list；POST approve/deny | 用户侧审批流 |
+| token_usage | `/token-usage` | GET（含 /details） | 个人用量只读 |
+| tool_calls | `/tool-calls` | GET 会话内工具状态；POST cancel/offload | 对话内工具卡片交互 |
+| pawapps（读） | `/pawapps` | GET 列表/详情/settings/static | 用户打开已安装应用；DELETE/写拒 |
+| market | `/market` | GET providers/categories；POST search | 浏览市场（安装走 `/plugins`，默认拒） |
+| frontend_plugin | `/frontend_plugin` | GET 静态资源 | 本就是 `_PUBLIC_PREFIXES` |
+| settings（个人项） | `/settings` | GET/PUT language；GET upload-limit | 与 runtime `_PUBLIC_PATHS` 对齐；offload-policy 拒 |
+| auth/healthz/version | `/auth` 等 | 登录态/探活 | hub 多数已自行拦截；直连场景兜底 |
+
+**管理面（user 拒绝，fail-closed 默认）**
+
+| 路由 | 前缀 | 备注 |
+|---|---|---|
+| config（42 端点）、envs、coding_mode | `/config` `/envs` `/coding-mode` | 渠道/环境/编码模式治理 |
+| providers、provider_oauth、local_models | `/models` `/providers` `/local-models` | 模型供应商治理（Ph1 模型统一治理的地基） |
+| files、workspace、checkpoints、git、project_directory、fork | `/files` `/workspace/*` `/fork` | 工作区与文件 |
+| plugins、portability_imports | `/plugins` `/portability/imports` | 安装/整仓导入（`core.import`） |
+| mcp、mcp_oauth、skills、skills_stream、tools、harnesses | 各自前缀 | 技能/工具/MCP/第三方 agent 治理 |
+| access_control、mail_access_control、backup、loops、agent_stats | 各自前缀 | 渠道 ACL/备份/定时循环/统计 |
+| messages、voice | `/messages` `/voice` | 主动外发消息、语音通道（WS 同拒） |
+| agents 写 | `PUT/PATCH/POST/DELETE /agents*` | 方法级规则（order/pin/backend-settings/删除） |
+| console/debug | `GET /console/debug/*` | 后端日志泄露面 |
+
+**灰区裁决记录**（原 4 项全部闭环）：
+
+1. agents 读写分离 → 方法级 deny（`agents.write`）+ scope 子树白名单（`agents.scoped-chat`）；
+2. settings 公共路径 → 仅 language/upload-limit 放行，PUT language 属用户偏好放行；
+3. cron-jobs → 归管理面（agent-scoped `cron` 子树 + `loops` 路由均拒）；
+4. core.import/pawport → 归管理面（导入含 settings/plugins/projects 全量）。

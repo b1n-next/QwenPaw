@@ -16,7 +16,7 @@ origin   → git@github.com:b1n-next/QwenPaw.git        （你的 fork，推送�
 
 基线：未打 tag，以 commit 记录 —— 当前基线 983b3ceb（上游 v2.2.1 发布后、2.2.2b1 线）。
 阶段标记：Phase 完成时打 tag enterprise/v0.x（首个 Phase 0 完成打 enterprise/v0.1）。
-建议（可选）：git tag enterprise/baseline-983b3ceb 983b3ceb 固化基线引用。
+基线 tag 已建：`enterprise/baseline-983b3ceb`（983b3ceb，annotated）。rebase 时可直接用作 `--onto` 锚点。
 ```
 
 推送（remote 已配好，日常只需）：
@@ -34,7 +34,8 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/hub/control_app.py` | ACL 两处接入 + /api/version permissions | Ph0 |
 | `src/qwenpaw/app/_app.py`（或 providers loader） | 模型 bootstrap env 分支 | Ph1 |
 | runtime usage 上报 hook（1 文件） | usage flush | Ph1 |
-| `console/src/App.tsx` + `builtinMenu.ts` + 新增 utils | permissions 过滤 | Ph0 |
+| `console/src/App.tsx` + `builtinMenu.ts` 相邻新增文件 | permissions 过滤（组合进 capabilities 管线） | Ph0 |
+| `tests/unit/hub/test_control_app.py` | 2 处 member 探针 `/api/probe`→`/api/agents`（ACL 后未知路径对 user 拒绝） | Ph0 |
 
 **附加层**（全部新文件/目录，rebase 零冲突）：
 `hub/acl/`、`hub/provisioners/k8s/`、`hub/models_catalog/`、`deploy/helm/`、

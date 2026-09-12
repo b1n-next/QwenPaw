@@ -35,6 +35,7 @@ from ..constant import WORKING_DIR
 from ..utils.http import is_loopback_host
 from ..utils.oauth_callback import HUB_OAUTH_CALLBACK_URL_HEADER
 from .access_security import HubAccessSecurity
+from .acl import AclEngine, permissions_payload
 from .api_models import (
     AdminUserCreateBody,
     AdminUserPatchBody,
@@ -212,6 +213,8 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.state.operations = operations
     app.state.access_security = access_security
     app.state.docker_pulls = docker_pulls
+    # Enterprise ACL: optional overlay at <hub root>/acl.json (hot reload).
+    app.state.acl = AclEngine.from_env(config_dir=runtime_service.root_dir)
 
     def require_loopback_runtime(record: RuntimeRecord) -> None:
         if not is_loopback_host(record.host):
@@ -540,6 +543,13 @@ def create_hub_app(  # pylint: disable=too-many-statements
         user: HubUser = Depends(require_user),
     ) -> dict[str, object]:
         return user.to_dict()
+
+    @app.get("/api/hub/me/permissions")
+    async def current_identity_permissions(
+        user: HubUser = Depends(require_user),
+    ) -> dict[str, object]:
+        """Console menu deny-list for the current role (UX only)."""
+        return permissions_payload(user.role)
 
     @app.post("/api/hub/me/password")
     async def change_password(
@@ -1265,6 +1275,27 @@ def create_hub_app(  # pylint: disable=too-many-statements
         request: Request,
         user: HubUser = Depends(require_user),
     ) -> Response:
+        decision = app.state.acl.decide(
+            user.role,
+            request.method,
+            request.url.path,
+        )
+        if not decision.allowed:
+            await record_audit(
+                user,
+                "acl.denied",
+                "api",
+                request.url.path,
+                {"reason": decision.reason, "method": request.method},
+            )
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "ACL_DENIED",
+                    "message": "This API is restricted to administrators.",
+                    "reason": decision.reason,
+                },
+            )
         record = await ensure_personal_runtime(user)
         target = runtime_url(
             record,
@@ -1438,6 +1469,21 @@ def create_hub_app(  # pylint: disable=too-many-statements
         user = await run_in_threadpool(hub_auth.verify_token, token)
         if user is None:
             await websocket.close(code=4401)
+            return
+        ws_decision = app.state.acl.decide(
+            user.role,
+            "WS",
+            websocket.url.path,
+        )
+        if not ws_decision.allowed:
+            await record_audit(
+                user,
+                "acl.denied",
+                "api",
+                websocket.url.path,
+                {"reason": ws_decision.reason, "method": "WS"},
+            )
+            await websocket.close(code=1008)  # policy violation
             return
         try:
             record = await ensure_personal_runtime(user)

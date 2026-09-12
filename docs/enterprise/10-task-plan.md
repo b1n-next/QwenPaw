@@ -7,10 +7,10 @@
 
 | 票 | 内容 | 交付物 | 验收（DoD） | 预估 | 依赖 |
 |---|---|---|---|---|---|
-| EP-0-1 ◐ | router 能力分组盘点定稿（40 个 router 逐条归组） | 03 文档附录定稿表 + `groups.py` 常量 | 灰区项全部有归属决定与理由（含 v2.2.1 新增 `core.import`） | 0.5d | — |
-| EP-0-2 | `hub/acl/` 策略引擎 + 单测 | engine/groups/config + tests/hub_acl | §5 单测全绿；fail-closed 验证 | 2d | EP-0-1 |
-| EP-0-3 | 代理接入：HTTP + WS + 审计事件 | control_app.py 两处（≤30 行） | user→admin API 403 留痕；WS 1008 | 1d | EP-0-2 |
-| EP-0-4 | `/api/version` permissions 下发 + 映射表 | control_app version 扩展 | user/admin 返回正确 denied 集 | 0.5d | EP-0-1 |
+| EP-0-1 ☑ | router 能力分组盘点定稿（39 个路由文件逐条归组） | 03 附录 A 定稿表 + `hub/acl/rules.py` 常量 | 灰区 4 项全部裁决（见附录 A） | 0.5d | — |
+| EP-0-2 ☑ | `hub/acl/` 策略引擎 + 单测 | rules/engine/console_map + tests/unit/hub/test_acl.py | 67 用例全绿（fail-closed/归一化/覆盖层） | 2d | EP-0-1 |
+| EP-0-3 ☑ | 代理接入：HTTP + WS + 审计事件 | control_app.py（deny 先于供给，`acl.denied` 审计） | 上游 hub 套件 209 通过 | 1d | EP-0-2 |
+| EP-0-4 ☑ | permissions 下发 + 映射表 | `GET /api/hub/me/permissions` + console_map.py | user/admin 返回正确 denied 集 | 0.5d | EP-0-1 |
 | EP-0-5 | console 过滤（复用 capabilities 管线 + vitest） | permissions.ts + 两处组合点 + App.tsx | 菜单隐藏 + 路由重定向 + 兼容无 permissions | 2d | EP-0-4 |
 | EP-0-6 | 集成回归 + acl.json 运维说明 | e2e 用例 + 运维附录 | 03 §5 集成/回归全过 | 1d | EP-0-3/5 |
 | EP-0-7 ◐ | fork 工程化：远程布局/CI/文档库 | 09 落地 + CI 跑通上游测试 | push 到 fork 成功；CI 绿 | 0.5d | remote 已配好（origin=fork/upstream=官方）；文档已落 feature/enterprise；**剩 CI** |

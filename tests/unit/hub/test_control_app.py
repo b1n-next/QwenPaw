@@ -959,7 +959,7 @@ def test_deleted_personal_runtime_is_recreated_on_next_proxy(
         member, member_token = _create_user(client, "member")
         member_headers = _headers(member_token)
         assert (
-            client.get("/api/probe", headers=member_headers).status_code == 200
+            client.get("/api/agents", headers=member_headers).status_code == 200
         )
         runtime_id = f"personal-{member.user_id[:24]}"
         original = client.app.state.runtime_service.get(runtime_id)
@@ -974,7 +974,7 @@ def test_deleted_personal_runtime_is_recreated_on_next_proxy(
             f"/api/hub/runtimes/{runtime_id}",
             headers=_headers(admin_token),
         )
-        recreated_response = client.get("/api/probe", headers=member_headers)
+        recreated_response = client.get("/api/agents", headers=member_headers)
         recreated = client.app.state.runtime_service.get(runtime_id)
 
         assert stopped.status_code == 200
@@ -1121,7 +1121,7 @@ def test_admin_stop_and_disable_have_distinct_owner_recovery(
         member, member_token = _create_user(client, "member")
         member_headers = _headers(member_token)
         assert (
-            client.get("/api/probe", headers=member_headers).status_code == 200
+            client.get("/api/agents", headers=member_headers).status_code == 200
         )
         runtime_id = f"personal-{member.user_id[:24]}"
 
@@ -1130,7 +1130,7 @@ def test_admin_stop_and_disable_have_distinct_owner_recovery(
             headers=_headers(admin_token),
         )
         health = client.get("/api/hub/healthz", headers=member_headers)
-        blocked_proxy = client.get("/api/probe", headers=member_headers)
+        blocked_proxy = client.get("/api/agents", headers=member_headers)
 
         assert stopped.status_code == 200
         assert stopped.json()["desired_state"] == "stopped"
@@ -1188,7 +1188,7 @@ def test_admin_stop_and_disable_have_distinct_owner_recovery(
         assert enabled.status_code == 200
         assert enabled.json()["start_policy"] == "owner_allowed"
         assert (
-            client.get("/api/probe", headers=member_headers).status_code == 200
+            client.get("/api/agents", headers=member_headers).status_code == 200
         )
         assert (
             client.post(
