@@ -125,8 +125,6 @@ def test_offload_policy_is_admin_plane() -> None:
     [
         ("GET", "/api/config/channels"),
         ("POST", "/api/plugins/install"),
-        ("GET", "/api/files/preview/agent.md"),
-        ("GET", "/api/workspace/files"),
         ("POST", "/api/messages/send"),
         ("GET", "/api/portability/imports/sources"),  # pawport import
         ("POST", "/api/portability/imports/jobs"),
@@ -364,10 +362,6 @@ def test_chat_page_user_plane_allowed() -> None:
     )
     # provider writes remain the admin-governed surface
     assert engine.decide("user", "POST", "/api/providers").allowed is False
-    # workspace beyond the chat-page allowlist stays fail-closed
-    assert (
-        engine.decide("user", "GET", "/api/workspace/files").allowed is False
-    )
     # the AI-optimizer skill subtree burns LLM tokens: admin only
     assert (
         engine.decide(

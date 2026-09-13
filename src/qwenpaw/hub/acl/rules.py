@@ -132,15 +132,34 @@ DEFAULT_RULES: tuple[RuleSpec, ...] = (
     _allow(r"^/api/chats(?:/|$)", "chats"),
     # 18. Coding-mode toggle is the user's own composer state.
     _allow(r"^/api/coding-mode$", "coding-mode"),
-    # 19. Workspace surfaces the chat page itself needs (project
-    #     directory picker, agent running-config, transcription
-    #     provider type). The rest of /api/workspace (file browsing,
-    #     backups) stays fail-closed.
+    # 19. The whole /api/workspace plane is the user's own runtime
+    #     working directory (files workspace page: tree/files/memory/
+    #     uploads/system-prompt-files; chat page: project-directory/
+    #     running-config/transcription provider). No credentials or
+    #     admin configuration live here.
+    _allow(r"^/api/workspace(?:/|$)", "workspace.personal"),
+    # 18b. Chat message attachment previews are the user's own
+    #      generated files.
+    _allow(r"^/api/files/preview(?:/|$)", "files.preview", frozenset({"GET"})),
+    # 18c. The user's own token usage page.
     _allow(
-        r"^/api/workspace/(?:project-directory|running-config|"
-        r"transcription-provider-type)(?:/|$)",
-        "workspace.personal",
+        r"^/api/token-usage(?:/|$)",
+        "token-usage.read",
+        frozenset({"GET"}),
     ),
+    # 18d. User's own scheduled jobs.
+    _allow(r"^/api/cron(?:/|$)", "cron"),
+    # 18e. Tool list feeds the chat composer's tool cards.
+    _allow(r"^/api/tools(?:/|$)", "tools.read", frozenset({"GET"})),
+    # 18f. Harness providers listing (read-only; model/provider
+    #      writes stay admin-governed).
+    _allow(r"^/api/harnesses(?:/|$)", "harnesses.read", frozenset({"GET"})),
+    # 18g. Slash-command check.
+    _allow(r"^/api/commands(?:/|$)", "commands"),
+    # 18h. Runtime agent liveness for the user's own runtime; the
+    #      admin/shutdown subtree stays denied below.
+    _deny(r"^/api/agent/(?:admin|shutdown)(?:/|$)", "agent.admin"),
+    _allow(r"^/api/agent(?:/|$)", "agent.read", frozenset({"GET"})),
     # 20. Loop modes drive the composer's loop picker (GET list).
     _allow(r"^/api/loops(?:/|$)", "loops", frozenset({"GET"})),
     # 21. Skills are local runtime capabilities: listing, refreshing
