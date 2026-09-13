@@ -130,7 +130,25 @@ DEFAULT_RULES: tuple[RuleSpec, ...] = (
     #     rename/delete/batch actions target the user's own sessions,
     #     enforced by the runtime's per-user scoping).
     _allow(r"^/api/chats(?:/|$)", "chats"),
-    # Everything else (config, envs, providers, files, workspace, backups,
+    # 18. Coding-mode toggle is the user's own composer state.
+    _allow(r"^/api/coding-mode$", "coding-mode"),
+    # 19. Workspace surfaces the chat page itself needs (project
+    #     directory picker, agent running-config, transcription
+    #     provider type). The rest of /api/workspace (file browsing,
+    #     backups) stays fail-closed.
+    _allow(
+        r"^/api/workspace/(?:project-directory|running-config|"
+        r"transcription-provider-type)(?:/|$)",
+        "workspace.personal",
+    ),
+    # 20. Loop modes drive the composer's loop picker (GET list).
+    _allow(r"^/api/loops(?:/|$)", "loops", frozenset({"GET"})),
+    # 21. Skills are local runtime capabilities: listing, refreshing
+    #     and enabling/disabling them is user-plane. The AI-optimizer
+    #     subtree burns LLM tokens and stays admin-governed.
+    _deny(r"^/api/skills/ai(?:/|$)", "skills.ai.admin"),
+    _allow(r"^/api/skills(?:/|$)", "skills"),
+    # Everything else (config, envs, providers, files, backups,
     # plugins, loops, harnesses, mcp, skills, tools, voice, messages,
     # portability/imports, local-models, agent-stats, schemas, ...) is
     # denied by the engine's fail-closed default.

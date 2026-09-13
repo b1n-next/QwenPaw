@@ -316,6 +316,69 @@ def test_chats_user_plane_allowed() -> None:
     assert engine.decide("user", "POST", "/api/chats/groups").allowed is True
 
 
+def test_chat_page_user_plane_allowed() -> None:
+    """Rules 18-21: the chat page's own runtime surfaces stay usable.
+
+    Regression: member chat page fired GET /api/coding-mode,
+    /api/workspace/*, /api/loops and /api/skills on boot and every
+    call 403'd (default-deny), leaving the composer unusable.
+    """
+    engine = AclEngine()
+    assert engine.decide("user", "GET", "/api/coding-mode").allowed is True
+    assert engine.decide("user", "PUT", "/api/coding-mode").allowed is True
+    assert (
+        engine.decide(
+            "user",
+            "GET",
+            "/api/workspace/project-directory",
+        ).allowed
+        is True
+    )
+    assert (
+        engine.decide(
+            "user",
+            "POST",
+            "/api/workspace/project-directory/create",
+        ).allowed
+        is True
+    )
+    assert (
+        engine.decide("user", "GET", "/api/workspace/running-config").allowed
+        is True
+    )
+    assert (
+        engine.decide(
+            "user",
+            "GET",
+            "/api/workspace/transcription-provider-type",
+        ).allowed
+        is True
+    )
+    assert engine.decide("user", "GET", "/api/loops").allowed is True
+    # loop writes stay denied until a consumer needs them
+    assert engine.decide("user", "POST", "/api/loops").allowed is False
+    assert engine.decide("user", "GET", "/api/skills").allowed is True
+    assert engine.decide("user", "POST", "/api/skills/refresh").allowed is True
+    assert (
+        engine.decide("user", "POST", "/api/skills/x/enable").allowed is True
+    )
+    # provider writes remain the admin-governed surface
+    assert engine.decide("user", "POST", "/api/providers").allowed is False
+    # workspace beyond the chat-page allowlist stays fail-closed
+    assert (
+        engine.decide("user", "GET", "/api/workspace/files").allowed is False
+    )
+    # the AI-optimizer skill subtree burns LLM tokens: admin only
+    assert (
+        engine.decide(
+            "user",
+            "POST",
+            "/api/skills/ai/optimize/stream",
+        ).allowed
+        is False
+    )
+
+
 def test_model_catalog_reads_allowed_writes_denied() -> None:
     """EP-1-3: catalog reads open for chat UX; writes stay admin-plane."""
     engine = AclEngine()
