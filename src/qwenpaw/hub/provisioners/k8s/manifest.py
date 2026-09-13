@@ -74,7 +74,10 @@ def pvc_manifest(
 
 
 def service_manifest(
-    record: Any, *, namespace: str, port: int
+    record: Any,
+    *,
+    namespace: str,
+    port: int,
 ) -> dict[str, Any]:
     name = service_name(record)
     return {
@@ -89,7 +92,7 @@ def service_manifest(
             "type": "ClusterIP",
             "selector": {LABEL_RUNTIME: dns_name(record.runtime_id)},
             "ports": [
-                {"name": "http", "port": port, "targetPort": port}
+                {"name": "http", "port": port, "targetPort": port},
             ],
         },
     }
@@ -130,7 +133,7 @@ def pod_manifest(
             {
                 "name": "working",
                 "mountPath": "/app/working",
-            }
+            },
         ],
     }
     if resources:
@@ -143,9 +146,9 @@ def pod_manifest(
             {
                 "name": "working",
                 "persistentVolumeClaim": {
-                    "claimName": pvc_name(record)
+                    "claimName": pvc_name(record),
                 },
-            }
+            },
         ],
     }
     if node_selector:
@@ -161,8 +164,8 @@ def pod_manifest(
             "labels": labels,
             "annotations": {
                 "qwenpaw.io/startup-timeout-seconds": str(
-                    startup_timeout_seconds
-                )
+                    startup_timeout_seconds,
+                ),
             },
         },
         "spec": spec,

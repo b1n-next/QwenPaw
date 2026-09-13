@@ -55,11 +55,12 @@ class K8sClient:
         ssl_context: ssl.SSLContext | bool
         if ca_cert_path and Path(ca_cert_path).exists():
             ssl_context = ssl.create_default_context(
-                cafile=str(ca_cert_path)
+                cafile=str(ca_cert_path),
             )
             if client_cert_path and client_key_path:
                 ssl_context.load_cert_chain(
-                    str(client_cert_path), str(client_key_path)
+                    str(client_cert_path),
+                    str(client_key_path),
                 )
         else:
             ssl_context = False
@@ -87,7 +88,7 @@ class K8sClient:
         )
         if context is None:
             raise K8sClientError(
-                f"kubeconfig has no usable context ({context_name!r})"
+                f"kubeconfig has no usable context ({context_name!r})",
             )
         cluster_name = context.get("cluster")
         clusters = payload.get("clusters") or []
@@ -102,7 +103,7 @@ class K8sClient:
         if cluster is None:
             raise K8sClientError(
                 f"kubeconfig context references missing cluster "
-                f"({cluster_name!r})"
+                f"({cluster_name!r})",
             )
         user_name = context.get("user")
         users = payload.get("users") or []
@@ -123,7 +124,7 @@ class K8sClient:
             import base64
 
             ca_path = Path(
-                str(kubeconfig_path.parent / ".qwenpaw-k8s-ca.pem")
+                str(kubeconfig_path.parent / ".qwenpaw-k8s-ca.pem"),
             )
             ca_path.write_bytes(base64.b64decode(ca_data))
         token = user.get("token")
@@ -145,27 +146,33 @@ class K8sClient:
 
     @classmethod
     def from_environment(
-        cls, transport: httpx.AsyncBaseTransport | None = None
+        cls,
+        transport: httpx.AsyncBaseTransport | None = None,
     ) -> "K8sClient":
         """Auto-detect kubeconfig or in-cluster config."""
         import os
 
         kubeconfig_env = os.environ.get("KUBECONFIG")
-        candidates = [
-            Path(part).expanduser()
-            for part in kubeconfig_env.split(":")
-            if part
-        ] if kubeconfig_env else [Path.home() / ".kube" / "config"]
+        candidates = (
+            [
+                Path(part).expanduser()
+                for part in kubeconfig_env.split(":")
+                if part
+            ]
+            if kubeconfig_env
+            else [Path.home() / ".kube" / "config"]
+        )
         for candidate in candidates:
             if candidate.exists():
                 return cls.from_kubeconfig(candidate)
         service_host = os.environ.get("KUBERNETES_SERVICE_HOST")
         if service_host:
             service_port = os.environ.get(
-                "KUBERNETES_SERVICE_PORT", "443"
+                "KUBERNETES_SERVICE_PORT",
+                "443",
             )
             sa_dir = Path(
-                "/var/run/secrets/kubernetes.io/serviceaccount"
+                "/var/run/secrets/kubernetes.io/serviceaccount",
             )
             token = (sa_dir / "token").read_text("utf-8").strip()
             return cls(
@@ -176,7 +183,7 @@ class K8sClient:
             )
         raise K8sClientError(
             "no kubeconfig (~/.kube/config or $KUBECONFIG) and not "
-            "running inside a cluster (KUBERNETES_SERVICE_HOST unset)"
+            "running inside a cluster (KUBERNETES_SERVICE_HOST unset)",
         )
 
     async def _request(
@@ -188,7 +195,9 @@ class K8sClient:
     ) -> Any:
         try:
             response = await self._client.request(
-                method, path, json=json_body
+                method,
+                path,
+                json=json_body,
             )
         except httpx.HTTPError as exc:
             raise K8sClientError(f"kubernetes API unreachable: {exc}") from exc
@@ -206,13 +215,14 @@ class K8sClient:
         return response.json()
 
     def _ns(self, namespace: str, plural: str, name: str | None = None):
-        base = (
-            f"/api/v1/namespaces/{quote(namespace)}/{plural}"
-        )
+        base = f"/api/v1/namespaces/{quote(namespace)}/{plural}"
         return f"{base}/{quote(name)}" if name else base
 
     async def get(
-        self, namespace: str, plural: str, name: str
+        self,
+        namespace: str,
+        plural: str,
+        name: str,
     ) -> dict[str, Any]:
         return await self._request("GET", self._ns(namespace, plural, name))
 
@@ -223,14 +233,20 @@ class K8sClient:
         body: dict[str, Any],
     ) -> dict[str, Any]:
         return await self._request(
-            "POST", self._ns(namespace, plural), json_body=body
+            "POST",
+            self._ns(namespace, plural),
+            json_body=body,
         )
 
     async def delete(
-        self, namespace: str, plural: str, name: str
+        self,
+        namespace: str,
+        plural: str,
+        name: str,
     ) -> dict[str, Any]:
         return await self._request(
-            "DELETE", self._ns(namespace, plural, name)
+            "DELETE",
+            self._ns(namespace, plural, name),
         )
 
     async def close(self) -> None:
@@ -239,5 +255,6 @@ class K8sClient:
     async def get_namespace(self, name: str) -> dict[str, Any]:
         """Fetch one namespace object (used by provisioner preflight)."""
         return await self._request(
-            "GET", f"/api/v1/namespaces/{quote(name)}"
+            "GET",
+            f"/api/v1/namespaces/{quote(name)}",
         )

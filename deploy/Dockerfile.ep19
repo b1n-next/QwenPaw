@@ -12,6 +12,11 @@ ENV QWENPAW_BACKUP_DIR=/app/working.backups
 ENV QWENPAW_DISABLED_CHANNELS=imessage
 ENV QWENPAW_RUNNING_IN_CONTAINER=1
 
+# Intranet-friendly apt mirror (default deb.debian.org is unreachable
+# from this network); harmless no-op where the mirror already matches.
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/*.sources 2>/dev/null; \
+    sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list 2>/dev/null; true
+
 RUN apt-get update && apt-get install -y --fix-missing \
     curl python3 python3-pip python3-venv build-essential \
     libssl-dev git supervisor vim gettext-base \

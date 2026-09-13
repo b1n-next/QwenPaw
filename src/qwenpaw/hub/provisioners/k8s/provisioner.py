@@ -17,8 +17,8 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any, Mapping
 
-from ...models import RuntimeRecord, RuntimeState
-from ...provisioner import (
+from qwenpaw.hub.models import RuntimeRecord, RuntimeState
+from qwenpaw.hub.provisioner import (
     RuntimeProvisioner,
     RuntimeProvisionerAvailability,
 )
@@ -105,28 +105,27 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
         unknown = set(value) - _CONFIG_KEYS
         if unknown:
             raise ValueError(
-                f"unknown k8s provisioner keys: {sorted(unknown)}"
+                f"unknown k8s provisioner keys: {sorted(unknown)}",
             )
         return dict(value)
 
     def configure(self, config: Mapping[str, object]) -> None:
+        # pylint: disable=too-many-branches
         normalized = self.validate_config(config)
         if "namespace" in normalized:
             self._namespace = str(normalized["namespace"])
         if "image" in normalized:
             self._image = str(normalized["image"])
         if "port" in normalized:
-            self._port = int(normalized["port"])  # type: ignore[arg-type]
+            self._port = int(str(normalized["port"]))
         if "cluster_domain" in normalized:
             self._cluster_domain = str(normalized["cluster_domain"])
         if "image_pull_policy" in normalized:
             self._image_pull_policy = str(
-                normalized["image_pull_policy"]
+                normalized["image_pull_policy"],
             )
         if "storage_class" in normalized:
-            self._storage_class = (
-                str(normalized["storage_class"]) or None
-            )
+            self._storage_class = str(normalized["storage_class"]) or None
         if "pvc_size" in normalized:
             self._pvc_size = str(normalized["pvc_size"])
         requests: dict[str, str] = {}
@@ -145,21 +144,19 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
                 **({"limits": limits} if limits else {}),
             }
         if "node_selector" in normalized:
-            self._node_selector = dict(
-                normalized["node_selector"] or {}  # type: ignore[arg-type]
-            )
+            raw_selector = normalized["node_selector"] or {}
+            self._node_selector = {
+                str(key): str(value) for key, value in raw_selector.items()
+            }
         if "tolerations" in normalized:
-            self._tolerations = list(
-                normalized["tolerations"] or []  # type: ignore[arg-type]
-            )
+            self._tolerations = [
+                dict(entry) for entry in (normalized["tolerations"] or [])
+            ]
         if "service_account" in normalized:
-            self._service_account = (
-                str(normalized["service_account"]) or None
-            )
+            self._service_account = str(normalized["service_account"]) or None
         if "startup_timeout_seconds" in normalized:
-            self._startup_timeout_seconds = int(
-                normalized["startup_timeout_seconds"]  # type: ignore[arg-type]
-            )
+            raw_timeout = normalized["startup_timeout_seconds"]
+            self._startup_timeout_seconds = int(str(raw_timeout))
 
     # -- helpers -----------------------------------------------------------
 
@@ -177,18 +174,19 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
 
     # -- RuntimeProvisioner -------------------------------------------------
 
-    def preflight(self, root_dir: Path) -> RuntimeProvisionerAvailability:
+    def preflight(
+        self, root_dir: Path  # pylint: disable=unused-argument
+    ) -> RuntimeProvisionerAvailability:
         suffixes = [
             part.strip().lstrip(".")
             for part in os.environ.get(
-                RUNTIME_HOST_SUFFIXES_ENV, ""
+                RUNTIME_HOST_SUFFIXES_ENV,
+                "",
             ).split(",")
             if part.strip()
         ]
         host = self.runtime_host(_probe_record())
-        if not any(
-            host.endswith(f".{suffix}") for suffix in suffixes
-        ):
+        if not any(host.endswith(f".{suffix}") for suffix in suffixes):
             return RuntimeProvisionerAvailability(
                 available=False,
                 reason=(
@@ -203,7 +201,8 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
             _run(client.get_namespace(self._namespace))
         except K8sClientError as exc:
             return RuntimeProvisionerAvailability(
-                available=False, reason=f"kubernetes API unusable: {exc}"
+                available=False,
+                reason=f"kubernetes API unusable: {exc}",
             )
         return RuntimeProvisionerAvailability(available=True, reason=None)
 
@@ -217,7 +216,8 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
         async def _ensure_pvc() -> None:
             try:
                 await client.get(
-                    self._namespace, "persistentvolumeclaims",
+                    self._namespace,
+                    "persistentvolumeclaims",
                     pvc_name(record),
                 )
             except K8sNotFoundError:
@@ -235,7 +235,9 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
         async def _ensure_service() -> None:
             try:
                 await client.get(
-                    self._namespace, "services", service_name(record)
+                    self._namespace,
+                    "services",
+                    service_name(record),
                 )
             except K8sNotFoundError:
                 await client.create(
@@ -251,7 +253,9 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
         async def _replace_pod() -> None:
             try:
                 await client.delete(
-                    self._namespace, "pods", pod_name(record)
+                    self._namespace,
+                    "pods",
+                    pod_name(record),
                 )
             except K8sNotFoundError:
                 pass
@@ -278,13 +282,13 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
             while time.monotonic() < deadline:
                 try:
                     pod = await client.get(
-                        self._namespace, "pods", pod_name(record)
+                        self._namespace,
+                        "pods",
+                        pod_name(record),
                     )
                 except K8sNotFoundError:
                     return False
-                conditions = (
-                    pod.get("status", {}).get("conditions") or []
-                )
+                conditions = pod.get("status", {}).get("conditions") or []
                 if any(
                     condition.get("type") == "Ready"
                     and condition.get("status") == "True"
@@ -319,7 +323,9 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
         async def _stop() -> None:
             try:
                 await client.delete(
-                    self._namespace, "pods", pod_name(record)
+                    self._namespace,
+                    "pods",
+                    pod_name(record),
                 )
             except K8sNotFoundError:
                 return
@@ -329,7 +335,9 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
             while time.monotonic() < deadline:
                 try:
                     await client.get(
-                        self._namespace, "pods", pod_name(record)
+                        self._namespace,
+                        "pods",
+                        pod_name(record),
                     )
                 except K8sNotFoundError:
                     return
@@ -347,7 +355,9 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
         async def _phase() -> str | None:
             try:
                 pod = await client.get(
-                    self._namespace, "pods", pod_name(record)
+                    self._namespace,
+                    "pods",
+                    pod_name(record),
                 )
             except K8sNotFoundError:
                 return None
