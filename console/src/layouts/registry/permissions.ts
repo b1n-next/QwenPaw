@@ -5,7 +5,10 @@ export interface HubPermissions {
   role: string;
   denied_groups: string[];
   denied_routes: string[];
-  /** EP-1-3: user role must not get model switching/adding affordances. */
+  /**
+   * EP-1-3: user role keeps a read-only catalog — switching existing
+   * catalog models stays available; adding/reconfiguring is hidden.
+   */
   model_readonly?: boolean;
 }
 

@@ -366,10 +366,6 @@ export default function ModelSelector({
 
   const handleOpenChange = useCallback(
     async (next: boolean) => {
-      if (next && modelReadonly) {
-        // EP-1-3: user role keeps a read-only catalog; no switch UI.
-        return;
-      }
       setOpen(next);
       if (next) {
         try {
@@ -379,11 +375,11 @@ export default function ModelSelector({
         }
       }
     },
-    [refreshActiveModels, modelReadonly],
+    [refreshActiveModels],
   );
 
   const activateModel = async (providerId: string, modelId: string) => {
-    if (savingRef.current || modelReadonly) return;
+    if (savingRef.current) return;
     if (providerId === activeProviderId && modelId === activeModelId) {
       setOpen(false);
       return;
@@ -435,7 +431,6 @@ export default function ModelSelector({
   };
 
   const handleSelect = async (providerId: string, modelId: string) => {
-    if (modelReadonly) return;
     const targetProvider = eligibleProviders.find(
       (provider) => provider.id === providerId,
     );
@@ -474,6 +469,9 @@ export default function ModelSelector({
   };
 
   const handleAddCandidate = async (candidate: CandidateModel) => {
+    // EP-1-3: adding models is configuration and stays admin-governed;
+    // switching between existing catalog models is allowed above.
+    if (modelReadonly) return;
     const key = modelKey(candidate.provider.id, candidate.model.id);
     if (addingKey) return;
 

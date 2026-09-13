@@ -171,3 +171,84 @@ def test_acl_json_overlay_via_env(
             ).status_code
             == 200
         )
+
+
+def test_member_model_switch_catalog_enforcement(tmp_path: Path) -> None:
+    """EP-1-3: switching is usage (allowed in-catalog), not config.
+
+    Member PUT /api/models/active forwards when the provider/model is
+    in the admin catalog and 403s with MODEL_NOT_IN_CATALOG + audit
+    otherwise.
+    """
+    with _client(tmp_path, _ok_transport()) as client:
+        _register(client, "owner")
+        member, member_token = _create_user(client, "member")
+
+        client.app.state.model_catalog.upsert_provider(
+            provider_id="corp-gpt",
+            name="Corp GPT",
+            base_url="http://corp.internal/v1",
+            api_key="corp-secret",
+            models=["corp-model-a", "corp-model-b"],
+            default_model="corp-model-a",
+        )
+
+        in_catalog = client.put(
+            "/api/models/active",
+            headers=_headers(member_token),
+            json={
+                "provider_id": "corp-gpt",
+                "model": "corp-model-b",
+                "scope": "agent",
+            },
+        )
+        assert in_catalog.status_code == 200
+
+        not_in_catalog = client.put(
+            "/api/models/active",
+            headers=_headers(member_token),
+            json={
+                "provider_id": "corp-gpt",
+                "model": "not-in-catalog",
+                "scope": "agent",
+            },
+        )
+        assert not_in_catalog.status_code == 403
+        assert (
+            not_in_catalog.json()["detail"]["code"] == "MODEL_NOT_IN_CATALOG"
+        )
+
+        unknown_provider = client.put(
+            "/api/models/active",
+            headers=_headers(member_token),
+            json={
+                "provider_id": "rogue",
+                "model": "any",
+                "scope": "agent",
+            },
+        )
+        assert unknown_provider.status_code == 403
+
+        events, total = client.app.state.operations.list_events(
+            page=1,
+            page_size=10,
+            action="model.switch_denied",
+        )
+        assert total == 2
+        assert events[0]["actor_user_id"] == member.user_id
+
+        # admin bypasses the catalog check entirely
+        _, owner_token = client.app.state.auth_service.authenticate(
+            "owner",
+            "safe-password",
+        )
+        admin_switch = client.put(
+            "/api/models/active",
+            headers=_headers(owner_token),
+            json={
+                "provider_id": "anything",
+                "model": "anywhere",
+                "scope": "agent",
+            },
+        )
+        assert admin_switch.status_code == 200

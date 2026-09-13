@@ -360,6 +360,8 @@ def test_chat_page_user_plane_allowed() -> None:
     assert (
         engine.decide("user", "POST", "/api/skills/x/enable").allowed is True
     )
+    # switching the active model is usage, not configuration
+    assert engine.decide("user", "PUT", "/api/models/active").allowed is True
     # provider writes remain the admin-governed surface
     assert engine.decide("user", "POST", "/api/providers").allowed is False
     # the AI-optimizer skill subtree burns LLM tokens: admin only

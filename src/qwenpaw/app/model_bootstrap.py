@@ -6,8 +6,12 @@ provision time; see ``qwenpaw.hub.model_catalog``) and registers the
 admin-maintained custom providers on the local ProviderManager.
 
 Idempotency rules:
-- a provider that already exists locally is left untouched (user
-  modifications always win over catalog pushes on restart);
+- a provider that already exists locally *and appears in the catalog
+  payload* is re-synced to the catalog (base URL, API key, model
+  list): the admin catalog is the source of truth for catalog-sourced
+  providers, so model-list edits reach running tenants on restart.
+  Providers absent from the payload (built-ins, user-added customs)
+  are never touched;
 - the catalog default model is activated only when the runtime has no
   active chat model configured yet.
 
@@ -91,11 +95,28 @@ async def apply_model_bootstrap(provider_manager: Any) -> int:
                     len(entry.get("models") or []),
                 )
             else:
-                logger.debug(
-                    "model bootstrap: provider %s already present, "
-                    "left untouched",
+                synced = await provider_manager.update_provider_async(
                     provider_id,
+                    {
+                        "base_url": str(entry["base_url"]),
+                        "api_key": str(entry.get("api_key") or ""),
+                        "extra_models": [
+                            ModelInfo(
+                                id=str(model),
+                                name=str(model),
+                            )
+                            for model in entry.get("models") or []
+                            if isinstance(model, str) and model
+                        ],
+                    },
                 )
+                if synced:
+                    logger.info(
+                        "model bootstrap: re-synced %s to catalog "
+                        "(%d models)",
+                        provider_id,
+                        len(entry.get("models") or []),
+                    )
         except Exception:  # noqa: BLE001 - never block startup
             logger.exception(
                 "model bootstrap: failed to register provider %s",

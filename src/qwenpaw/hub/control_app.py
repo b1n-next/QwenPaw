@@ -151,6 +151,65 @@ def build_runtime_service(
     )
 
 
+def _catalog_allows_activation(
+    model_catalog: Any,
+    raw_body: bytes,
+) -> bool:
+    """Return True when the activation payload targets a catalog model.
+
+    Parses a ``PUT /api/models/active`` body and checks the
+    provider/model pair against the enabled admin catalog.
+    """
+    try:
+        payload = json.loads(raw_body or b"{}")
+    except json.JSONDecodeError:
+        return False
+    if not isinstance(payload, dict):
+        return False
+    provider_id = str(payload.get("provider_id") or "")
+    model_id = str(payload.get("model") or payload.get("model_id") or "")
+    if not provider_id or not model_id:
+        return False
+    provider = model_catalog.get_provider(provider_id)
+    if provider is None or not provider.enabled:
+        return False
+    return model_id in (provider.models or [])
+
+
+class ModelNotInCatalogError(Exception):
+    """Member model activation targets outside the admin catalog."""
+
+
+async def _enforce_model_activation_catalog(
+    app: FastAPI,
+    user: HubUser,
+    request: Request,
+) -> bytes | None:
+    """Enforce the admin catalog on member model activations.
+
+    Returns the buffered request body when it was consumed for
+    validation (the proxy must then forward those exact bytes), or
+    ``None`` when the request is not a member activation and can
+    stream through untouched. Raises 403 MODEL_NOT_IN_CATALOG when
+    the target is outside the enabled admin catalog.
+    """
+    if (
+        request.method != "PUT"
+        or request.url.path != "/api/models/active"
+        or user.role == "admin"
+    ):
+        return None
+    raw_body = await request.body()
+    allowed_target = await run_in_threadpool(
+        _catalog_allows_activation,
+        app.state.model_catalog,
+        raw_body,
+    )
+    if not allowed_target:
+        raise ModelNotInCatalogError()
+    return raw_body
+
+
 def _k8s_provisioner_config() -> dict[str, object]:
     """Read k8s provisioner settings from QWENPAW_HUB_K8S_* env vars.
 
@@ -1532,6 +1591,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
         include_in_schema=False,
     )
+    # pylint: disable=too-many-branches
     async def personal_runtime_proxy(
         path: str,
         request: Request,
@@ -1558,6 +1618,32 @@ def create_hub_app(  # pylint: disable=too-many-statements
                     "reason": decision.reason,
                 },
             )
+        # EP-1-3 governance refinement: switching the active model is
+        # usage, not configuration (validated against the catalog).
+        try:
+            activation_body = await _enforce_model_activation_catalog(
+                app,
+                user,
+                request,
+            )
+        except ModelNotInCatalogError:
+            await record_audit(
+                user,
+                "model.switch_denied",
+                "model",
+                request.url.path,
+                {"role": user.role},
+            )
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "MODEL_NOT_IN_CATALOG",
+                    "message": (
+                        "Only models from the administrator "
+                        "catalog can be activated."
+                    ),
+                },
+            ) from None
         record = await ensure_personal_runtime(user)
         target = runtime_url(
             record,
@@ -1627,18 +1713,23 @@ def create_hub_app(  # pylint: disable=too-many-statements
         )
         request_complete = asyncio.Event()
         try:
-            upstream_request = client.build_request(
-                request.method,
-                target,
-                headers=headers,
-                content=limited_request_stream(
+            request_content = (
+                activation_body
+                if activation_body is not None
+                else limited_request_stream(
                     request.stream(),
                     max_bytes=proxy_config.max_request_size_bytes,
                     idle_timeout_seconds=(
                         proxy_config.request_idle_timeout_seconds
                     ),
                     completion_event=request_complete,
-                ),
+                )
+            )
+            upstream_request = client.build_request(
+                request.method,
+                target,
+                headers=headers,
+                content=request_content,
             )
             upstream = await send_with_response_header_timeout(
                 client,

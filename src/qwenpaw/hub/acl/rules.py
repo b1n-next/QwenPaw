@@ -125,6 +125,15 @@ DEFAULT_RULES: tuple[RuleSpec, ...] = (
         "models.read",
         frozenset({"GET"}),
     ),
+    # 16b. Switching the active model is usage, not configuration:
+    # members may activate any model that exists in their runtime
+    # (the hub proxy validates non-admin activations against the
+    # admin-maintained catalog before forwarding).
+    _allow(
+        r"^/api/models/active$",
+        "models.activate",
+        frozenset({"PUT"}),
+    ),
     # 17. Chat session list/CRUD is the user's own data plane (the
     #     console polls GET /api/chats for the sidebar history; create/
     #     rename/delete/batch actions target the user's own sessions,

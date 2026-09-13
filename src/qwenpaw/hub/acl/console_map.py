@@ -73,9 +73,9 @@ def permissions_payload(role: str) -> Dict[str, Any]:
         "role": role,
         "denied_groups": sorted(groups),
         "denied_routes": sorted(routes),
-        # EP-1-3: user role gets a read-only model catalog (switching,
-        # adding providers/models and agent model settings are
-        # admin-plane; the hub ACL denies the writes either way).
+        # EP-1-3: user role gets a read-only model catalog — models
+        # may be switched (usage) but not added or reconfigured; the
+        # hub proxy validates activations against the catalog.
         "model_readonly": role != "admin",
     }
 

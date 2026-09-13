@@ -142,6 +142,7 @@ class FakeProviderManager:
     def __init__(self, existing_ids=None, active_model=None):
         self.existing_ids = set(existing_ids or [])
         self.added = []
+        self.updates = []
         self.activations = []
         self.active_model = active_model
 
@@ -150,6 +151,10 @@ class FakeProviderManager:
 
     async def add_custom_provider(self, provider_info):
         self.added.append(provider_info)
+
+    async def update_provider_async(self, provider_id, config):
+        self.updates.append((provider_id, config))
+        return True
 
     def get_active_model(self):
         return self.active_model
@@ -194,7 +199,17 @@ class TestRuntimeBootstrap:
         # no active model + default available -> activated
         assert manager.activations == [("corp-gpt", "gpt-4o")]
 
-    async def test_existing_provider_left_untouched(self, monkeypatch):
+    async def test_existing_provider_resynced_to_catalog(
+        self,
+        monkeypatch,
+    ):
+        """Catalog-sourced providers follow the catalog on restart.
+
+        A provider that exists locally and appears in the payload is
+        re-synced (base URL, key, model list) so admin catalog edits
+        reach running tenants; providers absent from the payload are
+        never touched.
+        """
         monkeypatch.setenv(
             "QWENPAW_MODEL_BOOTSTRAP_JSON",
             _payload(
@@ -202,9 +217,9 @@ class TestRuntimeBootstrap:
                     {
                         "id": "corp-gpt",
                         "name": "Corp",
-                        "base_url": "https://llm/v1",
-                        "api_key": "sk-1",
-                        "models": ["gpt-4o"],
+                        "base_url": "https://llm/v2",
+                        "api_key": "sk-2",
+                        "models": ["gpt-4o", "gpt-4o-mini"],
                     },
                 ],
             ),
@@ -212,6 +227,15 @@ class TestRuntimeBootstrap:
         manager = FakeProviderManager(existing_ids=["corp-gpt"])
         assert await apply_model_bootstrap(manager) == 0
         assert not manager.added
+        assert len(manager.updates) == 1
+        provider_id, config = manager.updates[0]
+        assert provider_id == "corp-gpt"
+        assert config["base_url"] == "https://llm/v2"
+        assert config["api_key"] == "sk-2"
+        assert [model.id for model in config["extra_models"]] == [
+            "gpt-4o",
+            "gpt-4o-mini",
+        ]
 
     async def test_active_model_never_overridden(self, monkeypatch):
         monkeypatch.setenv(
