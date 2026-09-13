@@ -25,6 +25,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { ActiveModelsInfo } from "../../../api/types";
 import { useAgentStore } from "../../../stores/agentStore";
+import { useModelReadonly } from "../../../stores/hubPermissionsStore";
 import { confirmFreeModelSwitch } from "@/utils/freeModelSwitchWarning";
 import { ProviderIcon } from "../../Settings/Models/components/ProviderIconComponent";
 import { useTurnUsageStore } from "../turnUsageStore";
@@ -84,6 +85,7 @@ export default function ModelSelector({
   showAdvancedModelControls = false,
 }: ModelSelectorProps) {
   const { t } = useTranslation();
+  const modelReadonly = useModelReadonly();
   const [saving, setSaving] = useState(false);
   const [addingKey, setAddingKey] = useState<string | null>(null);
   const [visibilityKey, setVisibilityKey] = useState<string | null>(null);
@@ -364,6 +366,10 @@ export default function ModelSelector({
 
   const handleOpenChange = useCallback(
     async (next: boolean) => {
+      if (next && modelReadonly) {
+        // EP-1-3: user role keeps a read-only catalog; no switch UI.
+        return;
+      }
       setOpen(next);
       if (next) {
         try {
@@ -373,11 +379,11 @@ export default function ModelSelector({
         }
       }
     },
-    [refreshActiveModels],
+    [refreshActiveModels, modelReadonly],
   );
 
   const activateModel = async (providerId: string, modelId: string) => {
-    if (savingRef.current) return;
+    if (savingRef.current || modelReadonly) return;
     if (providerId === activeProviderId && modelId === activeModelId) {
       setOpen(false);
       return;
@@ -429,6 +435,7 @@ export default function ModelSelector({
   };
 
   const handleSelect = async (providerId: string, modelId: string) => {
+    if (modelReadonly) return;
     const targetProvider = eligibleProviders.find(
       (provider) => provider.id === providerId,
     );

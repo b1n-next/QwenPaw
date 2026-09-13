@@ -32,9 +32,23 @@ const resources = {
   },
 };
 
+// Seed the language choice on first boot so the browser locale becomes
+// sticky: without this, an empty localStorage lets the server-side
+// default ("en") silently override a non-English browser locale on the
+// next full page load (e.g. typing a URL directly).
+const initialLanguage =
+  localStorage.getItem("language") || navigator.language || "en";
+if (!localStorage.getItem("language")) {
+  try {
+    localStorage.setItem("language", initialLanguage);
+  } catch {
+    // storage unavailable (private mode): fall through
+  }
+}
+
 i18n.use(initReactI18next).init({
   resources,
-  lng: localStorage.getItem("language") || navigator.language || "en",
+  lng: initialLanguage,
   fallbackLng: "en",
   supportedLngs: Object.keys(resources),
   nonExplicitSupportedLngs: true,

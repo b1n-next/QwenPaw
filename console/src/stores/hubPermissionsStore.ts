@@ -18,6 +18,8 @@ interface HubPermissionsStore {
   deniedGroups: string[];
   /** null = permissions unknown → console must not filter menus. */
   deniedRouteIds: string[] | null;
+  /** EP-1-3: hide model switching/adding affordances (UX only). */
+  modelReadonly: boolean;
   load: () => Promise<void>;
 }
 
@@ -28,6 +30,7 @@ export const useHubPermissionsStore = create<HubPermissionsStore>((set) => ({
   role: null,
   deniedGroups: [],
   deniedRouteIds: null,
+  modelReadonly: false,
   load: async () => {
     if (loadPromise) return loadPromise;
     set({ status: "loading" });
@@ -42,6 +45,7 @@ export const useHubPermissionsStore = create<HubPermissionsStore>((set) => ({
           deniedRouteIds: Array.isArray(payload?.denied_routes)
             ? payload.denied_routes
             : [],
+          modelReadonly: payload?.model_readonly === true,
         });
       })
       .catch(() => {
@@ -60,4 +64,9 @@ export const useHubPermissionsStore = create<HubPermissionsStore>((set) => ({
 export function useDeniedRouteIds(): Set<string> | null {
   const ids = useHubPermissionsStore((state) => state.deniedRouteIds);
   return useMemo(() => (ids ? new Set(ids) : null), [ids]);
+}
+
+/** EP-1-3: true when the signed-in user must not touch model config. */
+export function useModelReadonly(): boolean {
+  return useHubPermissionsStore((state) => state.modelReadonly);
 }

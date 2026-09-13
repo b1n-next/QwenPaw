@@ -125,6 +125,11 @@ DEFAULT_RULES: tuple[RuleSpec, ...] = (
         "models.read",
         frozenset({"GET"}),
     ),
+    # 17. Chat session list/CRUD is the user's own data plane (the
+    #     console polls GET /api/chats for the sidebar history; create/
+    #     rename/delete/batch actions target the user's own sessions,
+    #     enforced by the runtime's per-user scoping).
+    _allow(r"^/api/chats(?:/|$)", "chats"),
     # Everything else (config, envs, providers, files, workspace, backups,
     # plugins, loops, harnesses, mcp, skills, tools, voice, messages,
     # portability/imports, local-models, agent-stats, schemas, ...) is

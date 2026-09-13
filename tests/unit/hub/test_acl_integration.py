@@ -99,6 +99,7 @@ def test_permissions_endpoint_per_role(tmp_path: Path) -> None:
         assert "core.import" in member_payload["denied_routes"]
         assert "core.channels" in member_payload["denied_routes"]
         assert "settings" in member_payload["denied_groups"]
+        assert member_payload["model_readonly"] is True
 
         admin_payload = client.get(
             "/api/hub/me/permissions",
@@ -108,6 +109,7 @@ def test_permissions_endpoint_per_role(tmp_path: Path) -> None:
             "role": "admin",
             "denied_groups": [],
             "denied_routes": [],
+            "model_readonly": False,
         }
 
 

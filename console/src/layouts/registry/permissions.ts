@@ -5,6 +5,8 @@ export interface HubPermissions {
   role: string;
   denied_groups: string[];
   denied_routes: string[];
+  /** EP-1-3: user role must not get model switching/adding affordances. */
+  model_readonly?: boolean;
 }
 
 type MenuTreeItem = MenuItem & { __children?: MenuItem[] };

@@ -298,10 +298,22 @@ def test_permissions_payload_user_vs_admin() -> None:
     assert user_payload["role"] == "user"
     assert "core.import" in user_payload["denied_routes"]
     assert "settings" in user_payload["denied_groups"]
+    # EP-1-3: user role gets a read-only model catalog flag.
+    assert user_payload["model_readonly"] is True
 
     admin_payload = permissions_payload("admin")
     assert admin_payload["denied_routes"] == []
     assert admin_payload["denied_groups"] == []
+    assert admin_payload["model_readonly"] is False
+
+
+def test_chats_user_plane_allowed() -> None:
+    """Rule 17: chat session CRUD is the user's own data plane."""
+    engine = AclEngine()
+    assert engine.decide("user", "GET", "/api/chats").allowed is True
+    assert engine.decide("user", "POST", "/api/chats").allowed is True
+    assert engine.decide("user", "DELETE", "/api/chats/x").allowed is True
+    assert engine.decide("user", "POST", "/api/chats/groups").allowed is True
 
 
 def test_model_catalog_reads_allowed_writes_denied() -> None:
