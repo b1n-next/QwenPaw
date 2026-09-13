@@ -33,7 +33,7 @@ from starlette.concurrency import run_in_threadpool
 from ..__version__ import __version__
 from ..app.exception_handlers import register_exception_handlers
 from ..constant import WORKING_DIR
-from ..utils.http import is_loopback_host
+from ..utils.http import is_loopback_host, runtime_host_allowed
 from ..utils.oauth_callback import HUB_OAUTH_CALLBACK_URL_HEADER
 from .access_security import HubAccessSecurity
 from .acl import AclEngine, permissions_payload
@@ -289,23 +289,10 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.state.usage_collector = usage_collector
 
     def require_loopback_runtime(record: RuntimeRecord) -> None:
-        if is_loopback_host(record.host):
-            return
-        # EP-1-6: k8s provisioner runtimes live at cluster Service DNS
-        # names; an explicit ops-provisioned suffix allowlist opens the
-        # proxy to exactly those (fail-closed otherwise).
-        suffixes = [
-            part.strip().lstrip(".")
-            for part in os.environ.get(
-                "QWENPAW_HUB_RUNTIME_HOST_SUFFIXES",
-                "",
-            ).split(",")
-            if part.strip()
-        ]
-        if record.provisioner == "k8s" and any(
-            record.host.strip().rstrip(".").endswith(f".{suffix}")
-            for suffix in suffixes
-        ):
+        # EP-1-6: k8s runtimes live at cluster Service DNS names; the
+        # shared runtime_host_allowed helper honours the ops-provisioned
+        # suffix allowlist (fail-closed otherwise).
+        if runtime_host_allowed(record.host, record.provisioner):
             return
         raise HTTPException(
             status_code=503,

@@ -49,3 +49,29 @@ def is_loopback_url(url: str) -> bool:
 def trust_env_for_url(url: str) -> bool:
     """Return whether httpx should trust proxy/cert env vars for *url*."""
     return not is_loopback_url(url)
+
+
+def runtime_host_allowed(host: str, provisioner: str = "") -> bool:
+    """Return True when the hub may proxy/start a runtime at *host*.
+
+    Loopback always passes. Non-loopback hosts pass only for the k8s
+    provisioner when ops provisioned an explicit DNS-suffix allowlist
+    via QWENPAW_HUB_RUNTIME_HOST_SUFFIXES (fail-closed otherwise).
+    """
+    import os
+
+    if is_loopback_host(host):
+        return True
+    if provisioner != "k8s":
+        return False
+    suffixes = (
+        part.strip().lstrip(".")
+        for part in os.environ.get(
+            "QWENPAW_HUB_RUNTIME_HOST_SUFFIXES",
+            "",
+        ).split(",")
+    )
+    normalized = host.strip().strip("[]").rstrip(".").lower()
+    return any(
+        suffix and normalized.endswith(f".{suffix}") for suffix in suffixes
+    )

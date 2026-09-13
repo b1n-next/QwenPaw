@@ -15,7 +15,7 @@ import os
 import time
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from qwenpaw.hub.models import RuntimeRecord, RuntimeState
 from qwenpaw.hub.provisioner import (
@@ -74,14 +74,17 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
 
     def __init__(
         self,
-        client: K8sClient | None = None,
+        client_factory: Callable[[], K8sClient] | None = None,
         *,
         namespace: str = DEFAULT_NAMESPACE,
         image: str = DEFAULT_IMAGE,
         port: int = DEFAULT_PORT,
         cluster_domain: str = "cluster.local",
     ) -> None:
-        self._client = client
+        # httpx.AsyncClient binds to the loop that created it; every
+        # provisioner call drives its own private loop via _run(), so
+        # each call gets a fresh one-shot client from this factory.
+        self._client_factory = client_factory
         self._namespace = namespace
         self._image = image
         self._port = int(port)
@@ -160,10 +163,10 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
 
     # -- helpers -----------------------------------------------------------
 
-    def _ensure_client(self) -> K8sClient:
-        if self._client is None:
-            self._client = K8sClient.from_environment()
-        return self._client
+    def _make_client(self) -> K8sClient:
+        if self._client_factory is None:
+            self._client_factory = K8sClient.from_environment
+        return self._client_factory()
 
     def runtime_host(self, record: RuntimeRecord) -> str:
         """Cluster-local Service DNS name for *record*."""
@@ -197,9 +200,16 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
                     f"hub proxy to reach them"
                 ),
             )
+
+        async def _probe() -> None:
+            client = self._make_client()
+            try:
+                await client.get_namespace(self._namespace)
+            finally:
+                await client.close()
+
         try:
-            client = self._ensure_client()
-            _run(client.get_namespace(self._namespace))
+            _run(_probe())
         except K8sClientError as exc:
             return RuntimeProvisionerAvailability(
                 available=False,
@@ -212,9 +222,7 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
         record: RuntimeRecord,
         credentials: Mapping[str, str],
     ) -> RuntimeRecord:
-        client = self._ensure_client()
-
-        async def _ensure_pvc() -> None:
+        async def _ensure_pvc(client: K8sClient) -> None:
             try:
                 await client.get(
                     self._namespace,
@@ -233,7 +241,7 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
                     ),
                 )
 
-        async def _ensure_service() -> None:
+        async def _ensure_service(client: K8sClient) -> None:
             try:
                 await client.get(
                     self._namespace,
@@ -251,7 +259,7 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
                     ),
                 )
 
-        async def _replace_pod() -> None:
+        async def _replace_pod(client: K8sClient) -> None:
             try:
                 await client.delete(
                     self._namespace,
@@ -278,7 +286,7 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
                 ),
             )
 
-        async def _wait_ready() -> bool:
+        async def _wait_ready(client: K8sClient) -> bool:
             deadline = time.monotonic() + self._startup_timeout_seconds
             while time.monotonic() < deadline:
                 try:
@@ -300,10 +308,14 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
             return False
 
         async def _start_all() -> bool:
-            await _ensure_pvc()
-            await _ensure_service()
-            await _replace_pod()
-            return await _wait_ready()
+            client = self._make_client()
+            try:
+                await _ensure_pvc(client)
+                await _ensure_service(client)
+                await _replace_pod(client)
+                return await _wait_ready(client)
+            finally:
+                await client.close()
 
         try:
             ready = _run(_start_all())
@@ -319,30 +331,32 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
         )
 
     def stop(self, record: RuntimeRecord) -> RuntimeRecord:
-        client = self._ensure_client()
-
         async def _stop() -> None:
+            client = self._make_client()
             try:
-                await client.delete(
-                    self._namespace,
-                    "pods",
-                    pod_name(record),
-                )
-            except K8sNotFoundError:
-                return
-            # Wait for the pod to actually disappear so a subsequent
-            # start does not race the deletion.
-            deadline = time.monotonic() + 60
-            while time.monotonic() < deadline:
                 try:
-                    await client.get(
+                    await client.delete(
                         self._namespace,
                         "pods",
                         pod_name(record),
                     )
                 except K8sNotFoundError:
                     return
-                await asyncio.sleep(0.5)
+                # Wait for the pod to actually disappear so a
+                # subsequent start does not race the deletion.
+                deadline = time.monotonic() + 60
+                while time.monotonic() < deadline:
+                    try:
+                        await client.get(
+                            self._namespace,
+                            "pods",
+                            pod_name(record),
+                        )
+                    except K8sNotFoundError:
+                        return
+                    await asyncio.sleep(0.5)
+            finally:
+                await client.close()
 
         try:
             _run(_stop())
@@ -351,18 +365,20 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
         return replace(record, state=RuntimeState.STOPPED)
 
     def status(self, record: RuntimeRecord) -> RuntimeRecord:
-        client = self._ensure_client()
-
         async def _phase() -> str | None:
+            client = self._make_client()
             try:
-                pod = await client.get(
-                    self._namespace,
-                    "pods",
-                    pod_name(record),
-                )
-            except K8sNotFoundError:
-                return None
-            return pod.get("status", {}).get("phase")
+                try:
+                    pod = await client.get(
+                        self._namespace,
+                        "pods",
+                        pod_name(record),
+                    )
+                except K8sNotFoundError:
+                    return None
+                return pod.get("status", {}).get("phase")
+            finally:
+                await client.close()
 
         try:
             phase = _run(_phase())
@@ -374,17 +390,8 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
         )
 
     def close(self) -> None:
-        client = self._client
-        if client is not None:
-
-            async def _close() -> None:
-                await client.close()
-
-            try:
-                _run(_close())
-            except Exception:  # noqa: BLE001
-                pass
-        self._client = None
+        # Clients are one-shot per call; nothing persistent to release.
+        self._client_factory = None
 
 
 _PHASE_TO_STATE: Mapping[str | None, RuntimeState] = {

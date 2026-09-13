@@ -108,8 +108,10 @@ spec:
               mountPath: /etc/qwenpaw
               readOnly: true
           readinessProbe:
+            # /api/hub/healthz requires a session; the console index is
+            # the unauthenticated liveness surface.
             httpGet:
-              path: /api/hub/health
+              path: /
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10

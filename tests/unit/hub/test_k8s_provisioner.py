@@ -166,9 +166,14 @@ def _client(cluster: _Cluster) -> K8sClient:
     )
 
 
+def _client_factory(cluster: _Cluster):
+    """One fresh client per provisioner call (loop-bound one-shots)."""
+    return lambda: _client(cluster)
+
+
 class TestProvisionerFlow:
     def _provisioner(self, cluster: _Cluster) -> K8sRuntimeProvisioner:
-        provisioner = K8sRuntimeProvisioner(_client(cluster))
+        provisioner = K8sRuntimeProvisioner(_client_factory(cluster))
         provisioner.configure(
             {
                 "namespace": "qwenpaw-runtimes",
@@ -197,7 +202,7 @@ class TestProvisionerFlow:
             return response
 
         cluster.handler = handler  # type: ignore[method-assign]
-        provisioner = K8sRuntimeProvisioner(_client(cluster))
+        provisioner = K8sRuntimeProvisioner(_client_factory(cluster))
         provisioner.configure(
             {
                 "namespace": "qwenpaw-runtimes",
@@ -287,7 +292,7 @@ class TestProvisionerFlow:
             raise httpx.ConnectError("no cluster")
 
         provisioner = K8sRuntimeProvisioner(
-            K8sClient(
+            lambda: K8sClient(
                 base_url="http://k8s.test",
                 transport=MockTransport(dead),
             ),

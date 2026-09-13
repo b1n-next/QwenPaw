@@ -90,7 +90,7 @@ RUNTIME_CAPS = RuntimeCaps(
 | §2 代理放行 | ✅ | `require_loopback_runtime` 接受 `QWENPAW_HUB_RUNTIME_HOST_SUFFIXES` 后缀白名单（仅 provisioner=k8s，fail-closed） |
 | §3 Helm Chart | ✅ | `deploy/helm/qwenpaw-hub/`（Deployment+PVC+Service+RBAC+ConfigMap+initContainer bootstrap） |
 | §4 能力声明 | ✅ | `caps.py` `RuntimeCaps`（声明+校验；协商 Phase 2） |
-| §6 验收 | 🔄 | ①-④ 见 runbook（kind 实测进行中） |
+| §6 验收 | ✅ | ①-④ kind 实测全过（见 §7.1 演练记录） |
 
 **实现备注**：
 
@@ -103,6 +103,31 @@ RUNTIME_CAPS = RuntimeCaps(
 - `hub.provisioner` schema Literal 扩为 `local|docker|k8s`（config.py 单行）。
 
 安装/升级/排障手册：`docs/enterprise/runbook-k8s-install.md`。
+
+### 7.1 EP-1-9 kind 实测记录（2026-09-13）
+
+环境：kind v0.33.0（K8s v1.37 单节点）+ 自建验证镜像（`deploy/Dockerfile.ep19`，
+控制台 dist 直拷 + 阿里 apt/pypi 镜像；生产构建仍走 `scripts/docker_build.sh`）。
+
+| 验收项 | 结果 | 证据 |
+|---|---|---|
+| ① helm install 一次成功、注册即用 | ✅ | initContainer `bootstrap_admin` 幂等建 owner（重启后 `users-exists:1`）；注册 kinduser → 登录 200 |
+| ② per-tenant Pod+PVC+Service | ✅ | 首次 `/api/chats` 代理触发惰性创建：Pod 1/1 Running、PVC Bound 10Gi RWO（standard）、Service ClusterIP 8088 |
+| ③ stop→Pod 删 PVC 留；重启数据延续 | ✅ | stop 后 `No resources found`（Pod 删）+ PVC 仍 Bound；start 重建 Pod 后**会话 `ep19-proof-session` 跨停启仍存在**（PVC 数据延续铁证） |
+| ④ 断配置 fail-closed | ✅ | 删除 `QWENPAW_HUB_RUNTIME_HOST_SUFFIXES` 后 start 立即拒绝（`Managed runtime host must be loopback-only`），不半启动 |
+
+实测中修掉的三处真问题（都已进单测/镜像）：
+
+1. **事件循环绑定**：`httpx.AsyncClient` 绑定创建时的 loop，provisioner 同步方法内
+   `asyncio.run` 复用跨 loop client → `Event loop is closed`。改为**每次操作一次性
+   client 工厂**（client 与私有 loop 同生命周期）；
+2. **就绪探针 401**：managed runtime boundary 对匿名探针全 401，Pod 永不 Ready。
+   readinessProbe 改 `exec` + `curl -H "X-QwenPaw-Runtime-Token: $..._INTERNAL_TOKEN"`；
+3. **Service 层第二道 loopback 守卫**：`service.py:_start_locked` 对 stop 后重 start
+   的 DNS host 拒绝。抽公共谓词 `utils/http.py:runtime_host_allowed`（loopback 恒过；
+   k8s + suffix 白名单过；否则拒），control_app 与 service 统一走它。
+
+另：hub 容器 readiness 探针不能用 `/api/hub/healthz`（需登录）→ chart 用 `/`。
 
 ## 8. 对表点
 

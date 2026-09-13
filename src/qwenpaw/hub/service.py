@@ -14,7 +14,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from ..utils.http import is_loopback_host
+from ..utils.http import runtime_host_allowed
 from .config import HubConfig
 from .provisioner import (
     RuntimeProvisioner,
@@ -216,7 +216,9 @@ class RuntimeService:
     def _start_locked(self, runtime_id: str) -> RuntimeRecord:
         """Start a runtime while the lifecycle lock is held."""
         record = self.get(runtime_id)
-        if not is_loopback_host(record.host):
+        # EP-1-6: k8s runtimes live at cluster Service DNS names; the
+        # ops-provisioned suffix allowlist opens exactly those.
+        if not runtime_host_allowed(record.host, record.provisioner):
             raise ValueError("Managed runtime host must be loopback-only.")
         self.require_provisioner_available(record.provisioner)
         provisioner = self._provisioner(record)

@@ -32,10 +32,16 @@ COPY packages/qwenpawmail-mcp/src/qwenpawmail_mcp ./packages/qwenpawmail-mcp/src
 COPY website/public/docs/ ./src/qwenpaw/docs/
 # console/dist is copied into src/qwenpaw/console/ before building
 # (see .dockerignore: console/dist is ignored, src/.../dist is not).
-RUN pip install --no-cache-dir . "setuptools<82" && rm -rf ./build
+# Intranet-friendly pypi mirror + generous retries (files.pythonhosted.org
+# is unreachable from this network).
+RUN pip install --no-cache-dir \
+    -i https://mirrors.aliyun.com/pypi/simple/ \
+    --timeout 120 --retries 10 \
+    ".[hub]" "setuptools<82" && rm -rf ./build
 
 ENV QWENPAW_PORT=8088
 COPY deploy/config/supervisord.conf.template /etc/supervisor/conf.d/supervisord.conf.template
 COPY --chmod=755 deploy/entrypoint.sh /entrypoint.sh
 
 EXPOSE 8088
+CMD ["/entrypoint.sh"]

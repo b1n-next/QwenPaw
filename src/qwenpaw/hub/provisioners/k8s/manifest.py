@@ -123,8 +123,19 @@ def pod_manifest(
         "imagePullPolicy": image_pull_policy,
         "ports": [{"name": "http", "containerPort": port}],
         "env": env_list,
+        # The managed-runtime boundary answers 401 to anonymous
+        # probes; exec with the injected internal token instead.
         "readinessProbe": {
-            "httpGet": {"path": "/api/version", "port": port},
+            "exec": {
+                "command": [
+                    "/bin/sh",
+                    "-c",
+                    "curl -sf -H "
+                    '"X-QwenPaw-Runtime-Token: '
+                    '$QWENPAW_RUNTIME_INTERNAL_TOKEN" '
+                    f"http://127.0.0.1:{port}/api/healthz",
+                ],
+            },
             "initialDelaySeconds": 3,
             "periodSeconds": 3,
             "failureThreshold": 30,

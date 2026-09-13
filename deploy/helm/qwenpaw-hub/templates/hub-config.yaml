@@ -6,6 +6,7 @@ metadata:
     app.kubernetes.io/name: qwenpaw-hub
 data:
   hub.yaml: |
+    version: 1
     control_plane:
       public_base_url: {{ .Values.hub.publicBaseUrl | default (printf "http://qwenpaw-hub.%s.svc.cluster.local:%v" .Release.Namespace .Values.hub.service.port) | quote }}
       registration:
