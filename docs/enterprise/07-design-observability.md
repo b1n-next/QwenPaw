@@ -44,7 +44,30 @@ hub: usage_events 表（append-only）+ 内存聚合缓存
 ③ `/metrics` 可被 Prometheus 抓取，ACL 拒绝与配额熔断有计数；
 ④ 审计事件含四要素（who/what/when/reason），不可由普通 API 删除。
 
-## 7. 对表点
+## 7. 实现状态（2026-09-13，EP-1-4）
+
+| 节 | 状态 | 落点 |
+|---|---|---|
+| §2 计量管道 | ✅（**架构偏差：拉取式**） | 见下 |
+| §2 admin 用量页 | ✅ | Hub 控制台新增"用量统计"区（按用户/模型/日期三表 + 日期过滤 + 立即采集） |
+
+**拉取式偏差说明**：原设计为 runtime 上报 hook（30s/50 条 flush + 失败重试）。
+实现改为 **hub 侧 UsageCollector 每 60s 拉取**各 running runtime 的既有
+`GET /api/token-usage/details`（ACL 规则 10 本就放行、hub 持 per-runtime
+internal token）：
+
+- **零 runtime patch**（优于"最薄 patch"）；无上报认证/重试缓冲的复杂度；
+- runtime 的 token_usage.json 仍是唯一事实源，重复拉取天然幂等（计数器快照表 `usage_counters` upsert-last）；
+- 已知取舍：非 running 的 runtime 不采集（停机期间的存量计数在下一次运行时补齐）；事件级明细（per-request）不可得，Phase 2 配额改用计数器同样可用；
+- `agent_id` 归一为空串入库（SQLite 主键 NULL 不参与唯一冲突的坑）。
+
+验证（真实 hub）：member runtime 注入 2 行（corp-gpt/demo-model 1200+340+3、
+dashscope/qwen-turbo 500+90+1）→ `POST /api/hub/admin/usage/collect` 采 2 行 →
+summary 总计 1700/430/4，by_user/by_model/by_date 与注入值逐项一致；
+member 访问 summary 得 403。注意：**注入须在 runtime 停机时进行**——运行中的
+runtime 会用内存缓存周期性覆写 token_usage.json。
+
+## 8. 对表点
 
 官方"Usage and observability"落地 → usage_events 表/上报协议与官方对齐；自研 hook 保持薄
 （一个 flush 循环），替换成本低。

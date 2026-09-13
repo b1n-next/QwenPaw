@@ -3866,7 +3866,8 @@
       "users": "Users",
       "credentials": "Credentials",
       "audit": "Audit log",
-      "settings": "System settings"
+      "settings": "System settings",
+      "usage": "Usage"
     },
     "actions": {
       "backToQwenPaw": "Back to QwenPaw",
@@ -4173,6 +4174,22 @@
       "environmentName": "Environment name",
       "secretValue": "Secret value",
       "submit": "Encrypt and store"
+    },
+    "usage": {
+      "eyebrow": "Operations",
+      "title": "Model usage",
+      "description": "Token usage by user / model / date, collected from running runtimes every minute",
+      "startDate": "Start date",
+      "endDate": "End date",
+      "apply": "Apply",
+      "refresh": "Collect now",
+      "promptTokens": "Prompt tokens",
+      "completionTokens": "Completion tokens",
+      "calls": "Calls",
+      "byUser": "User (tenant)",
+      "byModel": "Model",
+      "byDate": "Date",
+      "empty": "No usage data in this range"
     }
   },
   "login": {

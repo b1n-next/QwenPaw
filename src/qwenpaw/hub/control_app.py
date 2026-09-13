@@ -66,6 +66,7 @@ from .models import (
     RuntimeState,
 )
 from .operations import HubOperationsStore
+from .usage import UsageCollector, UsageStore
 from .oauth_routes import oauth_callback_route, runtime_oauth_callback_path
 from .proxy_limits import (
     ProxyRequestIdleTimeoutError,
@@ -173,6 +174,14 @@ def create_hub_app(  # pylint: disable=too-many-statements
         runtime_service.registry.database_path,
         runtime_service.root_dir,
     )
+    # EP-1-4: pull-based usage accounting (no runtime patches).
+    usage_store = UsageStore(runtime_service.registry.database_path)
+    usage_collector = UsageCollector(
+        runtime_service=runtime_service,
+        credential_vault=credential_vault,
+        store=usage_store,
+        transport=proxy_transport,
+    )
     access_security = HubAccessSecurity(
         effective_config.control_plane.security,
     )
@@ -210,9 +219,11 @@ def create_hub_app(  # pylint: disable=too-many-statements
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        usage_collector.start()
         try:
             yield
         finally:
+            await usage_collector.stop()
             if docker_pulls is not None:
                 await run_in_threadpool(docker_pulls.close)
             await run_in_threadpool(runtime_service.close)
@@ -235,6 +246,9 @@ def create_hub_app(  # pylint: disable=too-many-statements
         runtime_service.root_dir / "secrets" / ".model_catalog_key",
     )
     model_catalog = app.state.model_catalog
+    # EP-1-4: usage accounting store (collector started in lifespan).
+    app.state.usage_store = usage_store
+    app.state.usage_collector = usage_collector
 
     def require_loopback_runtime(record: RuntimeRecord) -> None:
         if not is_loopback_host(record.host):
@@ -1363,6 +1377,35 @@ def create_hub_app(  # pylint: disable=too-many-statements
             detail={"reachable": ok},
         )
         return {"success": ok, "message": message}
+
+    @app.get("/api/hub/admin/usage/summary")
+    async def usage_summary(
+        _: HubUser = Depends(require_admin),
+        start_date: str | None = Query(default=None),
+        end_date: str | None = Query(default=None),
+        tenant_id: str | None = Query(default=None),
+        model: str | None = Query(default=None),
+    ) -> dict[str, object]:
+        """Aggregated LLM usage by user / model / date (EP-1-4)."""
+        return await run_in_threadpool(
+            usage_store.summary,
+            start_date=start_date,
+            end_date=end_date,
+            tenant_id=tenant_id,
+            model=model,
+        )
+
+    @app.post("/api/hub/admin/usage/collect")
+    async def usage_collect(
+        _: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Trigger one collection pass immediately (admin/debug)."""
+        collected = await usage_collector.collect_once()
+        return {
+            "collected_rows": collected,
+            "last_pass_at": usage_collector.last_pass_at,
+            "last_error": usage_collector.last_error,
+        }
 
     @app.get(
         "/api/hub/oauth/callback/{runtime_id}/{callback_route:path}",

@@ -100,6 +100,29 @@ export interface HubOverview {
   recent_events: HubAuditEvent[];
 }
 
+export interface HubUsageTotals {
+  prompt_tokens: number;
+  completion_tokens: number;
+  call_count: number;
+}
+
+export interface HubUsageModelRow extends HubUsageTotals {
+  model: string;
+}
+
+export interface HubUsageDateRow extends HubUsageTotals {
+  date: string;
+}
+
+export interface HubUsageSummary {
+  start_date: string;
+  end_date: string;
+  total: HubUsageTotals;
+  by_user: Record<string, HubUsageTotals>;
+  by_model: HubUsageModelRow[];
+  by_date: HubUsageDateRow[];
+}
+
 export interface HubProvisionerStatus {
   available: boolean;
   reason?: string | null;
@@ -335,6 +358,20 @@ export const hubApi = {
       { method: "DELETE" },
     ),
   getOverview: () => request<HubOverview>("/hub/admin/overview"),
+  getUsageSummary: (
+    params: { start_date?: string; end_date?: string } = {},
+  ) => {
+    const query = new URLSearchParams();
+    if (params.start_date) query.set("start_date", params.start_date);
+    if (params.end_date) query.set("end_date", params.end_date);
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return request<HubUsageSummary>(`/hub/admin/usage/summary${suffix}`);
+  },
+  collectUsage: () =>
+    request<{ collected_rows: number; last_error: string | null }>(
+      "/hub/admin/usage/collect",
+      { method: "POST" },
+    ),
   listAuditEvents: (params: HubListParams & { action?: string } = {}) =>
     request<HubPage<HubAuditEvent>>(listPath("/hub/admin/audit", params)),
 };

@@ -4,6 +4,7 @@ export type Section =
   | "overview"
   | "runtimes"
   | "users"
+  | "usage"
   | "credentials"
   | "audit"
   | "settings";

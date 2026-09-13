@@ -3723,7 +3723,8 @@
       "users": "用户",
       "credentials": "凭据",
       "audit": "审计日志",
-      "settings": "系统设置"
+      "settings": "系统设置",
+      "usage": "用量统计"
     },
     "actions": {
       "backToQwenPaw": "返回 QwenPaw",
@@ -4030,6 +4031,22 @@
       "environmentName": "环境变量名称",
       "secretValue": "密钥值",
       "submit": "加密并保存"
+    },
+    "usage": {
+      "eyebrow": "运营",
+      "title": "模型用量统计",
+      "description": "按用户 / 模型 / 日期汇总各运行环境的 Token 用量（运行环境每分钟自动上报）",
+      "startDate": "开始日期",
+      "endDate": "结束日期",
+      "apply": "应用",
+      "refresh": "立即采集",
+      "promptTokens": "输入 Token",
+      "completionTokens": "输出 Token",
+      "calls": "调用次数",
+      "byUser": "用户（租户）",
+      "byModel": "模型",
+      "byDate": "日期",
+      "empty": "该时间范围内暂无用量数据"
     }
   },
   "login": {

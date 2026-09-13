@@ -428,7 +428,8 @@
       "users": "Pengguna",
       "credentials": "Kredensial",
       "audit": "Catatan audit",
-      "settings": "Pengaturan sistem"
+      "settings": "Pengaturan sistem",
+      "usage": "Penggunaan"
     },
     "actions": {
       "backToQwenPaw": "Kembali ke QwenPaw",
@@ -735,6 +736,22 @@
       "environmentName": "Nama lingkungan",
       "secretValue": "Nilai rahasia",
       "submit": "Enkripsi dan simpan"
+    },
+    "usage": {
+      "eyebrow": "Operasi",
+      "title": "Penggunaan model",
+      "description": "Token per pengguna / model / tanggal, dikumpulkan dari runtime setiap menit",
+      "startDate": "Tanggal mulai",
+      "endDate": "Tanggal akhir",
+      "apply": "Terapkan",
+      "refresh": "Kumpulkan sekarang",
+      "promptTokens": "Token input",
+      "completionTokens": "Token output",
+      "calls": "Panggilan",
+      "byUser": "Pengguna (tenant)",
+      "byModel": "Model",
+      "byDate": "Tanggal",
+      "empty": "Belum ada data penggunaan pada rentang ini"
     }
   },
   "login": {

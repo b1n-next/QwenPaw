@@ -18,6 +18,7 @@ import {
 import type { FormInstance } from "antd";
 import {
   Activity,
+  BarChart3,
   BellRing,
   Box,
   Boxes,
@@ -57,6 +58,7 @@ import {
   type HubDockerImagePull,
   type HubHealth,
   type HubOverview,
+  type HubUsageSummary,
   type HubRuntime,
   type HubSettings,
   type HubUser,
@@ -87,6 +89,10 @@ export default function HubPage() {
   const [credentials, setCredentials] =
     useState<PageData<HubCredential>>(emptyPage);
   const [audit, setAudit] = useState<PageData<HubAuditEvent>>(emptyPage);
+  const [usage, setUsage] = useState<HubUsageSummary | null>(null);
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageStartDate, setUsageStartDate] = useState("");
+  const [usageEndDate, setUsageEndDate] = useState("");
   const [settings, setSettings] = useState<HubSettings | null>(null);
   const [dockerImages, setDockerImages] =
     useState<HubDockerImageCatalog | null>(null);
@@ -119,6 +125,44 @@ export default function HubPage() {
   const loadOverview = useCallback(async () => {
     setOverview(await hubApi.getOverview());
   }, []);
+
+  const loadUsage = useCallback(async () => {
+    const toIso = (offsetDays: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() + offsetDays);
+      return d.toISOString().slice(0, 10);
+    };
+    const start = usageStartDate || toIso(-6);
+    const end = usageEndDate || toIso(0);
+    setUsageLoading(true);
+    try {
+      setUsage(
+        await hubApi.getUsageSummary({ start_date: start, end_date: end }),
+      );
+    } finally {
+      setUsageLoading(false);
+    }
+  }, [usageStartDate, usageEndDate]);
+
+  const refreshUsageNow = useCallback(async () => {
+    setUsageLoading(true);
+    try {
+      await hubApi.collectUsage();
+      const toIso = (offsetDays: number) => {
+        const d = new Date();
+        d.setDate(d.getDate() + offsetDays);
+        return d.toISOString().slice(0, 10);
+      };
+      setUsage(
+        await hubApi.getUsageSummary({
+          start_date: usageStartDate || toIso(-6),
+          end_date: usageEndDate || toIso(0),
+        }),
+      );
+    } finally {
+      setUsageLoading(false);
+    }
+  }, [usageStartDate, usageEndDate]);
 
   const loadRuntimes = useCallback(
     async (page = 1) => {
@@ -305,6 +349,8 @@ export default function HubPage() {
           ? loadUsers(1)
           : section === "credentials"
           ? loadCredentials(1)
+          : section === "usage" && me?.role === "admin"
+          ? loadUsage()
           : section === "audit" && me?.role === "admin"
           ? loadAudit(1)
           : section === "settings" && me?.role === "admin"
@@ -348,6 +394,7 @@ export default function HubPage() {
     if (section === "runtimes") await loadRuntimes(runtimes.page);
     if (section === "users") await loadUsers(users.page);
     if (section === "credentials") await loadCredentials(credentials.page);
+    if (section === "usage") await loadUsage();
     if (section === "audit") await loadAudit(audit.page);
     if (section === "settings") await loadSettings();
   };
@@ -562,6 +609,11 @@ export default function HubPage() {
     },
     ...(me?.role === "admin"
       ? [
+          {
+            id: "usage" as const,
+            label: t("hub.navigation.usage"),
+            icon: BarChart3,
+          },
           {
             id: "audit" as const,
             label: t("hub.navigation.audit"),
@@ -1222,6 +1274,148 @@ export default function HubPage() {
                       </table>
                     </div>
                     <PageFooter page={credentials} onChange={loadCredentials} />
+                  </DataPanel>
+                </section>
+              )}
+              {section === "usage" && me?.role === "admin" && (
+                <section>
+                  <PageHeader
+                    eyebrow={t("hub.usage.eyebrow")}
+                    title={t("hub.usage.title")}
+                    description={t("hub.usage.description")}
+                  />
+                  <DataPanel
+                    search=""
+                    onSearch={() => {}}
+                    searchPlaceholder=""
+                    filter={
+                      <div className={styles.usageFilters}>
+                        <Input
+                          type="date"
+                          aria-label={t("hub.usage.startDate")}
+                          value={usageStartDate}
+                          className={styles.filterSelect}
+                          onChange={(e) => setUsageStartDate(e.target.value)}
+                        />
+                        <Input
+                          type="date"
+                          aria-label={t("hub.usage.endDate")}
+                          value={usageEndDate}
+                          className={styles.filterSelect}
+                          onChange={(e) => setUsageEndDate(e.target.value)}
+                        />
+                        <Button onClick={() => void loadUsage()}>
+                          {t("hub.usage.apply")}
+                        </Button>
+                        <Button
+                          icon={<RefreshCw size={14} />}
+                          loading={usageLoading}
+                          onClick={() => void refreshUsageNow()}
+                        >
+                          {t("hub.usage.refresh")}
+                        </Button>
+                      </div>
+                    }
+                  >
+                    <div className={styles.usageTotals}>
+                      <Tag color="blue">
+                        {t("hub.usage.promptTokens")}:{" "}
+                        {usage?.total.prompt_tokens ?? 0}
+                      </Tag>
+                      <Tag color="green">
+                        {t("hub.usage.completionTokens")}:{" "}
+                        {usage?.total.completion_tokens ?? 0}
+                      </Tag>
+                      <Tag color="purple">
+                        {t("hub.usage.calls")}: {usage?.total.call_count ?? 0}
+                      </Tag>
+                    </div>
+                    <div className={styles.tableWrap}>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>{t("hub.usage.byUser")}</th>
+                            <th>{t("hub.usage.promptTokens")}</th>
+                            <th>{t("hub.usage.completionTokens")}</th>
+                            <th>{t("hub.usage.calls")}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(usage?.by_user ?? {}).map(
+                            ([tenant, totals]) => (
+                              <tr key={tenant}>
+                                <td>{tenant}</td>
+                                <td>{totals.prompt_tokens}</td>
+                                <td>{totals.completion_tokens}</td>
+                                <td>{totals.call_count}</td>
+                              </tr>
+                            ),
+                          )}
+                          {Object.keys(usage?.by_user ?? {}).length === 0 && (
+                            <EmptyRow
+                              colSpan={4}
+                              message={t("hub.usage.empty")}
+                            />
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className={styles.tableWrap}>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>{t("hub.usage.byModel")}</th>
+                            <th>{t("hub.usage.promptTokens")}</th>
+                            <th>{t("hub.usage.completionTokens")}</th>
+                            <th>{t("hub.usage.calls")}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(usage?.by_model ?? []).map((row) => (
+                            <tr key={row.model}>
+                              <td>{row.model}</td>
+                              <td>{row.prompt_tokens}</td>
+                              <td>{row.completion_tokens}</td>
+                              <td>{row.call_count}</td>
+                            </tr>
+                          ))}
+                          {(usage?.by_model ?? []).length === 0 && (
+                            <EmptyRow
+                              colSpan={4}
+                              message={t("hub.usage.empty")}
+                            />
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className={styles.tableWrap}>
+                      <table>
+                        <thead>
+                          <tr>
+                            <th>{t("hub.usage.byDate")}</th>
+                            <th>{t("hub.usage.promptTokens")}</th>
+                            <th>{t("hub.usage.completionTokens")}</th>
+                            <th>{t("hub.usage.calls")}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(usage?.by_date ?? []).map((row) => (
+                            <tr key={row.date}>
+                              <td>{row.date}</td>
+                              <td>{row.prompt_tokens}</td>
+                              <td>{row.completion_tokens}</td>
+                              <td>{row.call_count}</td>
+                            </tr>
+                          ))}
+                          {(usage?.by_date ?? []).length === 0 && (
+                            <EmptyRow
+                              colSpan={4}
+                              message={t("hub.usage.empty")}
+                            />
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   </DataPanel>
                 </section>
               )}

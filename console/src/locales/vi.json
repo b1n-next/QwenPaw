@@ -327,7 +327,10 @@
       "global": "Cài đặt toàn cục",
       "extensions": "Tiện ích mở rộng"
     },
-    "pages": { "general": "Chung", "navigation": "Thanh bên" },
+    "pages": {
+      "general": "Chung",
+      "navigation": "Thanh bên"
+    },
     "descriptions": {
       "general": "Ngôn ngữ, giao diện và hành vi ứng dụng",
       "navigation": "Khả năng hiển thị của thanh bên",
@@ -411,7 +414,8 @@
       "users": "Người dùng",
       "credentials": "Thông tin xác thực",
       "audit": "Nhật ký kiểm tra",
-      "settings": "Cài đặt hệ thống"
+      "settings": "Cài đặt hệ thống",
+      "usage": "Lượng dùng"
     },
     "actions": {
       "backToQwenPaw": "Quay lại QwenPaw",
@@ -718,6 +722,22 @@
       "environmentName": "Tên môi trường",
       "secretValue": "Giá trị bí mật",
       "submit": "Mã hóa và lưu trữ"
+    },
+    "usage": {
+      "eyebrow": "Vận hành",
+      "title": "Lượng dùng mô hình",
+      "description": "Token theo người dùng / mô hình / ngày, thu thập từ runtime mỗi phút",
+      "startDate": "Ngày bắt đầu",
+      "endDate": "Ngày kết thúc",
+      "apply": "Áp dụng",
+      "refresh": "Thu thập ngay",
+      "promptTokens": "Token đầu vào",
+      "completionTokens": "Token đầu ra",
+      "calls": "Số lần gọi",
+      "byUser": "Người dùng (tenant)",
+      "byModel": "Mô hình",
+      "byDate": "Ngày",
+      "empty": "Chưa có dữ liệu trong khoảng này"
     }
   },
   "login": {

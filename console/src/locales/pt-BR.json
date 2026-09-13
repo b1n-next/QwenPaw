@@ -3000,7 +3000,10 @@
       "global": "Configurações globais",
       "extensions": "Extensões"
     },
-    "pages": { "general": "Geral", "navigation": "Barra lateral" },
+    "pages": {
+      "general": "Geral",
+      "navigation": "Barra lateral"
+    },
     "descriptions": {
       "general": "Idioma, tema e comportamento do aplicativo",
       "navigation": "Visibilidade da barra lateral",
@@ -3435,7 +3438,8 @@
       "users": "Usuários",
       "credentials": "Credenciais",
       "audit": "Registro de auditoria",
-      "settings": "Configurações do sistema"
+      "settings": "Configurações do sistema",
+      "usage": "Uso"
     },
     "actions": {
       "backToQwenPaw": "Voltar para QwenPaw",
@@ -3742,6 +3746,22 @@
       "environmentName": "Nome do ambiente",
       "secretValue": "Valor secreto",
       "submit": "Criptografar e armazenar"
+    },
+    "usage": {
+      "eyebrow": "Operações",
+      "title": "Uso de modelos",
+      "description": "Tokens por usuário / modelo / data, coletados dos runtimes a cada minuto",
+      "startDate": "Data inicial",
+      "endDate": "Data final",
+      "apply": "Aplicar",
+      "refresh": "Coletar agora",
+      "promptTokens": "Tokens de entrada",
+      "completionTokens": "Tokens de saída",
+      "calls": "Chamadas",
+      "byUser": "Usuário (tenant)",
+      "byModel": "Modelo",
+      "byDate": "Data",
+      "empty": "Sem dados de uso neste intervalo"
     }
   },
   "login": {

@@ -25,7 +25,7 @@
 | EP-1-1 ☑ | 模型目录表 + admin CRUD 路由 + test-connection（04 §2-3） | 3d | 19 新测试全绿 + 真机 E2E |
 | EP-1-2 ☑ | runtime bootstrap env 钩子（唯一 runtime patch） | 2d | provisioner 放行 + lifespan 钩子；E2E 见 04 §7 |
 | EP-1-3 ☑ | user 模型只读联动（ACL 归组 + console 隐藏入口） | 1d | ACL 规则 16 `GET /api/models` 放行 + 写 fail-closed；settings-center 对 user 整页禁用（03 denied_routes）= 添加 Provider 入口天然不可达 |
-| EP-1-4 | usage 上报 hook + hub usage_events + admin 用量页 | 4d | Ph0 |
+| EP-1-4 ☑ | usage 采集 + hub usage_counters + admin 用量页 | 4d | 拉取式（零 runtime patch，07 §7 偏差说明）；真机数值对账一致 |
 | EP-1-5 | 审计事件扩展（acl_denied/quota 预留字段） | 1d | EP-0-3 |
 | EP-1-6 | `provisioners/k8s/` 六方法实现 + 单测（mock client） | 5d | — |
 | EP-1-7 | k8s manifest 渲染 + PVC/Service/RBAC 清单 | 2d | EP-1-6 |
