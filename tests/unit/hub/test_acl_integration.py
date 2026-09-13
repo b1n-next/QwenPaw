@@ -98,8 +98,21 @@ def test_permissions_endpoint_per_role(tmp_path: Path) -> None:
         assert member_payload["role"] == "user"
         assert "core.import" in member_payload["denied_routes"]
         assert "core.channels" in member_payload["denied_routes"]
-        assert "settings" in member_payload["denied_groups"]
+        assert "core.mcp" in member_payload["denied_routes"]
         assert member_payload["model_readonly"] is True
+        # user-plane pages whose APIs are open must be reachable
+        for open_route in (
+            "core.files",
+            "core.checkpoints",
+            "core.cron-jobs",
+            "core.skills",
+            "core.skill-pool",
+            "core.tools",
+            "core.token-usage",
+        ):
+            assert open_route not in member_payload["denied_routes"]
+        # groups stay visible; only admin routes are hidden
+        assert member_payload["denied_groups"] == []
 
         admin_payload = client.get(
             "/api/hub/me/permissions",

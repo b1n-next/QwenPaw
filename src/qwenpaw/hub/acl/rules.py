@@ -117,6 +117,12 @@ DEFAULT_RULES: tuple[RuleSpec, ...] = (
         r"^/api/settings/(?:language|upload-limit)$",
         "settings.personal",
     ),
+    # 15b. The user's own timezone preference (cron editor and agent
+    #      locale save it; public runtime preference like language).
+    _allow(r"^/api/config/user-timezone$", "config.user-timezone"),
+    # 15b. The user's own timezone preference (cron editor and agent
+    #      locale save it; public runtime preference like language).
+    _allow(r"^/api/config/user-timezone$", "config.user-timezone"),
     # 16. Read-only model catalog (EP-1-3): the chat composer lists
     #     models via GET /api/models; provider writes stay admin-plane
     #     and are denied by the fail-closed default.
@@ -158,8 +164,14 @@ DEFAULT_RULES: tuple[RuleSpec, ...] = (
     ),
     # 18d. User's own scheduled jobs.
     _allow(r"^/api/cron(?:/|$)", "cron"),
-    # 18e. Tool list feeds the chat composer's tool cards.
+    # 18e. Tool list feeds the chat composer's tool cards; per-tool
+    #      enable/disable mirrors the skills enable/disable plane.
     _allow(r"^/api/tools(?:/|$)", "tools.read", frozenset({"GET"})),
+    _allow(
+        r"^/api/tools/[^/]+/toggle$",
+        "tools.toggle",
+        frozenset({"PATCH", "POST"}),
+    ),
     # 18f. Harness providers listing (read-only; model/provider
     #      writes stay admin-governed).
     _allow(r"^/api/harnesses(?:/|$)", "harnesses.read", frozenset({"GET"})),

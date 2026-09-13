@@ -295,7 +295,9 @@ def test_permissions_payload_user_vs_admin() -> None:
     user_payload = permissions_payload("user")
     assert user_payload["role"] == "user"
     assert "core.import" in user_payload["denied_routes"]
-    assert "settings" in user_payload["denied_groups"]
+    assert "core.mcp" in user_payload["denied_routes"]
+    # groups stay visible for users; only admin routes are hidden
+    assert user_payload["denied_groups"] == []
     # EP-1-3: user role gets a read-only model catalog flag.
     assert user_payload["model_readonly"] is True
 
@@ -359,6 +361,23 @@ def test_chat_page_user_plane_allowed() -> None:
     assert engine.decide("user", "POST", "/api/skills/refresh").allowed is True
     assert (
         engine.decide("user", "POST", "/api/skills/x/enable").allowed is True
+    )
+    # per-tool enable/disable mirrors skills enable/disable
+    assert (
+        engine.decide("user", "POST", "/api/tools/bash/toggle").allowed is True
+    )
+    # the user's own timezone preference (cron editor saves it)
+    assert (
+        engine.decide("user", "GET", "/api/config/user-timezone").allowed
+        is True
+    )
+    assert (
+        engine.decide("user", "PUT", "/api/config/user-timezone").allowed
+        is True
+    )
+    # other config stays admin-governed
+    assert (
+        engine.decide("user", "GET", "/api/config/channels").allowed is False
     )
     # switching the active model is usage, not configuration
     assert engine.decide("user", "PUT", "/api/models/active").allowed is True

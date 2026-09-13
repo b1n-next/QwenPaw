@@ -16,44 +16,38 @@ from __future__ import annotations
 from typing import Any, Dict, FrozenSet
 
 #: Menu groups hidden per role (informational for the console UI).
+#: Groups stay visible for users — each group still contains at least
+#: one user-plane route (cron/files/skills/token-usage); the truly
+#: admin-only groups would be left empty and auto-collapse anyway.
 _DENIED_GROUPS: Dict[str, FrozenSet[str]] = {
-    "user": frozenset(
-        {"control", "workspace", "agent", "settings"},
-    ),
+    "user": frozenset(),
 }
 
 #: Built-in menu route ids hidden per role.
 _DENIED_ROUTES: Dict[str, FrozenSet[str]] = {
     "user": frozenset(
         {
-            # control group
-            "core.control-group",
+            # control group: channel credentials + session monitoring
+            # stay admin-governed; cron-jobs is the user's own plane.
             "core.channels",
             "core.sessions",
-            "core.cron-jobs",
             "core.heartbeat",
-            # workspace group
-            "core.workspace-group",
+            # workspace group: files + checkpoints are the user's own
+            # working directory; ACP config and stats stay admin.
             "core.workspace",
-            "core.files",
-            "core.checkpoints",
             "core.acp",
             "core.agent-config",
             "core.agent-stats",
-            # agent group
-            "core.agent-group",
-            "core.skills",
-            "core.skill-pool",
-            "core.tools",
+            # agent group: skills/skill-pool/tools are user-plane
+            # capabilities; MCP servers carry credentials.
             "core.mcp",
-            # settings group
-            "core.settings-group",
+            # settings group: everything except the personal
+            # token-usage page.
             "core.settings-center",
             "core.models",
             "core.environments",
             "core.offload-policy",
             "core.security",
-            "core.token-usage",
             "core.voice-transcription",
             "core.debug",
             "core.backups",
