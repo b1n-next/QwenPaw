@@ -52,6 +52,9 @@ from .config import HubConfig, HubConfigStore
 from .credentials import TenantCredentialVault
 from .model_catalog import ModelCatalogStore
 from .provisioner import RuntimeProvisionerUnavailableError
+from .provisioners.k8s import K8sRuntimeProvisioner
+
+
 from .local_provisioner import LocalProcessRuntimeProvisioner
 from .docker_images import DockerImagePullStore
 from .docker_provisioner import (
@@ -109,6 +112,10 @@ def build_runtime_service(
     )
     local_provisioner = LocalProcessRuntimeProvisioner()
     docker_provisioner = DockerRuntimeProvisioner(resolved_root)
+    # EP-1-6: k8s provisioner; preflight fail-closes until the cluster
+    # is reachable and QWENPAW_HUB_RUNTIME_HOST_SUFFIXES is configured.
+    k8s_provisioner = K8sRuntimeProvisioner()
+    k8s_provisioner.configure(_k8s_provisioner_config())
 
     def runtime_environment(record: Any) -> dict[str, str]:
         environment = credential_vault.resolve_environment(
@@ -137,10 +144,41 @@ def build_runtime_service(
         provisioners={
             local_provisioner.name: local_provisioner,
             docker_provisioner.name: docker_provisioner,
+            k8s_provisioner.name: k8s_provisioner,
         },
         credential_provider=runtime_environment,
         hub_config=hub_config,
     )
+
+
+def _k8s_provisioner_config() -> dict[str, object]:
+    """Read k8s provisioner settings from QWENPAW_HUB_K8S_* env vars.
+
+    Keeps configuration ops-only (no upstream schema change): every
+    key is optional; an unconfigured provisioner simply fails its
+    preflight until the cluster is reachable.
+    """
+    mapping = {
+        "QWENPAW_HUB_K8S_NAMESPACE": "namespace",
+        "QWENPAW_HUB_K8S_IMAGE": "image",
+        "QWENPAW_HUB_K8S_PORT": "port",
+        "QWENPAW_HUB_K8S_CLUSTER_DOMAIN": "cluster_domain",
+        "QWENPAW_HUB_K8S_IMAGE_PULL_POLICY": "image_pull_policy",
+        "QWENPAW_HUB_K8S_STORAGE_CLASS": "storage_class",
+        "QWENPAW_HUB_K8S_PVC_SIZE": "pvc_size",
+        "QWENPAW_HUB_K8S_CPU_REQUEST": "cpu_request",
+        "QWENPAW_HUB_K8S_CPU_LIMIT": "cpu_limit",
+        "QWENPAW_HUB_K8S_MEMORY_REQUEST": "memory_request",
+        "QWENPAW_HUB_K8S_MEMORY_LIMIT": "memory_limit",
+        "QWENPAW_HUB_K8S_SERVICE_ACCOUNT": "service_account",
+        "QWENPAW_HUB_K8S_STARTUP_TIMEOUT": "startup_timeout_seconds",
+    }
+    config: dict[str, object] = {}
+    for env_name, key in mapping.items():
+        value = os.environ.get(env_name)
+        if value:
+            config[key] = value
+    return config
 
 
 def create_hub_app(  # pylint: disable=too-many-statements
@@ -251,11 +289,28 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.state.usage_collector = usage_collector
 
     def require_loopback_runtime(record: RuntimeRecord) -> None:
-        if not is_loopback_host(record.host):
-            raise HTTPException(
-                status_code=503,
-                detail="Managed runtime endpoint must be loopback-only",
-            )
+        if is_loopback_host(record.host):
+            return
+        # EP-1-6: k8s provisioner runtimes live at cluster Service DNS
+        # names; an explicit ops-provisioned suffix allowlist opens the
+        # proxy to exactly those (fail-closed otherwise).
+        suffixes = [
+            part.strip().lstrip(".")
+            for part in os.environ.get(
+                "QWENPAW_HUB_RUNTIME_HOST_SUFFIXES",
+                "",
+            ).split(",")
+            if part.strip()
+        ]
+        if record.provisioner == "k8s" and any(
+            record.host.strip().rstrip(".").endswith(f".{suffix}")
+            for suffix in suffixes
+        ):
+            return
+        raise HTTPException(
+            status_code=503,
+            detail="Managed runtime endpoint must be loopback-only",
+        )
 
     def runtime_url(
         record: RuntimeRecord,
@@ -1825,7 +1880,7 @@ def run_hub_app(
     root_dir = get_hub_root()
     hub_config = HubConfigStore(
         root_dir / "control.db",
-    ).resolve(config_path, available_provisioners={"local", "docker"})
+    ).resolve(config_path, available_provisioners={"local", "docker", "k8s"})
     if public_bind:
         database_path = root_dir / "control.db"
         credential_vault = TenantCredentialVault(

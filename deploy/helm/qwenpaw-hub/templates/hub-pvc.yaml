@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: qwenpaw-hub-data
+  labels:
+    app.kubernetes.io/name: qwenpaw-hub
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.hub.storage.size }}
+  {{- with .Values.hub.storage.className }}
+  storageClassName: {{ . | quote }}
+  {{- end }}

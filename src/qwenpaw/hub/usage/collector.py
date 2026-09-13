@@ -65,11 +65,14 @@ class UsageCollector:
         collected = 0
         had_error = False
         async with httpx.AsyncClient(
-            transport=self._transport, timeout=10.0
+            transport=self._transport,
+            timeout=10.0,
         ) as client:
             for record in running:
-                target = f"http://{record.host}:{record.port}" \
+                target = (
+                    f"http://{record.host}:{record.port}"
                     f"/api/token-usage/details"
+                )
                 try:
                     token = await asyncio.to_thread(
                         self._credential_vault.get_runtime_secret,
@@ -119,7 +122,8 @@ class UsageCollector:
                 logger.exception("usage collector pass crashed")
             try:
                 await asyncio.wait_for(
-                    self._stop.wait(), timeout=self._interval
+                    self._stop.wait(),
+                    timeout=self._interval,
                 )
             except asyncio.TimeoutError:
                 continue
@@ -128,7 +132,8 @@ class UsageCollector:
         if self._task is None or self._task.done():
             self._stop = asyncio.Event()
             self._task = asyncio.create_task(
-                self._run(), name="qwenpaw-hub-usage-collector"
+                self._run(),
+                name="qwenpaw-hub-usage-collector",
             )
 
     async def stop(self) -> None:

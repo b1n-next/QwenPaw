@@ -27,9 +27,9 @@
 | EP-1-3 ☑ | user 模型只读联动（ACL 归组 + console 隐藏入口） | 1d | ACL 规则 16 `GET /api/models` 放行 + 写 fail-closed；settings-center 对 user 整页禁用（03 denied_routes）= 添加 Provider 入口天然不可达 |
 | EP-1-4 ☑ | usage 采集 + hub usage_counters + admin 用量页 | 4d | 拉取式（零 runtime patch，07 §7 偏差说明）；真机数值对账一致 |
 | EP-1-5 | 审计事件扩展（acl_denied/quota 预留字段） | 1d | EP-0-3 |
-| EP-1-6 | `provisioners/k8s/` 六方法实现 + 单测（mock client） | 5d | — |
-| EP-1-7 | k8s manifest 渲染 + PVC/Service/RBAC 清单 | 2d | EP-1-6 |
-| EP-1-8 | `deploy/helm/` chart + 内网安装手册 | 3d | EP-1-7 |
+| EP-1-6 ☑ | `provisioners/k8s/` 六方法实现 + 单测（mock client，14 例全绿） | 5d | — |
+| EP-1-7 ☑ | k8s manifest 渲染 + PVC/Service/RBAC 清单（纯 dict 构建） | 2d | EP-1-6 |
+| EP-1-8 ☑ | `deploy/helm/` chart + 内网安装手册（含 bootstrap_admin initContainer） | 3d | EP-1-7 |
 | EP-1-9 | K8s 真集群验证（或 kind 替代）+ 升级/重建演练 | 3d | EP-1-8 |
 | EP-1-10 | 对表例程执行（roadmap/PR 撞车复评，02 台账更新） | 0.5d | — |
 

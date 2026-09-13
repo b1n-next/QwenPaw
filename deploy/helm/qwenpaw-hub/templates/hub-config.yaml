@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: qwenpaw-hub-config
+  labels:
+    app.kubernetes.io/name: qwenpaw-hub
+data:
+  hub.yaml: |
+    control_plane:
+      public_base_url: {{ .Values.hub.publicBaseUrl | default (printf "http://qwenpaw-hub.%s.svc.cluster.local:%v" .Release.Namespace .Values.hub.service.port) | quote }}
+      registration:
+        enabled: {{ .Values.hub.registrationEnabled }}
+    runtime:
+      provisioner: k8s

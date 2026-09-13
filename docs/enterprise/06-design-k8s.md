@@ -82,7 +82,29 @@ RUNTIME_CAPS = RuntimeCaps(
 ③ kubeconfig 失效 → preflight 拒绝并给出修复提示（不半启动）；
 ④ `helm install` 内网集群一次成功，hub 经 Service 代理到 runtime（03 ACL 生效）。
 
-## 7. 对表点
+## 7. 实现状态（2026-09-13，EP-1-6..1-9）
+
+| 节 | 状态 | 落点 |
+|---|---|---|
+| §2 K8sRuntimeProvisioner | ✅ | `src/qwenpaw/hub/provisioners/k8s/`（client/manifest/provisioner/caps），六方法全实现，注册进 hub 工厂，`QWENPAW_HUB_K8S_*` 环境变量配置 |
+| §2 代理放行 | ✅ | `require_loopback_runtime` 接受 `QWENPAW_HUB_RUNTIME_HOST_SUFFIXES` 后缀白名单（仅 provisioner=k8s，fail-closed） |
+| §3 Helm Chart | ✅ | `deploy/helm/qwenpaw-hub/`（Deployment+PVC+Service+RBAC+ConfigMap+initContainer bootstrap） |
+| §4 能力声明 | ✅ | `caps.py` `RuntimeCaps`（声明+校验；协商 Phase 2） |
+| §6 验收 | 🔄 | ①-④ 见 runbook（kind 实测进行中） |
+
+**实现备注**：
+
+- 客户端为零依赖自研（httpx + kubeconfig/in-cluster 自动探测），未引
+  `kubernetes` 官方 SDK——hub 镜像不用加重型依赖，MockTransport 全覆盖单测；
+- `RuntimeRecord` 是 frozen dataclass，状态回填走 `dataclasses.replace`
+  （与 docker provisioner 一致）；
+- 首管理员：公网绑定（0.0.0.0）要求已有 enabled admin，chart 用
+  initContainer 跑 `python -m qwenpaw.hub.bootstrap_admin`（幂等）解决鸡生蛋；
+- `hub.provisioner` schema Literal 扩为 `local|docker|k8s`（config.py 单行）。
+
+安装/升级/排障手册：`docs/enterprise/runbook-k8s-install.md`。
+
+## 8. 对表点
 
 官方 Helm/K8s PR 落地 → 优先评估 chart 兼容与 provisioner 合流；自研 manifest 渲染层薄，
 可快速对齐官方 CRD（若有）。

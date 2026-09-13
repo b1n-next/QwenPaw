@@ -68,11 +68,13 @@ class UsageStore:
                 );
                 CREATE INDEX IF NOT EXISTS usage_counters_date_idx
                   ON usage_counters (usage_date);
-                """
+                """,
             )
 
     def upsert_rows(
-        self, tenant_id: str, rows: list[dict[str, Any]]
+        self,
+        tenant_id: str,
+        rows: list[dict[str, Any]],
     ) -> int:
         """Upsert last-seen counters for *tenant_id*; returns row count."""
         from datetime import datetime, timezone
@@ -139,9 +141,7 @@ class UsageStore:
         with self._connect() as connection:
             by_tenant = {
                 (
-                    row["tenant_id"]
-                    if row["tenant_id"]
-                    else "(unknown)"
+                    row["tenant_id"] if row["tenant_id"] else "(unknown)"
                 ): UsageTotals(
                     prompt_tokens=row["prompt_tokens"],
                     completion_tokens=row["completion_tokens"],
@@ -232,6 +232,6 @@ class UsageStore:
         with self._connect() as connection:
             rows = connection.execute(
                 "SELECT DISTINCT usage_date FROM usage_counters "
-                "ORDER BY usage_date"
+                "ORDER BY usage_date",
             ).fetchall()
         return [row["usage_date"] for row in rows]
