@@ -175,7 +175,8 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
     # -- RuntimeProvisioner -------------------------------------------------
 
     def preflight(
-        self, root_dir: Path  # pylint: disable=unused-argument
+        self,
+        root_dir: Path,  # pylint: disable=unused-argument
     ) -> RuntimeProvisionerAvailability:
         suffixes = [
             part.strip().lstrip(".")
