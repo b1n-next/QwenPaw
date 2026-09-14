@@ -49,6 +49,9 @@
 | EP-2-8 | 问数 M3（指标/向量检索 + 金集 30 题） | 5d |
 | EP-2-9 | runtime 受限 profile（B6，直连场景） | 2d |
 | EP-2-10 | 升级金丝雀流程 + 环境分层 values（I2） | 2d |
+| EP-2-11..2-14 | **平台线 P0 · 治理贯通**：trace_id 贯穿 / 审批持久化回流 / 策略 hub 下发 / 子 agent 降权（票面与 DoD 见 [11 §5](11-platform-assessment.md)） | 13d |
+| EP-2-15..2-19 | **平台线 P1 · 编排原语**：loop human_gate / harness registry 插件化 / 图执行引擎 / DAG 画布 / 模板市场+大厅（见 11 §5） | 22d |
+| EP-2-20..2-24 | **平台线 P2 · 生态补齐**：MCP server 化 / A2A 服务端 / 知识库 / 工具级 hook / Prompt 资产+Key 池（见 11 §5） | 22d |
 
 **Phase 2 DoD**：tag `enterprise/v0.3`；05/07/08 验收节全过。
 

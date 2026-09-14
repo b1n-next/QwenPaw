@@ -17,6 +17,7 @@
 | [08-design-data-app.md](08-design-data-app.md) | 通用问数应用（PawApp） | Phase 2（M1 可提前） |
 | [09-upstream-strategy.md](09-upstream-strategy.md) | fork 维护/对齐例程/patch 白名单 | 每次动上游文件前 |
 | [10-task-plan.md](10-task-plan.md) | WBS 票据与 DoD | 排期与周会 |
+| [11-platform-assessment.md](11-platform-assessment.md) | 平台能力评估 + 平台线 WBS（EP-2-11+） | 立项裁决与差距登记 |
 
 ## 快速事实（防遗忘）
 
