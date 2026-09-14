@@ -574,7 +574,9 @@
       "resource": "Tài nguyên",
       "result": "Kết quả",
       "time": "Thời gian",
-      "total": "{{total}} mục"
+      "total": "{{total}} mục",
+      "trace": "Trace",
+      "filterTrace": "Lọc theo trace id (32 ký tự)"
     },
     "audit": {
       "eyebrow": "An ninh và quản trị",
@@ -693,6 +695,12 @@
       },
       "auth": {
         "register": "Người dùng Hub đã đăng ký"
+      },
+      "acl": {
+        "denied": "ACL từ chối"
+      },
+      "model": {
+        "switch_denied": "Chuyển ngoài danh mục"
       }
     },
     "auditOutcomes": {

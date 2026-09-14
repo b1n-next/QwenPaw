@@ -3598,7 +3598,9 @@
       "resource": "Recurso",
       "result": "Resultado",
       "time": "Tempo",
-      "total": "{{total}} itens"
+      "total": "{{total}} itens",
+      "trace": "Rastreamento",
+      "filterTrace": "Filtrar por trace id (32)"
     },
     "audit": {
       "eyebrow": "Segurança e governança",
@@ -3717,6 +3719,12 @@
       },
       "auth": {
         "register": "Usuário registrado do Hub"
+      },
+      "acl": {
+        "denied": "ACL negado"
+      },
+      "model": {
+        "switch_denied": "Troca fora do catálogo"
       }
     },
     "auditOutcomes": {

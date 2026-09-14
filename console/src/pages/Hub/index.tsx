@@ -110,6 +110,7 @@ export default function HubPage() {
   const [credentialScope, setCredentialScope] = useState<string>();
   const [auditQuery, setAuditQuery] = useState("");
   const [auditAction, setAuditAction] = useState<string>();
+  const [auditTrace, setAuditTrace] = useState("");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -307,6 +308,7 @@ export default function HubPage() {
         pageSize: PAGE_SIZE,
         query: auditQuery,
         action: auditAction,
+        traceId: auditTrace || undefined,
       });
       setAudit({
         items: result.items,
@@ -315,7 +317,7 @@ export default function HubPage() {
         total: result.total,
       });
     },
-    [auditAction, auditQuery],
+    [auditAction, auditQuery, auditTrace],
   );
 
   useEffect(() => {
@@ -1431,33 +1433,46 @@ export default function HubPage() {
                     onSearch={setAuditQuery}
                     searchPlaceholder={t("hub.table.searchAudit")}
                     filter={
-                      <Select
-                        allowClear
-                        value={auditAction}
-                        placeholder={t("hub.table.allActions")}
-                        className={styles.filterSelect}
-                        onChange={setAuditAction}
-                        options={[
-                          "runtime.create",
-                          "runtime.start",
-                          "runtime.stop",
-                          "runtime.delete",
-                          "user.create",
-                          "user.update",
-                          "credential.store",
-                          "credential.delete",
-                          "auth.register",
-                        ].map((action) => ({
-                          value: action,
-                          label: t(`hub.auditActions.${action}`),
-                        }))}
-                      />
+                      <>
+                        <Select
+                          allowClear
+                          value={auditAction}
+                          placeholder={t("hub.table.allActions")}
+                          className={styles.filterSelect}
+                          onChange={setAuditAction}
+                          options={[
+                            "runtime.create",
+                            "runtime.start",
+                            "runtime.stop",
+                            "runtime.delete",
+                            "user.create",
+                            "user.update",
+                            "credential.store",
+                            "credential.delete",
+                            "auth.register",
+                            "acl.denied",
+                            "model.switch_denied",
+                          ].map((action) => ({
+                            value: action,
+                            label: t(`hub.auditActions.${action}`),
+                          }))}
+                        />
+                        <Input
+                          allowClear
+                          value={auditTrace}
+                          placeholder={t("hub.table.filterTrace")}
+                          className={styles.filterSelect}
+                          onChange={(e) => setAuditTrace(e.target.value)}
+                          maxLength={32}
+                        />
+                      </>
                     }
                   >
                     <AuditTable
                       events={audit.items}
                       language={i18n.language}
                       t={t}
+                      onTraceClick={setAuditTrace}
                     />
                     <PageFooter page={audit} onChange={loadAudit} />
                   </DataPanel>
@@ -2575,10 +2590,12 @@ function AuditTable({
   events,
   language,
   t,
+  onTraceClick,
 }: {
   events: HubAuditEvent[];
   language: string;
   t: (key: string) => string;
+  onTraceClick: (traceId: string) => void;
 }) {
   return (
     <div className={styles.tableWrap}>
@@ -2589,6 +2606,7 @@ function AuditTable({
             <th>{t("hub.table.actor")}</th>
             <th>{t("hub.table.resource")}</th>
             <th>{t("hub.table.result")}</th>
+            <th>{t("hub.table.trace")}</th>
             <th>{t("hub.table.time")}</th>
           </tr>
         </thead>
@@ -2612,11 +2630,30 @@ function AuditTable({
                   {t(`hub.auditOutcomes.${event.outcome}`)}
                 </Tag>
               </td>
+              <td>
+                {event.trace_id ? (
+                  <a
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onTraceClick(event.trace_id as string)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter")
+                        onTraceClick(event.trace_id as string);
+                    }}
+                    className={styles.traceLink}
+                    title={event.trace_id}
+                  >
+                    {event.trace_id.slice(0, 8)}…
+                  </a>
+                ) : (
+                  <span className={styles.traceNone}>—</span>
+                )}
+              </td>
               <td>{formatDate(event.created_at, language)}</td>
             </tr>
           ))}
           {events.length === 0 && (
-            <EmptyRow colSpan={5} message={t("hub.audit.empty")} />
+            <EmptyRow colSpan={6} message={t("hub.audit.empty")} />
           )}
         </tbody>
       </table>

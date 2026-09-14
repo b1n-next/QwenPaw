@@ -69,6 +69,7 @@ from .models import (
     RuntimeState,
 )
 from .operations import HubOperationsStore
+from .trace import TRACE_HEADER, trace_id_from_headers
 from .usage import UsageCollector, UsageStore
 from .oauth_routes import oauth_callback_route, runtime_oauth_callback_path
 from .proxy_limits import (
@@ -472,6 +473,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
         resource_type: str,
         resource_id: str,
         detail: dict[str, Any] | None = None,
+        trace_id: str | None = None,
     ) -> None:
         await run_in_threadpool(
             operations.record,
@@ -481,6 +483,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
             resource_type=resource_type,
             resource_id=resource_id,
             detail=detail,
+            trace_id=trace_id,
         )
 
     async def personal_runtime(user: HubUser) -> RuntimeRecord:
@@ -1345,6 +1348,12 @@ def create_hub_app(  # pylint: disable=too-many-statements
         query: str | None = Query(default=None, alias="q", max_length=128),
         action: str | None = Query(default=None, max_length=128),
         outcome: str | None = Query(default=None, max_length=32),
+        trace_id: str
+        | None = Query(
+            default=None,
+            max_length=32,
+            description="EP-2-11: replay one cross-plane trace",
+        ),
     ) -> dict[str, object]:
         events, total = await run_in_threadpool(
             operations.list_events,
@@ -1353,6 +1362,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
             query=query,
             action=action,
             outcome=outcome,
+            trace_id=trace_id,
         )
         return _page_payload(events, page, page_size, total)
 
@@ -1631,6 +1641,9 @@ def create_hub_app(  # pylint: disable=too-many-statements
         request: Request,
         user: HubUser = Depends(require_user),
     ) -> Response:
+        # EP-2-11 governance bridging: one trace id per proxied request,
+        # echoed downstream (runtime audit) and on the response.
+        trace_id = trace_id_from_headers(request.headers)
         decision = app.state.acl.decide(
             user.role,
             request.method,
@@ -1643,6 +1656,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 "api",
                 request.url.path,
                 {"reason": decision.reason, "method": request.method},
+                trace_id=trace_id,
             )
             raise HTTPException(
                 status_code=403,
@@ -1667,6 +1681,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 "model",
                 request.url.path,
                 {"role": user.role},
+                trace_id=trace_id,
             )
             raise HTTPException(
                 status_code=403,
@@ -1718,6 +1733,9 @@ def create_hub_app(  # pylint: disable=too-many-statements
             "content-length",
             "host",
             HUB_OAUTH_CALLBACK_URL_HEADER.lower(),
+            # re-minted below in canonical casing; skipping the inbound
+            # copy avoids a duplicated comma-joined header value
+            TRACE_HEADER.lower(),
         }
         headers = {
             name: value
@@ -1725,6 +1743,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
             if name.lower() not in excluded_request_headers
         }
         headers["X-QwenPaw-Runtime-Token"] = internal_token
+        headers[TRACE_HEADER] = trace_id
         callback_route = oauth_callback_route(request.method, path)
         if callback_route:
             public_base_url = (
@@ -1833,6 +1852,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 content=_filter_models_payload(raw_body, allowed_ids),
                 status_code=200,
                 media_type="application/json",
+                headers={TRACE_HEADER: trace_id},
             )
         excluded_response_headers = {
             "connection",
@@ -1849,6 +1869,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
             for name, value in upstream.headers.items()
             if name.lower() not in excluded_response_headers
         }
+        response_headers[TRACE_HEADER] = trace_id
 
         async def stream_upstream() -> AsyncIterator[bytes]:
             try:
@@ -1895,6 +1916,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 "api",
                 websocket.url.path,
                 {"reason": ws_decision.reason, "method": "WS"},
+                trace_id=trace_id_from_headers(websocket.headers),
             )
             await websocket.close(code=1008)  # policy violation
             return
@@ -1921,6 +1943,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 str(target),
                 headers={
                     "X-QwenPaw-Runtime-Token": internal_token,
+                    TRACE_HEADER: (trace_id_from_headers(websocket.headers)),
                 },
                 max_size=(proxy_config.websocket_max_message_size_bytes),
             )

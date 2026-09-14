@@ -4039,7 +4039,9 @@
       "resource": "Resource",
       "result": "Result",
       "time": "Time",
-      "total": "{{total}} items"
+      "total": "{{total}} items",
+      "trace": "Trace",
+      "filterTrace": "Filter by trace id (32 chars)"
     },
     "audit": {
       "eyebrow": "Security and governance",
@@ -4158,6 +4160,12 @@
       },
       "auth": {
         "register": "Registered Hub user"
+      },
+      "acl": {
+        "denied": "ACL denied"
+      },
+      "model": {
+        "switch_denied": "Out-of-catalog switch"
       }
     },
     "auditOutcomes": {

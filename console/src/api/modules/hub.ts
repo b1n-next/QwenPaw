@@ -83,6 +83,7 @@ export interface HubAuditEvent {
   resource_type: string;
   resource_id: string;
   outcome: string;
+  trace_id?: string | null;
   detail: Record<string, unknown>;
   created_at: string;
 }
@@ -372,6 +373,11 @@ export const hubApi = {
       "/hub/admin/usage/collect",
       { method: "POST" },
     ),
-  listAuditEvents: (params: HubListParams & { action?: string } = {}) =>
+  listAuditEvents: (
+    params: HubListParams & {
+      action?: string;
+      traceId?: string;
+    } = {},
+  ) =>
     request<HubPage<HubAuditEvent>>(listPath("/hub/admin/audit", params)),
 };

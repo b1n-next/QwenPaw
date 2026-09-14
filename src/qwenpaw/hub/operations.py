@@ -41,6 +41,7 @@ class HubOperationsStore:
         detail: dict[str, Any] | None = None,
         request_id: str | None = None,
         correlation_id: str | None = None,
+        trace_id: str | None = None,
         remote_address: str | None = None,
     ) -> None:
         """Append one sanitized Hub management event."""
@@ -50,8 +51,9 @@ class HubOperationsStore:
                 INSERT INTO hub_audit_events(
                     event_id, actor_user_id, actor_username, action,
                     resource_type, resource_id, outcome, request_id,
-                    correlation_id, remote_address, detail_json, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    correlation_id, trace_id, remote_address,
+                    detail_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     uuid.uuid4().hex,
@@ -63,6 +65,7 @@ class HubOperationsStore:
                     outcome,
                     request_id,
                     correlation_id,
+                    trace_id,
                     remote_address,
                     json.dumps(
                         detail or {},
@@ -81,6 +84,7 @@ class HubOperationsStore:
         query: str | None = None,
         action: str | None = None,
         outcome: str | None = None,
+        trace_id: str | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
         """Return one filtered audit page without secret data."""
         clauses: list[str] = []
@@ -97,6 +101,9 @@ class HubOperationsStore:
         if outcome:
             clauses.append("outcome = ?")
             parameters.append(outcome)
+        if trace_id:
+            clauses.append("trace_id = ?")
+            parameters.append(trace_id)
         where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
         with self._connect() as connection:
             total_row = connection.execute(
@@ -138,6 +145,7 @@ class HubOperationsStore:
             "outcome": str(row["outcome"]),
             "request_id": row["request_id"],
             "correlation_id": row["correlation_id"],
+            "trace_id": row["trace_id"],
             "remote_address": row["remote_address"],
             "detail": json.loads(str(row["detail_json"])),
             "created_at": str(row["created_at"]),

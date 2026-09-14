@@ -51,6 +51,9 @@ git push -u origin feature/enterprise
 | `console/src/locales/*.json`（7 语言） + `i18n.ts` | 权限/用量/菜单词条 | Ph0/1 | 多 commit |
 | `tests/unit/hub/test_control_app.py` | member 探针改道 + 代理行为演进同步 | Ph0/1 | 多 commit |
 | `tests/unit/hub/test_config.py` | k8s provisioner 配置用例 | Ph1 | 2b240cb0 |
+| `src/qwenpaw/hub/operations.py` | 审计 store：trace_id 记录/过滤/序列化 | Ph2 | EP-2-11 |
+| `src/qwenpaw/hub/database.py` | schema v2：hub_audit_events.trace_id 列 + 索引 + v1→v2 迁移 | Ph2 | EP-2-11 |
+| `src/qwenpaw/governance/audit.py` | runtime 工具审计 extra 记 trace_id（零表迁移，`_trace_extra` 惰性 import） | Ph2 | EP-2-11 |
 
 **已废弃条目**（v1 表内、实际未走该路线，清理记录）：
 - ~~runtime usage 上报 hook~~——EP-1-4 改拉取式（hub 侧 UsageCollector），

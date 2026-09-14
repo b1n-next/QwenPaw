@@ -3317,7 +3317,9 @@
       "resource": "リソース",
       "result": "結果",
       "time": "時間",
-      "total": "{{total}} 件"
+      "total": "{{total}} 件",
+      "trace": "トレース",
+      "filterTrace": "トレースIDで絞り込み（32文字）"
     },
     "audit": {
       "eyebrow": "セキュリティとガバナンス",
@@ -3436,6 +3438,12 @@
       },
       "auth": {
         "register": "登録済みの Hub ユーザー"
+      },
+      "acl": {
+        "denied": "ACL 拒否"
+      },
+      "model": {
+        "switch_denied": "カタログ外スイッチ"
       }
     },
     "auditOutcomes": {

@@ -3896,7 +3896,9 @@
       "resource": "目标资源",
       "result": "结果",
       "time": "时间",
-      "total": "共 {{total}} 条"
+      "total": "共 {{total}} 条",
+      "trace": "链路",
+      "filterTrace": "按 Trace ID 过滤（32 位）"
     },
     "audit": {
       "eyebrow": "安全与治理",
@@ -4015,6 +4017,12 @@
       },
       "auth": {
         "register": "注册 Hub 用户"
+      },
+      "acl": {
+        "denied": "ACL 拒绝"
+      },
+      "model": {
+        "switch_denied": "越目录切换模型"
       }
     },
     "auditOutcomes": {

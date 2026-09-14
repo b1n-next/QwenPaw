@@ -3332,7 +3332,9 @@
       "resource": "Ресурс",
       "result": "Результат",
       "time": "Время",
-      "total": "{{total}} записей"
+      "total": "{{total}} записей",
+      "trace": "Трассировка",
+      "filterTrace": "Фильтр по trace id (32)"
     },
     "audit": {
       "eyebrow": "Безопасность и управление",
@@ -3451,6 +3453,12 @@
       },
       "auth": {
         "register": "Зарегистрированный пользователь Хаба"
+      },
+      "acl": {
+        "denied": "Отказано ACL"
+      },
+      "model": {
+        "switch_denied": "Смена вне каталога"
       }
     },
     "auditOutcomes": {

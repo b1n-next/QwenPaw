@@ -46,6 +46,7 @@ from .auth import (
     check_proxy_config_sanity,
 )
 from .exception_handlers import register_exception_handlers
+from .trace_context import TraceContextMiddleware
 from .migration import (
     ensure_default_agent_exists,
     ensure_qa_agent_exists,
@@ -737,6 +738,10 @@ register_exception_handlers(app)
 
 # Add agent context middleware for agent-scoped routes
 app.add_middleware(AgentContextMiddleware)
+
+# EP-2-11: mirror the Hub-issued trace header into a request ContextVar
+# (governance audit reads it; no-op on direct non-hub access).
+app.add_middleware(TraceContextMiddleware)
 
 app.add_middleware(AuthMiddleware)
 app.add_middleware(RuntimeBoundaryMiddleware)

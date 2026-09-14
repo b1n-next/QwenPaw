@@ -588,7 +588,9 @@
       "resource": "Sumber daya",
       "result": "Hasil",
       "time": "Waktu",
-      "total": "item {{total}}"
+      "total": "item {{total}}",
+      "trace": "Trace",
+      "filterTrace": "Filter menurut trace id (32)"
     },
     "audit": {
       "eyebrow": "Keamanan dan pemerintahan",
@@ -707,6 +709,12 @@
       },
       "auth": {
         "register": "Pengguna Hub Terdaftar"
+      },
+      "acl": {
+        "denied": "ACL ditolak"
+      },
+      "model": {
+        "switch_denied": "Switch di luar katalog"
       }
     },
     "auditOutcomes": {
