@@ -27,18 +27,36 @@ git push -u origin feature/enterprise
 
 ## 2. Patch 面纪律（rebase 成本的决定因素）
 
-**修改白名单**（仅允许改动的上游文件，当前合计 ≤6 处、每处 ≤50 行）：
+**修改白名单**（v2，2026-09-14 追溯审计全量重登记；原"≤6 处、每处 ≤50 行"
+定量口径已失真——`control_app.py` +472 行成为企业面主接线文件——改为
+**登记制**：凡改上游文件必须在本表登记且注明 commit，rebase 冲突时逐行复核）：
 
-| 文件 | 改动 | 所属 |
-|---|---|---|
-| `src/qwenpaw/hub/control_app.py` | ACL 两处接入 + /api/version permissions | Ph0 |
-| `src/qwenpaw/app/_app.py` | 模型 bootstrap 调用（+4 行，lifespan 内 lazy import） | Ph1 |
-| `src/qwenpaw/hub/local_provisioner.py` | +6 行：`QWENPAW_MODEL_BOOTSTRAP_JSON` 过滤后显式放行（仿 internal token 既有模式） | Ph1 |
-| `src/qwenpaw/hub/docker_provisioner.py` | +4 行：同上，docker env update 字典 | Ph1 |
-| runtime usage 上报 hook（1 文件） | usage flush | Ph1 |
-| `console/src/App.tsx` + `builtinMenu.ts` 相邻新增文件 | permissions 过滤（组合进 capabilities 管线） | Ph0 |
-| `tests/unit/hub/test_control_app.py` | 2 处 member 探针 `/api/probe`→`/api/agents`（ACL 后未知路径对 user 拒绝） | Ph0 |
-| `console/.prettierignore` | +1 行：忽略 `pnpm-lock.yaml`（pnpm 每次重生成，格式不受 prettier 管） | Ph0 |
+| 文件 | 改动 | 所属 | 引入 |
+|---|---|---|---|
+| `src/qwenpaw/hub/control_app.py` | 企业面主接线：ACL 代理接入（HTTP+WS 1008）、permissions 端点、模型激活目录校验 + 列表过滤、usage 采集端点、k8s provisioner 挂载（+472/-13） | Ph0/1 | 多 commit |
+| `src/qwenpaw/app/_app.py` | 模型 bootstrap 调用（lifespan 内 lazy import，+5） | Ph1 | 717c85ff |
+| `src/qwenpaw/hub/local_provisioner.py` | `QWENPAW_MODEL_BOOTSTRAP_JSON` 过滤后显式放行（+6，仿 internal token 模式） | Ph1 | 717c85ff |
+| `src/qwenpaw/hub/docker_provisioner.py` | 同上（docker env update 字典，+6） | Ph1 | 717c85ff |
+| `src/qwenpaw/hub/config.py` | provisioner 配置扩 `k8s` 字面量 + 运行时后缀白名单 | Ph1 | 2b240cb0 |
+| `src/qwenpaw/hub/service.py` | loopback 守卫统一（runtime 回环地址校验） | Ph1 | 2da1d468 |
+| `src/qwenpaw/utils/http.py` | `runtime_host_allowed` 辅助（回环判定） | Ph1 | 2da1d468 |
+| `.pre-commit-config.yaml` | check-yaml exclude helm 产物 | Ph1 | 157bda0c |
+| `console/.prettierignore` | 忽略 `pnpm-lock.yaml`（+3） | Ph0 | — |
+| `console/src/layouts/MainLayout/index.tsx` + `Sidebar.tsx` + `layouts/i18n.ts` | permissions 过滤挂载（Sidebar/路由守卫） | Ph0 | — |
+| `console/src/pages/SettingsCenter/useSidebarEntryGroups.ts` | denied_routes 组折叠联动 | Ph0 | — |
+| `console/src/os/AppStore.tsx` | OS dock 按 denied_routes 过滤 | Ph1 | c9aa6890 |
+| `console/src/pages/Chat/ModelSelector/index.tsx` | model_readonly 门控（隐藏添加/OAuth/API-key 入口；目录内切换放行） | Ph1 | 61663a62/c0f5174a |
+| `console/src/api/modules/hub.ts` | hub usage API 客户端 | Ph1 | 4e2c1964 |
+| `console/src/pages/Hub/index.tsx` + `pageUtils.ts` + `index.module.less` | admin 用量统计区 | Ph1 | 4e2c1964 |
+| `console/src/locales/*.json`（7 语言） + `i18n.ts` | 权限/用量/菜单词条 | Ph0/1 | 多 commit |
+| `tests/unit/hub/test_control_app.py` | member 探针改道 + 代理行为演进同步 | Ph0/1 | 多 commit |
+| `tests/unit/hub/test_config.py` | k8s provisioner 配置用例 | Ph1 | 2b240cb0 |
+
+**已废弃条目**（v1 表内、实际未走该路线，清理记录）：
+- ~~runtime usage 上报 hook~~——EP-1-4 改拉取式（hub 侧 UsageCollector），
+  runtime 零 patch（07 §7 偏差说明）；
+- ~~`App.tsx`/`builtinMenu.ts`~~——实际走 `registry/permissions.ts` 新文件
+  组合进 capabilities 管线，两文件零改动。
 
 **附加层**（全部新文件/目录，rebase 零冲突）：
 `hub/acl/`、`hub/provisioners/k8s/`、`hub/models_catalog/`、`deploy/helm/`、
@@ -83,3 +101,16 @@ git push -u origin feature/enterprise
   （干净实现，无 enterprise 耦合）；被合并即从白名单移除该 patch；
 - 需求对齐：在 #7318 按官方模板回帖（内网可信、控制台权限、集中模型目录三点），
   争取官方方向覆盖 → 自研退役。
+
+## 6. 实现状态与白名单维护（2026-09-14 追溯审计建立）
+
+- **基线**：`enterprise/baseline-983b3ceb`（tag 常驻）。当前 diff：53 文件、
+  +5386/-51（上游 merge 83325387 自带的 website/docs 3 文件除外，fork 实改
+  上游文件 18 个 + 新增文件若干；v2 白名单表即以 tag diff 为准逐文件登记）。
+- **维护规则**：① 动上游文件前先查本表，不在表内则先加表再动手；② 每次对表
+  例程（EP-1-10/后续月度）重跑 `git diff --name-only enterprise/baseline-<x>..HEAD`
+  与本表核对，漂移即修；③ rebase 前置检查：白名单文件的冲突逐行人工复核，
+  优先评估"上游是否已官方实现"（官方实现则替换 patch 并回馈）。
+- **收口节点**：Phase 2 平台线若落 11 §5 的 EP-2-11/12/13（trace/审批回流/
+  策略下发），`control_app.py` 预计继续膨胀——届时评估把企业面拆成独立模块
+  （`hub/enterprise/`），把上游文件 patch 面压回纯接线 ≤50 行。

@@ -45,11 +45,13 @@ provisioners/k8s/
 ```text
 values.yaml            # hub 副本/镜像/存储、runtimes namespace、provisioner 选型
 templates/
-  hub-deployment.yaml  # env: QWENPAW_HUB_* + provisioner=k8s 配置
+  hub-deployment.yaml  # env: QWENPAW_HUB_* + provisioner=k8s 配置；initContainer bootstrap_admin；readinessProbe 探 `/`（healthz 需登录，见 §7.1）
+  hub-config.yaml      # ConfigMap: hub.yaml（version: 1 + public_base_url + provisioner）
   hub-pvc.yaml         # sqlite + 审计数据
   hub-service.yaml     # 内网 LB/NodePort（不默认公网）
-  rbac.yaml            # ServiceAccount: pods/pvcs/services 的 namespaced 权限（最小集）
-  secrets.yaml         # 可选：externalSecret 引用（Vault 起步不建依赖，A4 中）
+  rbac.yaml            # SA + Role（runtimes ns 内 pods/pvcs/services 最小集）+ ClusterRole（namespaces get，探测用只读）
+  NOTES.txt            # helm install 后的访问/下一步提示
+  # secrets.yaml 未实现：凭据走 bootstrap env 直投（A4 K8s Secret 投递已归置 Phase 2，见 02 矩阵注记）
 ```
 
 注意：Hub 单副本（sqlite + 内存态 registry 决定**不做多副本**；A6 HPA 仅在状态外置后讨论）。

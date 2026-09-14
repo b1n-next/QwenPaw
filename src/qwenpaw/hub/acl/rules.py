@@ -120,9 +120,6 @@ DEFAULT_RULES: tuple[RuleSpec, ...] = (
     # 15b. The user's own timezone preference (cron editor and agent
     #      locale save it; public runtime preference like language).
     _allow(r"^/api/config/user-timezone$", "config.user-timezone"),
-    # 15b. The user's own timezone preference (cron editor and agent
-    #      locale save it; public runtime preference like language).
-    _allow(r"^/api/config/user-timezone$", "config.user-timezone"),
     # 16. Model list/read (EP-1-3): GET /api/models is proxied with
     #     a catalog filter for non-admins (they only ever see the
     #     admin-opened providers); provider configuration subpaths
@@ -159,12 +156,8 @@ DEFAULT_RULES: tuple[RuleSpec, ...] = (
     # 18b. Chat message attachment previews are the user's own
     #      generated files.
     _allow(r"^/api/files/preview(?:/|$)", "files.preview", frozenset({"GET"})),
-    # 18c. The user's own token usage page.
-    _allow(
-        r"^/api/token-usage(?:/|$)",
-        "token-usage.read",
-        frozenset({"GET"}),
-    ),
+    # 18c. The user's own token usage page (rule 10 defines this
+    #      allow; kept here as a pointer for the 18-series audit).
     # 18d. User's own scheduled jobs.
     _allow(r"^/api/cron(?:/|$)", "cron"),
     # 18e. Tool list feeds the chat composer's tool cards; per-tool

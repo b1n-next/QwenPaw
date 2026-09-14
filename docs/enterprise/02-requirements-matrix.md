@@ -10,10 +10,10 @@
 | ID | 需求 | 来源 | 状态 | 优先级 | 阶段 | 撞车 |
 |---|---|---|---|---|---|---|
 | A1 | 内网可信环境部署（不出公网） | USR | ✅（现状即支持） | P0 | — | — |
-| A2 | Helm Chart：Hub Deployment + per-tenant Pod | HUB | ❌ | P1 | Ph1 | **高**（官方在考虑 K8s） |
-| A3 | per-tenant PVC（RWO 即可，per-tenant 模型下无需 RWX） | AUD | ❌ | P1 | Ph1 | 高 |
-| A4 | Secret 集成（K8s Secret 起步，Vault/KMS 可选） | HUB/GLM | 🟡（hub 已有凭据库，K8s 投递层缺） | P1 | Ph1 | 中 |
-| A5 | 多机调度（K8s 原生调度即可满足） | HUB | ❌ | P2 | Ph1 | 高 |
+| A2 | Helm Chart：Hub Deployment + per-tenant Pod | HUB | ✅（`deploy/helm/qwenpaw-hub/`：deployment/pvc/service/rbac/configmap + bootstrap_admin initContainer + NOTES；kind 验收过） | P1 | Ph1 | **高**（官方在考虑 K8s） |
+| A3 | per-tenant PVC（RWO 即可，per-tenant 模型下无需 RWX） | AUD | ✅（`provisioners/k8s/manifest.py` PVC builder + stop 保 PVC 会话延续，06 §7.1 kind 实测） | P1 | Ph1 | 高 |
+| A4 | Secret 集成（K8s Secret 起步，Vault/KMS 可选） | HUB/GLM | 🟡（凭据现走 bootstrap env 直投 + Fernet vault；K8s Secret 资源未建——**2026-09-14 归置 Ph2**（EP-2 线，随 EP-2-13 策略下发一并做 Secret 投递）） | P1 | **Ph2** | 中 |
+| A5 | 多机调度（K8s 原生调度即可满足） | HUB | ✅（随 G1 达成：k8s provisioner 起 per-tenant Pod 跨节点调度；多副本 hub 仍属 A6 状态外置前提） | P2 | Ph1 | 高 |
 | A6 | 弹性扩缩容（Hub 层 HPA；runtime per-tenant 不扩副本） | HUB | ❌ | P2 | Ph2 | 高 |
 | A7 | 升级策略（hub 滚动升级 + runtime 重建；金丝雀/蓝绿） | HUB/GLM | ❌ | P2 | Ph2 | 中 |
 | A8 | 备份容灾（Velero/PVC 快照 + sqlite 备份手册化） | HUB/GLM | ❌ | P1 | Ph2 | 低 |
@@ -26,10 +26,10 @@
 
 | ID | 需求 | 来源 | 状态 | 优先级 | 阶段 | 撞车 |
 |---|---|---|---|---|---|---|
-| B1 | user 角色隐藏 工作区/设置/控制 菜单组 | USR | 🟡（v2.2.1 后上游已有 `capabilities.ts` 菜单过滤管线——按 agent 能力过滤；**角色维度仍缺**，可在同管线组合复用，见 03 §4.4） | **P0** | Ph0 | **低**（官方 #7318 未提控制台角色粒度；capabilities 管线是互补非撞车） |
-| B2 | user 角色的对应 API 在 hub 代理层 403（真安全边界） | USR/AUD | ❌（`personal_runtime_proxy` 全量转发） | **P0** | Ph0 | 低 |
-| B3 | WS 代理同步 ACL | AUD | ❌ | P0 | Ph0 | 低 |
-| B4 | `/api/version` 下发 permissions/denied_menus | AUD | 🟡（hub 已重写该响应注入 `mode: hub`） | P0 | Ph0 | 低 |
+| B1 | user 角色隐藏管理页面（v1.3 演进为精确 route 级，保留 7 个用户面页） | USR | ✅（`registry/permissions.ts` + Sidebar/Route/OS dock 过滤，03 §4.4；vitest 覆盖） | **P0** | Ph0 | **低**（官方 #7318 未提控制台角色粒度；capabilities 管线是互补非撞车） |
+| B2 | user 角色的对应 API 在 hub 代理层 403（真安全边界） | USR/AUD | ✅（`hub/acl/` 引擎 + 代理 decide→403 + `acl.denied` 审计；fail-closed；67+ 单测/集成用例） | **P0** | Ph0 | 低 |
+| B3 | WS 代理同步 ACL | AUD | ✅（websocket_proxy decide→close 1008） | P0 | Ph0 | 低 |
+| B4 | permissions 下发（**端点实现定名 `/api/hub/me/permissions`**，公开 version 端点不承载角色数据；四键 payload 含 model_readonly） | AUD | ✅（control_app.py + console_map.py） | P0 | Ph0 | 低 |
 | B5 | 按租户/组定制菜单白名单（而非全局两档） | USR 扩展 | ❌ | P2 | Ph2 | 低 |
 | B6 | 直连 runtime 场景的受限 profile（`QWENPAW_CONSOLE_PROFILE`） | AUD | ❌ | P2 | Ph2 | 中 |
 | B7 | 移动端/瘦客户端仅对话视图 | #7318 社区 | ❌ | P3 | backlog | 中 |
@@ -51,10 +51,10 @@
 
 | ID | 需求 | 来源 | 状态 | 优先级 | 阶段 | 撞车 |
 |---|---|---|---|---|---|---|
-| D1 | 角色→控制台能力（=B1/B2，先行切片） | USR | ❌ | P0 | Ph0 | 低 |
+| D1 | 角色→控制台能力（=B1/B2，先行切片） | USR | ✅（随 B1/B2 交付） | P0 | Ph0 | 低 |
 | D2 | 按用户/组控制 Agent 访问 | HUB | ❌ | P1 | Ph2 | **高** |
 | D3 | 按用户/组控制 Skill / MCP / Channel 访问 | HUB | ❌ | P1 | Ph2 | 高 |
-| D4 | 策略引擎最小实现（subject→resource→effect，静态配置起步，不引入 OPA） | AUD | ❌ | P1 | Ph2 | 中 |
+| D4 | 策略引擎最小实现（静态半边 = 有序规则表 + overlay 已随 Ph0 落地；组级扩展（groups/policies 表求值）仍 Ph2，见 05 §7） | AUD | 🟡（静态半边 ✅：`acl/rules.py`+`engine.py`；动态半边 ☐ EP-2-1） | P1 | **Ph2（组级）** | 中 |
 | D5 | Agent/Skill 上架审批流 | GLM | ❌（市场有安装，无审批） | P2 | Ph2 | 中 |
 | D6 | 多租户共享 Agent/Skill 商店（组织级发布/分享） | #7318 社区(rerbin) | ❌ | P3 | backlog | 中 |
 
@@ -62,9 +62,9 @@
 
 | ID | 需求 | 来源 | 状态 | 优先级 | 阶段 | 撞车 |
 |---|---|---|---|---|---|---|
-| E1 | 管理员集中配置 Provider/Endpoint/Key | HUB | 🟡（hub 有 vault；模型配置仍在各 runtime） | **P0** | Ph1 | **高**（官方"Central model governance"在列） |
-| E2 | 用户只见批准的模型目录/别名，不见凭据与 Endpoint | HUB/USR | ❌ | P0 | Ph1 | 高 |
-| E3 | 首启 bootstrap：新租户 runtime 自动拿到可用默认模型 | HUB | 🟡（qwenpaw-data app 已示范从宿主读 active model 的路径，可复用） | P0 | Ph1 | 高 |
+| E1 | 管理员集中配置 Provider/Endpoint/Key | HUB | ✅（`hub/model_catalog/store.py` Fernet + admin CRUD + test-connection；04 §7） | **P0** | Ph1 | **高**（官方"Central model governance"在列） |
+| E2 | 用户只见批准的模型目录/别名，不见凭据与 Endpoint | HUB/USR | ✅（服务端强制：代理 GET /api/models 目录过滤 + 密钥永不回显 `api_key_set`；@c0f5174a） | P0 | Ph1 | 高 |
+| E3 | 首启 bootstrap：新租户 runtime 自动拿到可用默认模型 | HUB | ✅（`QWENPAW_MODEL_BOOTSTRAP_JSON` env + re-sync 钩子，04 §7；真机 E2E 过） | P0 | Ph1 | 高 |
 | E4 | 默认模型与按用途路由（编码→强模型，闲聊→轻模型） | HUB/GLM | ❌ | P2 | Ph2 | 高 |
 | E5 | 故障切换/fallback 链 | HUB | ❌ | P2 | Ph2 | 高 |
 | E6 | 限流与并发控制 | HUB | ❌ | P2 | Ph2 | 高 |
@@ -77,23 +77,23 @@
 
 | ID | 需求 | 来源 | 状态 | 优先级 | 阶段 | 撞车 |
 |---|---|---|---|---|---|---|
-| F1 | per-user token/成本统计 | HUB | 🟡（`HubOperationsStore` + `/api/hub/admin/audit` 有雏形；token 计量未接） | P1 | Ph1 | 高 |
-| F2 | 计量采集点（runtime usage 事件上报 hub，代理层不解析 SSE） | AUD | ❌ | P1 | Ph1 | 中 |
+| F1 | per-user token/成本统计 | HUB | ✅ token 维度（`usage/collector+store` + admin 用量页 by_user/by_model/by_date + 真机对账；**成本估算 ☐ Ph2** 依赖单价表，见 07 §7） | P1 | Ph1 | 高 |
+| F2 | 计量采集点（**架构偏差：拉取式**——hub 每 60s 拉 runtime `/api/token-usage/details`，零 runtime patch，代理层不解析 SSE 原则保持） | AUD | ✅（07 §7 偏差说明 + `usage_counters` 幂等快照表） | P1 | Ph1 | 中 |
 | F3 | 配额软硬双阈值（80% 告警 / 100% 熔断，hub 代理前置检查） | HUB/GLM | ❌ | P1 | Ph2 | 高 |
 | F4 | Prometheus 指标导出（hub `/metrics`） | GLM | ❌ | P2 | Ph2 | 中 |
 | F5 | OpenTelemetry trace | GLM | ❌ | P3 | backlog | 中 |
-| F6 | 审计事件结构化（who/what/when/allow-deny/reason，落 operations store 扩展表） | GLM/AUD | 🟡 | P1 | Ph1 | 中 |
+| F6 | 审计事件结构化（who/what/when/allow-deny/reason，落 operations store 扩展表） | GLM/AUD | 🟡（`hub_audit_events` 五要素已落（actor/action/resource/outcome/correlation_id）；acl_denied 已有、quota 预留字段 ☐——**EP-1-5 2026-09-14 降级并入 EP-2-3 配额票**实施） | P1 | Ph1（残留）/Ph2（quota 字段） | 中 |
 | F7 | 运行时日志按租户留存与检索 | HUB | 🟡（runtime 日志本地；hub 不汇聚） | P2 | Ph2 | 中 |
-| F8 | 健康状态面板（runtime 起停/资源，admin 页已有骨架） | HUB | 🟡（`/api/hub/admin/overview` 已有） | P1 | Ph1 | 低 |
+| F8 | 健康状态面板（runtime 起停/资源，admin 页已有骨架） | HUB | 🟡（overview/runtimes 列表 + 起停随 hub 交付；**资源粒度深化 2026-09-14 归置 Ph2**——与 EP-2-4 metrics 指标源共用管线，无独立 Ph1 票故显式改期） | P1 | **Ph2** | 低 |
 | F9 | SIEM 对接/日志外送 | GLM | ❌ | P3 | backlog | 低 |
 
 ## G. 运行时与隔离
 
 | ID | 需求 | 来源 | 状态 | 优先级 | 阶段 | 撞车 |
 |---|---|---|---|---|---|---|
-| G1 | Runtime Provisioner 第三实现：K8s（per-tenant Pod） | HUB | ❌（接口六方法已稳定） | P1 | Ph1 | **高** |
+| G1 | Runtime Provisioner 第三实现：K8s（per-tenant Pod） | HUB | ✅（六方法 + 14 单测 + kind 验收四项（Pod/PVC/Service/stop 保会话/fail-closed）；06 §7.1） | P1 | Ph1 | **高** |
 | G2 | 能力协商协议（requirement ⊆ capability 才调度；schema 借 `SandboxCapability`） | HUB/GLM/AUD | 🟡（类存在，协商未实现） | P2 | Ph2 | 中 |
-| G3 | 拒绝启动而非降级（fail-closed）+ 硬拒绝/软降级区分 | HUB/GLM | 🟡（provisioner preflight 已 fail-closed；能力级细分缺） | P1 | Ph1-2 | 中 |
+| G3 | 拒绝启动而非降级（fail-closed）+ 硬拒绝/软降级区分 | HUB/GLM | 🟡（**Ph1 半边达成**：preflight fail-closed + k8s 清单资源限额（06 §7）；能力级细分（G2 协商）仍 Ph2） | P1 | Ph1✅/Ph2（细分） | 中 |
 | G4 | gVisor/Kata/MicroVM 后端 | HUB | ❌ | P3 | Ph3 | 中 |
 | G5 | 远程 runtime 后端（跨机） | HUB | ❌ | P3 | backlog | 中 |
 | G6 | per-tenant 运行时池与资源上限（Docker 已有 limits，K8s 用 quotas/limits） | HUB/GLM | 🟡 | P1 | Ph1 | 高 |
@@ -113,7 +113,7 @@
 
 | ID | 需求 | 来源 | 状态 | 优先级 | 阶段 | 撞车 |
 |---|---|---|---|---|---|---|
-| I1 | fork 工程化：分支/基线 tag/CI 跑通上游测试 | USR | ❌→本批交付 | P0 | Ph0 | — |
+| I1 | fork 工程化：分支/基线 tag/CI 跑通上游测试 | USR | ✅（enterprise-ci.yml hub+console 两 job、fork-verify、baseline tag、docs/enterprise 全套；CI 三绿常态） | P0 | Ph0 | — |
 | I2 | 环境分层 dev/staging/prod（Helm values 分档） | GLM | ❌ | P2 | Ph2 | 低 |
 | I3 | Agent/Skill/人格版本化与回滚 | GLM | 🟡（checkpoint/backup 已有基础） | P2 | Ph2 | 中 |
 | I4 | 发布流水线（开发→审核→灰度→全量） | GLM | ❌ | P3 | backlog | 低 |

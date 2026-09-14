@@ -26,14 +26,15 @@
 | EP-1-2 ☑ | runtime bootstrap env 钩子（唯一 runtime patch） | 2d | provisioner 放行 + lifespan 钩子；E2E 见 04 §7 |
 | EP-1-3 ☑ | user 模型只读联动（ACL 归组 + console 隐藏入口） | 1d | ACL 规则 16 `GET /api/models` 放行 + 写 fail-closed；settings-center 对 user 整页禁用（03 denied_routes）= 添加 Provider 入口天然不可达 |
 | EP-1-4 ☑ | usage 采集 + hub usage_counters + admin 用量页 | 4d | 拉取式（零 runtime patch，07 §7 偏差说明）；真机数值对账一致 |
-| EP-1-5 | 审计事件扩展（acl_denied/quota 预留字段） | 1d | EP-0-3 |
+| EP-1-5 ⊘ | 审计事件扩展（acl_denied **已随 EP-0-3 落地**；quota 预留字段 2026-09-14 追溯审计**降级并入 EP-2-3** 配额票——字段与配额语义同票实施才不返工） | — | EP-0-3 |
 | EP-1-6 ☑ | `provisioners/k8s/` 六方法实现 + 单测（mock client，14 例全绿） | 5d | — |
 | EP-1-7 ☑ | k8s manifest 渲染 + PVC/Service/RBAC 清单（纯 dict 构建） | 2d | EP-1-6 |
-| EP-1-8 ☑ | `deploy/helm/` chart + 内网安装手册（含 bootstrap_admin initContainer） | 3d | EP-1-7 |
-| EP-1-9 | K8s 真集群验证（或 kind 替代）+ 升级/重建演练 | 3d | EP-1-8 |
-| EP-1-10 | 对表例程执行（roadmap/PR 撞车复评，02 台账更新） | 0.5d | — |
+| EP-1-8 ☑ | `deploy/helm/` chart + 内网安装手册（含 bootstrap_admin initContainer；runbook=`docs/enterprise/runbook-k8s-install.md`） | 3d | EP-1-7 |
+| EP-1-9 ☑ | K8s 真集群验证（kind 替代）+ 升级/重建演练（ec09a9a0；四项验收记录见 [06 §7.1](06-design-k8s.md)；runbook：`docs/enterprise/runbook-k8s-install.md`） | 3d | EP-1-8 |
+| EP-1-10 ☑ | 对表例程执行（roadmap/PR 撞车复评，02 台账更新）（2026-09-14 执行：四路追溯审计 → 02 矩阵 19 行状态刷新 + 03/04/05/07/09 文档回写 + 09 白名单 v2 全量重登记；对表发现 2 个 open PR 重叠：**#7696 local admin bootstrap**（撞 `hub/bootstrap_admin.py`，若合并则 initContainer 直切官方实现）、**#7683 hub 审计**（login attempts + denied runtime creation，与 `acl.denied` 审计互补）；#7318 更新至 09-11 无新决策——两项 PR 纳入 09 §5 每月跟踪，合并即替换自研） | 0.5d | — |
 
-**Phase 1 DoD**：打 tag `enterprise/v0.2`；04/06/07 验收节全过。
+**Phase 1 DoD**：04/06/07 验收节全过（06 §7.1 kind 实测 ✅、04 §7 真机 E2E ✅、07 §7 对账 ✅）。
+tag 补记：`enterprise/v0.1`（Phase 0 收口 @717c85ff）、`enterprise/v0.2`（Phase 1 收口 @本文档批次）——2026-09-14 追溯审计后补打，tag 落点即各阶段最后一个代码 commit，注释注明补打原因。
 
 ## Phase 2 · 企业版（2-3 月）
 
@@ -47,6 +48,7 @@
 | EP-2-6 | 问数应用 M1（封装版闭环） | 5d |
 | EP-2-7 | 问数 M2（多源+语义标注+admin 联动） | 5d |
 | EP-2-8 | 问数 M3（指标/向量检索 + 金集 30 题） | 5d |
+| EP-2-8b | 问数 M4（08 号里程碑四，收尾切片——占位票，M3 后细化） | 3d |
 | EP-2-9 | runtime 受限 profile（B6，直连场景） | 2d |
 | EP-2-10 | 升级金丝雀流程 + 环境分层 values（I2） | 2d |
 | EP-2-11..2-14 | **平台线 P0 · 治理贯通**：trace_id 贯穿 / 审批持久化回流 / 策略 hub 下发 / 子 agent 降权（票面与 DoD 见 [11 §5](11-platform-assessment.md)） | 13d |

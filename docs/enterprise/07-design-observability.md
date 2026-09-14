@@ -27,6 +27,10 @@ hub: usage_events 表（append-only）+ 内存聚合缓存
 
 ## 4. 指标导出（Phase 2：F4）
 
+> EP-2-4 交付物含"告警规则样例"：PrometheusRule 样例覆盖
+> runtime 缺失 / 采集滞后（usage_last_success 年龄）/ ACL 拒绝速率
+> 三条基线告警，随 `/metrics` 一并交付。
+
 - hub 暴露 `/metrics`（Prometheus 文本格式，无第三方依赖手写 collector）：
   `qwenpaw_hub_requests_total{role,group,decision}`、`qwenpaw_hub_tokens_total{user,model}`、
   `qwenpaw_runtime_state{tenant,state}`、ACL/配额拒绝计数；
@@ -50,6 +54,15 @@ hub: usage_events 表（append-only）+ 内存聚合缓存
 |---|---|---|
 | §2 计量管道 | ✅（**架构偏差：拉取式**） | 见下 |
 | §2 admin 用量页 | ✅ | Hub 控制台新增"用量统计"区（按用户/模型/日期三表 + 日期过滤 + 立即采集） |
+| §2 审计事件扩展（quota 预留字段） | ☐ **降级 Phase 2** | EP-1-5 并入 EP-2-3 配额票（acl.denied 事件 EP-0-3 已有；quota_exceeded/policy_hit 随配额实现）；2026-09-14 追溯审计裁定 |
+| §6① 成本估算 | ☐ Phase 2 | 依赖 04 模型目录单价字段（EP-2-3 联动）；验收①按阶段拆分——token 计量与对账 Phase 1 已过，成本估算 Phase 2 |
+
+**废弃接口对账**（2026-09-14 补记）：§2 设计的 `POST /api/hub/usage/batch`
+上报路由与 `usage_events` append-only 事件表**未建**，由
+`POST /api/hub/admin/usage/collect`（手动触发采集）+ `usage_counters`
+快照表（PK upsert last-seen-wins 幂等）取代——拉取式架构下 runtime 无需
+主动上报面。by_user 汇总以 tenant_id（personal-<uuid>，与用户 1:1）为键，
+username 解析留待 Phase 2 组织视图。
 
 **拉取式偏差说明**：原设计为 runtime 上报 hook（30s/50 条 flush + 失败重试）。
 实现改为 **hub 侧 UsageCollector 每 60s 拉取**各 running runtime 的既有

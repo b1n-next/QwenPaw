@@ -54,3 +54,21 @@ CREATE TABLE policies (
 
 官方若落地组/RBAC（sqlite 结构大概率不同）→ 迁移脚本 + `policies` 表改挂官方主体模型；
 自研求值逻辑薄（<300 行），替换成本低——**这是刻意保持的**。
+
+## 7. 实现状态（2026-09-14 追溯审计补记）
+
+本设计主体（groups/policies/OIDC）为 Phase 2 范围，0% 实施；Phase 0/1
+已落地的是其依赖的**本地身份底座**，为避免与 02 矩阵 C/D 组状态失联，
+记录如下：
+
+| 能力 | 状态 | 落点 |
+|---|---|---|
+| 本地账号 + 双角色（admin/user） | ✅ Ph0 | `hub/auth.py` `HubAuthService`（PBKDF2 600k 迭代、HMAC 版本化 token、末位 admin 保护、禁自改） |
+| 首注册即管理员 | ✅ Ph0 | `auth.py` register()：user_count()==0 → role=admin；此后受 registration_enabled 开关控制 |
+| 容器化首管理员 bootstrap | ✅ Ph1 | `hub/bootstrap_admin.py`（幂等；helm initContainer 调用，见 06 §7） |
+| ACL 引擎 role 模型（D4 最小半边） | ✅ Ph0 | `hub/acl/engine.py`：admin 直通（role-admin），user 走有序规则 fail-closed + acl.json overlay 热载 |
+| groups / policies 求值 / OIDC / 组映射 | ☐ Ph2 | EP-2-1（groups+policies 并入 AclEngine）/ EP-2-2（OIDC 授权码+JIT+组映射）均未开始 |
+
+> D4 口径拆分（02 矩阵同步注记）："策略引擎最小实现"的**静态规则半边**
+> 已随 Phase 0 落地（rules.py 即 subject→resource→effect）；**组级扩展**
+> （groups/policies 表 + 求值合并）仍属 Phase 2。
