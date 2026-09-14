@@ -701,6 +701,9 @@
       },
       "model": {
         "switch_denied": "Chuyển ngoài danh mục"
+      },
+      "approval": {
+        "resolved": "Phê duyệt đã xử lý"
       }
     },
     "auditOutcomes": {

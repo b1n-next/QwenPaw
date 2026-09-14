@@ -54,6 +54,7 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/hub/operations.py` | 审计 store：trace_id 记录/过滤/序列化 | Ph2 | EP-2-11 |
 | `src/qwenpaw/hub/database.py` | schema v2：hub_audit_events.trace_id 列 + 索引 + v1→v2 迁移 | Ph2 | EP-2-11 |
 | `src/qwenpaw/governance/audit.py` | runtime 工具审计 extra 记 trace_id（零表迁移，`_trace_extra` 惰性 import） | Ph2 | EP-2-11 |
+| `src/qwenpaw/app/approvals/service.py` | 审批生命周期镜像到 ApprovalStore（create/resolve/cancel/GC 六触点 + 恢复扫描） | Ph2 | EP-2-12 |
 
 **已废弃条目**（v1 表内、实际未走该路线，清理记录）：
 - ~~runtime usage 上报 hook~~——EP-1-4 改拉取式（hub 侧 UsageCollector），

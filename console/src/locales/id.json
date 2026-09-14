@@ -715,6 +715,9 @@
       },
       "model": {
         "switch_denied": "Switch di luar katalog"
+      },
+      "approval": {
+        "resolved": "Persetujuan diselesaikan"
       }
     },
     "auditOutcomes": {

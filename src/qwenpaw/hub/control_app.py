@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator
@@ -1666,6 +1667,14 @@ def create_hub_app(  # pylint: disable=too-many-statements
                     "reason": decision.reason,
                 },
             )
+        # EP-2-12: approval resolutions are buffered so the hub can
+        # mirror them into its audit ledger after the upstream answers.
+        approval_body: bytes | None = None
+        if request.method == "POST" and re.match(
+            r"^/api/approval/(?:approve|deny)$",
+            request.url.path,
+        ):
+            approval_body = await request.body()
         # EP-1-3 governance refinement: switching the active model is
         # usage, not configuration (validated against the catalog).
         try:
@@ -1769,6 +1778,8 @@ def create_hub_app(  # pylint: disable=too-many-statements
             request_content = (
                 activation_body
                 if activation_body is not None
+                else approval_body
+                if approval_body is not None
                 else limited_request_stream(
                     request.stream(),
                     max_bytes=proxy_config.max_request_size_bytes,
@@ -1826,6 +1837,34 @@ def create_hub_app(  # pylint: disable=too-many-statements
         except BaseException:
             await client.aclose()
             raise
+
+        # EP-2-12: mirror the approval resolution into the hub audit
+        # ledger (who answered which request, with which outcome).
+        if approval_body is not None:
+            decision_action = (
+                "approve"
+                if request.url.path.endswith(
+                    "/approve",
+                )
+                else "deny"
+            )
+            try:
+                parsed_body = json.loads(approval_body)
+            except ValueError:
+                parsed_body = {}
+            await record_audit(
+                user,
+                "approval.resolved",
+                "approval",
+                str(parsed_body.get("request_id") or request.url.path),
+                {
+                    "action": decision_action,
+                    "session_id": parsed_body.get("session_id"),
+                    "reason": parsed_body.get("reason"),
+                    "upstream_status": upstream.status_code,
+                },
+                trace_id=trace_id,
+            )
 
         # EP-1-3 visibility governance: non-admins only ever see the
         # admin-opened catalog — built-in cloud providers (free tiers

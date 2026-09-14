@@ -10,6 +10,7 @@ enforced here so every resolution surface shares the same boundary.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 import uuid
@@ -20,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 from ...constant import TOOL_GUARD_APPROVAL_TIMEOUT_SECONDS
 from ...security.tool_guard.approval import ApprovalDecision, ApprovalScope
 from .models import ApprovalRequestSummary
+from .store import ApprovalStore
 
 if TYPE_CHECKING:
     from ...security.tool_guard.models import ToolGuardResult
@@ -123,6 +125,9 @@ class ApprovalService:
         self._lock = asyncio.Lock()
         self._pending: dict[str, PendingApproval] = {}
         self._channel_managers: dict[str, Any] = {}
+        # EP-2-12: optional durable shadow (None = memory-only, the
+        # historical behavior, e.g. unit tests and CLI-only runs).
+        self._store: ApprovalStore | None = None
 
     def set_channel_manager(
         self,
@@ -131,6 +136,68 @@ class ApprovalService:
     ) -> None:
         """Register an agent's channel manager for spawned-child routing."""
         self._channel_managers[agent_id] = channel_manager
+
+    def attach_store(self, store: ApprovalStore) -> None:
+        """Attach a durable shadow store for the approval lifecycle."""
+        self._store = store
+
+    async def restore_from_store(self) -> int:
+        """Re-hydrate pending approvals persisted before a restart.
+
+        EP-2-12: after a crash/restart the original waiters are gone,
+        but the requests stay visible and answerable (the resolution is
+        recorded as history either way). Rows whose remaining time
+        budget is exhausted are marked timeout instead of restored.
+        """
+        if self._store is None:
+            return 0
+        loop = asyncio.get_running_loop()
+        now = time.time()
+        restored = 0
+        for row in self._store.load_unresolved():
+            if now - row["created_at"] > row["timeout_seconds"]:
+                self._store.mark_resolved(
+                    row["request_id"],
+                    status="timeout",
+                    resolved_at=now,
+                )
+                continue
+            try:
+                extra = json.loads(row.get("extra_json") or "{}")
+            except ValueError:
+                extra = {}
+            # runtime-only wiring cannot be restored
+            extra.pop("_channel_instance", None)
+            pending = PendingApproval(
+                request_id=row["request_id"],
+                session_id=row["session_id"],
+                root_session_id=row["root_session_id"],
+                owner_agent_id=row["owner_agent_id"],
+                user_id=row["user_id"],
+                channel=row["channel"],
+                agent_id=row["agent_id"],
+                tool_name=row["tool_name"],
+                created_at=row["created_at"],
+                future=loop.create_future(),
+                timeout_seconds=row["timeout_seconds"],
+                result_summary=row.get("result_summary") or "",
+                findings_count=int(row.get("findings_count") or 0),
+                severity=row.get("severity") or "medium",
+                extra=extra,
+                identity_policy=ApprovalIdentityPolicy(
+                    row.get("identity_policy") or "AGENT",
+                ),
+            )
+            async with self._lock:
+                self._pending.setdefault(pending.request_id, pending)
+            restored += 1
+        if restored:
+            logger.info(
+                "ApprovalService: restored %d pending approval(s) "
+                "from the durable store",
+                restored,
+            )
+        return restored
 
     async def _notify_channel(
         self,
@@ -224,6 +291,8 @@ class ApprovalService:
         async with self._lock:
             self._pending[request_id] = pending
             self._gc_pending_locked()
+        if self._store is not None:
+            self._store.save_pending(pending)
 
         logger.info(
             "Approval pending created: request_id=%s agent_id=%s tool=%s "
@@ -295,6 +364,9 @@ class ApprovalService:
         async with self._lock:
             self._pending[request_id] = pending
             self._gc_pending_locked()
+        if self._store is not None:
+            self._store.save_pending(pending, source="summary")
+
         logger.info(
             "Generic approval pending created: request_id=%s agent_id=%s "
             "name=%s source=%s session=%s root=%s",
@@ -363,6 +435,13 @@ class ApprovalService:
             pending.status = decision.value
             pending.resolved_at = time.time()
             pending.scope = scope
+            if self._store is not None:
+                self._store.mark_resolved(
+                    request_id,
+                    status=decision.value,
+                    resolved_at=pending.resolved_at,
+                    scope=scope.value if scope else None,
+                )
 
         # Set Future result outside lock
         if not pending.future.done():
@@ -568,6 +647,12 @@ class ApprovalService:
                     pending.future.set_result(ApprovalDecision.TIMEOUT)
                 pending.status = "superseded"
                 pending.resolved_at = now
+                if self._store is not None:
+                    self._store.mark_resolved(
+                        k,
+                        status="superseded",
+                        resolved_at=now,
+                    )
                 cancelled += 1
         if cancelled:
             logger.info(
@@ -610,6 +695,12 @@ class ApprovalService:
                     pending.future.set_result(ApprovalDecision.DENIED)
                 pending.status = "cancelled"
                 pending.resolved_at = now
+                if self._store is not None:
+                    self._store.mark_resolved(
+                        k,
+                        status="cancelled",
+                        resolved_at=now,
+                    )
                 cancelled += 1
         if cancelled:
             logger.info(
@@ -642,6 +733,12 @@ class ApprovalService:
                 pending.future.set_result(ApprovalDecision.TIMEOUT)
             pending.status = "timeout"
             pending.resolved_at = now
+            if self._store is not None:
+                self._store.mark_resolved(
+                    k,
+                    status="timeout",
+                    resolved_at=now,
+                )
 
         overflow = len(self._pending) - _GC_MAX_PENDING
         if overflow <= 0:
@@ -656,6 +753,12 @@ class ApprovalService:
                 pending.future.set_result(ApprovalDecision.TIMEOUT)
             pending.status = "timeout"
             pending.resolved_at = now
+            if self._store is not None:
+                self._store.mark_resolved(
+                    key,
+                    status="timeout",
+                    resolved_at=now,
+                )
 
 
 # ------------------------------------------------------------------

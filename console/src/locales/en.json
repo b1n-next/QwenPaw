@@ -4166,6 +4166,9 @@
       },
       "model": {
         "switch_denied": "Out-of-catalog switch"
+      },
+      "approval": {
+        "resolved": "Approval resolved"
       }
     },
     "auditOutcomes": {

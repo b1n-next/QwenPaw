@@ -443,6 +443,24 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
             elif app.state.startup_ready.is_set():
                 startup_display.mark_finalizing()
 
+            # EP-2-12: durable approval shadow — attach the store and
+            # re-hydrate pending approvals persisted before a restart.
+            try:
+                from .approvals.store import ApprovalStore
+
+                _approval_store = ApprovalStore(
+                    Path(WORKING_DIR) / "approvals.db",
+                )
+                from .approvals import get_approval_service as _gas
+
+                _gas().attach_store(_approval_store)
+                await _gas().restore_from_store()
+            except Exception:
+                logger.warning(
+                    "Approval persistence unavailable; running memory-only",
+                    exc_info=True,
+                )
+
             # EP-1-2: hub-pushed model catalog (env bootstrap) runs before
             # provider sync so catalog providers join the first sync.
             from .model_bootstrap import apply_model_bootstrap

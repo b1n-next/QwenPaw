@@ -3459,6 +3459,9 @@
       },
       "model": {
         "switch_denied": "Смена вне каталога"
+      },
+      "approval": {
+        "resolved": "Одобрение разрешено"
       }
     },
     "auditOutcomes": {

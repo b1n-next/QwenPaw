@@ -3444,6 +3444,9 @@
       },
       "model": {
         "switch_denied": "カタログ外スイッチ"
+      },
+      "approval": {
+        "resolved": "承認裁定"
       }
     },
     "auditOutcomes": {

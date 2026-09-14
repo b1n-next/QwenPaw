@@ -4023,6 +4023,9 @@
       },
       "model": {
         "switch_denied": "越目录切换模型"
+      },
+      "approval": {
+        "resolved": "审批裁决"
       }
     },
     "auditOutcomes": {
