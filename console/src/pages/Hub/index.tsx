@@ -1453,6 +1453,7 @@ export default function HubPage() {
                             "acl.denied",
                             "model.switch_denied",
                             "approval.resolved",
+                            "policy.updated",
                           ].map((action) => ({
                             value: action,
                             label: t(`hub.auditActions.${action}`),

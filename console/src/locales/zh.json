@@ -4026,6 +4026,9 @@
       },
       "approval": {
         "resolved": "审批裁决"
+      },
+      "policy": {
+        "updated": "策略基线更新"
       }
     },
     "auditOutcomes": {

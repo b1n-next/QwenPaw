@@ -653,6 +653,11 @@ class GovernancePolicy:
     version: str = "2.0"
     builtin_rules: List[GovernanceRule] = field(default_factory=list)
     user_rules: List[GovernanceRule] = field(default_factory=list)
+    # EP-2-13: organization baseline pushed via the hub environment.
+    # Applied by ``apply_hub_baseline_from_env`` at load time; never
+    # persisted to policy.yaml and never read from YAML, so a local
+    # file edit cannot forge or downgrade organization rules.
+    hub_rules: List[GovernanceRule] = field(default_factory=list)
     env_blacklist: List[str] = field(default_factory=list)
     audit_level: str = "all"  # "all" | "write_only" | "none"
 
@@ -691,7 +696,11 @@ class GovernancePolicy:
         original list.
         Use add_rule() to add new rules.
         """
-        return list(self.builtin_rules) + list(self.user_rules)
+        return (
+            list(self.hub_rules)
+            + list(self.builtin_rules)
+            + list(self.user_rules)
+        )
 
     def evaluate(  # noqa: E501  pylint: disable=too-many-return-statements,too-many-branches
         self,
@@ -774,8 +783,38 @@ class GovernancePolicy:
                     source="shell_danger_keywords",
                 )
 
-        # ── Phase 2: builtin_rules + user_rules (first-match-wins) ──
+        # ── Phase 2: hub_rules → builtin_rules → user_rules ──
+        # (first-match-wins; the hub baseline outranks local layers)
         is_strict = self.execution_level == "strict"
+
+        for rule in self.hub_rules:
+            if rule.matches_tool_call(
+                tc_spec,
+                tool_type=tool_type,
+            ):
+                action = GovernanceAction(rule.action.value)
+                # STRICT mode keeps its guarantee even over hub allows.
+                if action == GovernanceAction.ALLOW and is_strict:
+                    return GovernanceDecision(
+                        action=GovernanceAction.ASK,
+                        reason="STRICT mode: all tool calls require approval",
+                        findings=findings or None,
+                        source="STRICT mode",
+                    )
+                if (
+                    action == GovernanceAction.ALLOW
+                    and sensitive_path_findings
+                ):
+                    return self._apply_execution_level_fallback(
+                        tc_spec,
+                        sensitive_path_findings,
+                    )
+                return GovernanceDecision(
+                    action=action,
+                    reason=rule.reason,
+                    findings=findings or None,
+                    source="hub_rules",
+                )
 
         for rule in self.builtin_rules:
             if rule.matches_tool_call(
@@ -1211,7 +1250,8 @@ def _findings_source(findings: list[Any]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def load_governance_policy(
+# EP-2-13 added the hub_rules warning branch.
+def load_governance_policy(  # pylint: disable=too-many-branches
     policy_dir: str,
     workspace_dir: str,
     coding_project_dir: str = "",
@@ -1272,6 +1312,14 @@ def load_governance_policy(
             "load_governance_policy: ignoring 'builtin_rules' in %s; "
             "builtin rules are managed in code and cannot be overridden "
             "via YAML.",
+            path,
+        )
+    # EP-2-13: hub_rules come exclusively from the hub-injected
+    # environment (verified digest); a local YAML copy is inert.
+    if "hub_rules" in data:
+        logger.warning(
+            "load_governance_policy: ignoring 'hub_rules' in %s; "
+            "organization rules arrive via QWENPAW_POLICY_BASELINE_JSON.",
             path,
         )
     builtin_rules = copy.deepcopy(DEFAULT_BUILTIN_RULES)
@@ -1356,6 +1404,90 @@ def load_governance_policy(
         detection_rules=detection_rules,
         applied_migrations=applied_migrations,
     )
+
+
+def apply_hub_baseline_from_env(
+    policy: GovernancePolicy,
+    environ: Optional[dict] = None,
+) -> int:
+    """Apply the hub-pushed organization baseline onto ``policy``.
+
+    EP-2-13: the hub injects ``QWENPAW_POLICY_BASELINE_JSON``
+    (``{"revision", "sha256", "rules": [...]}``) through the provisioner
+    environment. The digest is verified against the canonical rule JSON
+    before anything is applied; on mismatch or malformed payloads the
+    policy keeps its previous hub layer (fail-closed: a corrupted push
+    must never silently relax or replace governance).
+
+    Returns the number of applied rules (0 when no baseline is present).
+    """
+    import hashlib
+    import json as _json
+    import os
+
+    env = environ if environ is not None else os.environ
+    raw = env.get("QWENPAW_POLICY_BASELINE_JSON", "")
+    if not raw:
+        policy.hub_rules = []
+        return 0
+    try:
+        payload = _json.loads(raw)
+        rules_payload = payload["rules"]
+        expected_sha = str(payload["sha256"])
+    except (ValueError, KeyError, TypeError):
+        logger.error(
+            "apply_hub_baseline_from_env: malformed baseline payload; "
+            "keeping previous hub rules",
+        )
+        return len(policy.hub_rules)
+    try:
+        canonical = _json.dumps(
+            rules_payload,
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        digest = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    except (TypeError, ValueError):
+        logger.error(
+            "apply_hub_baseline_from_env: baseline rules not JSON "
+            "canonicalizable; keeping previous hub rules",
+        )
+        return len(policy.hub_rules)
+    if digest != expected_sha:
+        logger.error(
+            "apply_hub_baseline_from_env: sha256 mismatch (expected %s, "
+            "computed %s); keeping previous hub rules",
+            expected_sha[:12],
+            digest[:12],
+        )
+        return len(policy.hub_rules)
+    applied: List[GovernanceRule] = []
+    for item in rules_payload if isinstance(rules_payload, list) else []:
+        if not isinstance(item, dict):
+            continue
+        match = item.get("match")
+        if not isinstance(match, str) or not match.strip():
+            continue
+        try:
+            action = GovernanceAction(str(item.get("action", "")).lower())
+        except ValueError:
+            continue
+        applied.append(
+            GovernanceRule(
+                match=match.strip(),
+                action=action,
+                reason=str(item.get("reason") or "organization baseline"),
+            ),
+        )
+    policy.hub_rules = applied
+    logger.info(
+        "apply_hub_baseline_from_env: applied %d organization rule(s) "
+        "(revision %s)",
+        len(applied),
+        payload.get("revision", "?"),
+    )
+    return len(applied)
 
 
 def save_governance_policy(

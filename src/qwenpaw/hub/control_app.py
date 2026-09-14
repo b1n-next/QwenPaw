@@ -70,6 +70,7 @@ from .models import (
     RuntimeState,
 )
 from .operations import HubOperationsStore
+from .policy_catalog import PolicyCatalogStore
 from .trace import TRACE_HEADER, trace_id_from_headers
 from .usage import UsageCollector, UsageStore
 from .oauth_routes import oauth_callback_route, runtime_oauth_callback_path
@@ -112,6 +113,7 @@ def build_runtime_service(
         registry.database_path,
         resolved_root / "secrets" / ".model_catalog_key",
     )
+    policy_catalog = PolicyCatalogStore(registry.database_path)
     local_provisioner = LocalProcessRuntimeProvisioner()
     docker_provisioner = DockerRuntimeProvisioner(resolved_root)
     # EP-1-6: k8s provisioner; preflight fail-closes until the cluster
@@ -137,6 +139,13 @@ def build_runtime_service(
         if bootstrap:
             environment["QWENPAW_MODEL_BOOTSTRAP_JSON"] = json.dumps(
                 bootstrap,
+            )
+        # EP-2-13: organization policy baseline (hub_rules outrank the
+        # runtime's builtin/user layers once applied at startup).
+        baseline = policy_catalog.baseline_payload()
+        if baseline:
+            environment["QWENPAW_POLICY_BASELINE_JSON"] = json.dumps(
+                baseline,
             )
         return environment
 
@@ -379,6 +388,10 @@ def create_hub_app(  # pylint: disable=too-many-statements
         runtime_service.root_dir / "secrets" / ".model_catalog_key",
     )
     model_catalog = app.state.model_catalog
+    # EP-2-13: organization governance baseline (same control.db).
+    app.state.policy_catalog = PolicyCatalogStore(
+        runtime_service.registry.database_path,
+    )
     # EP-1-4: usage accounting store (collector started in lifespan).
     app.state.usage_store = usage_store
     app.state.usage_collector = usage_collector
@@ -1380,6 +1393,55 @@ def create_hub_app(  # pylint: disable=too-many-statements
             "created_at": record.created_at,
             "updated_at": record.updated_at,
         }
+
+    @app.get("/api/hub/admin/policy/baseline")
+    async def get_policy_baseline(
+        _admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Read the organization governance baseline (EP-2-13)."""
+        baseline = await run_in_threadpool(
+            app.state.policy_catalog.get_baseline,
+        )
+        return {"baseline": baseline}
+
+    @app.put("/api/hub/admin/policy/baseline")
+    async def update_policy_baseline(
+        request: Request,
+        _admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Create or replace the organization governance baseline.
+
+        Takes effect on each personal runtime's next (re)start — the
+        baseline rides the provisioner environment and is applied as a
+        rules layer local policy.yaml cannot downgrade.
+        """
+        body = await request.json()
+        rules = body.get("rules")
+        enabled = bool(body.get("enabled", True))
+        try:
+            baseline = await run_in_threadpool(
+                app.state.policy_catalog.update_baseline,
+                rules,
+                updated_by=_admin.username,
+                enabled=enabled,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_BASELINE", "message": str(exc)},
+            ) from None
+        await record_audit(
+            _admin,
+            "policy.updated",
+            "policy",
+            "baseline",
+            {
+                "revision": baseline.get("revision"),
+                "rule_count": len(baseline.get("rules") or []),
+                "enabled": baseline.get("enabled"),
+            },
+        )
+        return {"baseline": baseline}
 
     @app.get("/api/hub/admin/models/providers")
     async def list_model_providers(

@@ -3447,6 +3447,9 @@
       },
       "approval": {
         "resolved": "承認裁定"
+      },
+      "policy": {
+        "updated": "ポリシー基線更新"
       }
     },
     "auditOutcomes": {

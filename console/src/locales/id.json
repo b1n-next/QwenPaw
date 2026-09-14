@@ -718,6 +718,9 @@
       },
       "approval": {
         "resolved": "Persetujuan diselesaikan"
+      },
+      "policy": {
+        "updated": "Baseline kebijakan diperbarui"
       }
     },
     "auditOutcomes": {

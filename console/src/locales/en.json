@@ -4169,6 +4169,9 @@
       },
       "approval": {
         "resolved": "Approval resolved"
+      },
+      "policy": {
+        "updated": "Policy baseline updated"
       }
     },
     "auditOutcomes": {

@@ -55,6 +55,9 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/hub/database.py` | schema v2：hub_audit_events.trace_id 列 + 索引 + v1→v2 迁移 | Ph2 | EP-2-11 |
 | `src/qwenpaw/governance/audit.py` | runtime 工具审计 extra 记 trace_id（零表迁移，`_trace_extra` 惰性 import） | Ph2 | EP-2-11 |
 | `src/qwenpaw/app/approvals/service.py` | 审批生命周期镜像到 ApprovalStore（create/resolve/cancel/GC 六触点 + 恢复扫描） | Ph2 | EP-2-12 |
+| `src/qwenpaw/governance/policy.py` | hub_rules 第三层（evaluate 最优先）+ `apply_hub_baseline_from_env`（sha256 fail-closed；load 忽略 YAML hub_rules 键） | Ph2 | EP-2-13 |
+| `src/qwenpaw/governance/resource_governor.py` | start() load 后应用 env 基线（1 行 import + 2 行调用） | Ph2 | EP-2-13 |
+| `src/qwenpaw/hub/local_provisioner.py`（追加）/ `docker_provisioner.py`（追加） | `QWENPAW_POLICY_BASELINE_JSON` 过滤后显式放行 | Ph2 | EP-2-13 |
 
 **已废弃条目**（v1 表内、实际未走该路线，清理记录）：
 - ~~runtime usage 上报 hook~~——EP-1-4 改拉取式（hub 侧 UsageCollector），

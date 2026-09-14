@@ -3728,6 +3728,9 @@
       },
       "approval": {
         "resolved": "Aprovação resolvida"
+      },
+      "policy": {
+        "updated": "Baseline de política atualizado"
       }
     },
     "auditOutcomes": {

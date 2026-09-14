@@ -141,6 +141,11 @@ class DockerRuntimeProvisioner(RuntimeProvisioner):
                     "QWENPAW_MODEL_BOOTSTRAP_JSON",
                     "",
                 ),
+                # EP-2-13: organization policy baseline, same channel.
+                "QWENPAW_POLICY_BASELINE_JSON": credentials.get(
+                    "QWENPAW_POLICY_BASELINE_JSON",
+                    "",
+                ),
             },
         )
         labels = self._labels(record.runtime_id, record.owner_user_id)

@@ -419,6 +419,10 @@ class LocalProcessRuntimeProvisioner(RuntimeProvisioner):
         model_bootstrap = credentials.get("QWENPAW_MODEL_BOOTSTRAP_JSON")
         if model_bootstrap:
             environment["QWENPAW_MODEL_BOOTSTRAP_JSON"] = model_bootstrap
+        # EP-2-13: organization policy baseline rides the same channel.
+        policy_baseline = credentials.get("QWENPAW_POLICY_BASELINE_JSON")
+        if policy_baseline:
+            environment["QWENPAW_POLICY_BASELINE_JSON"] = policy_baseline
         environment["PYTHONUNBUFFERED"] = "1"
         environment["PYTHONIOENCODING"] = "utf-8"
         return environment

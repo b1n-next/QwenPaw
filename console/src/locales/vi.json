@@ -704,6 +704,9 @@
       },
       "approval": {
         "resolved": "Phê duyệt đã xử lý"
+      },
+      "policy": {
+        "updated": "Cập nhật nền tảng chính sách"
       }
     },
     "auditOutcomes": {

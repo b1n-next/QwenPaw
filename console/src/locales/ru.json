@@ -3462,6 +3462,9 @@
       },
       "approval": {
         "resolved": "Одобрение разрешено"
+      },
+      "policy": {
+        "updated": "Базовая политика обновлена"
       }
     },
     "auditOutcomes": {

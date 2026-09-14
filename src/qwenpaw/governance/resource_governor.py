@@ -34,6 +34,7 @@ from .policy import (
     GovernanceRule,
     ToolCallSpec,
     _parse_match,
+    apply_hub_baseline_from_env,
     load_governance_policy,
     save_governance_policy,
 )
@@ -180,6 +181,9 @@ class ResourceGovernor:
                     str(path) for path in self.extra_project_dirs
                 ],
             )
+            # EP-2-13: overlay the hub-pushed organization baseline
+            # (hub_rules outrank builtin/user; save ignores this layer).
+            apply_hub_baseline_from_env(self._policy)
 
             # Persist migrations/defaults while holding the same lock used by
             # approval transactions in other governor instances.
