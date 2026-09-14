@@ -151,6 +151,40 @@ def build_runtime_service(
     )
 
 
+def _catalog_provider_ids(model_catalog: Any) -> set[str]:
+    """Enabled provider ids from the admin catalog."""
+    return {
+        record.provider_id
+        for record in model_catalog.list_providers(include_disabled=False)
+    }
+
+
+def _filter_models_payload(
+    raw: bytes,
+    allowed_ids: set[str],
+) -> bytes:
+    """Keep only catalog providers in a ``GET /api/models`` body.
+
+    Non-admins must not even see cloud providers they could never use
+    (unreachable from the intranet, and a data-egress surface). A body
+    that fails to parse is passed through untouched — the runtime owns
+    that contract and a parse failure means an upstream anomaly, not a
+    governance decision.
+    """
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return raw
+    if not isinstance(data, list):
+        return raw
+    filtered = [
+        provider
+        for provider in data
+        if isinstance(provider, dict) and provider.get("id") in allowed_ids
+    ]
+    return json.dumps(filtered).encode("utf-8")
+
+
 def _catalog_allows_activation(
     model_catalog: Any,
     raw_body: bytes,
@@ -1774,6 +1808,32 @@ def create_hub_app(  # pylint: disable=too-many-statements
             await client.aclose()
             raise
 
+        # EP-1-3 visibility governance: non-admins only ever see the
+        # admin-opened catalog — built-in cloud providers (free tiers
+        # included) are hidden server-side, not just in the UI.
+        if (
+            request.method == "GET"
+            and request.url.path == "/api/models"
+            and user.role != "admin"
+            and upstream.status_code == 200
+        ):
+            allowed_ids = await run_in_threadpool(
+                _catalog_provider_ids,
+                app.state.model_catalog,
+            )
+            if upstream.is_stream_consumed:
+                # pre-loaded body (e.g. test transports built with
+                # json=/content=); real network responses stream lazily
+                raw_body = upstream.content
+            else:
+                raw_body = await upstream.aread()
+            await upstream.aclose()
+            await client.aclose()
+            return Response(
+                content=_filter_models_payload(raw_body, allowed_ids),
+                status_code=200,
+                media_type="application/json",
+            )
         excluded_response_headers = {
             "connection",
             "keep-alive",

@@ -395,9 +395,29 @@ def test_chat_page_user_plane_allowed() -> None:
 
 
 def test_model_catalog_reads_allowed_writes_denied() -> None:
-    """EP-1-3: catalog reads open for chat UX; writes stay admin-plane."""
+    """EP-1-3: model reads open for chat UX; everything else closed.
+
+    GET /api/models is catalog-filtered by the hub proxy for members;
+    provider configuration subpaths (detail, discovery, custom
+    providers, per-provider probing) stay admin-plane.
+    """
     engine = AclEngine()
     assert engine.decide("user", "GET", "/api/models").allowed is True
-    assert engine.decide("user", "GET", "/api/models/corp-gpt").allowed is True
+    assert engine.decide("user", "GET", "/api/models/active").allowed is True
+    assert (
+        engine.decide("user", "GET", "/api/models/corp-gpt").allowed is False
+    )
+    assert (
+        engine.decide(
+            "user",
+            "GET",
+            "/api/models/openrouter/discover-extended",
+        ).allowed
+        is False
+    )
+    assert (
+        engine.decide("user", "GET", "/api/models/custom-providers").allowed
+        is False
+    )
     assert engine.decide("user", "POST", "/api/models").allowed is False
     assert engine.decide("user", "PUT", "/api/models/x").allowed is False

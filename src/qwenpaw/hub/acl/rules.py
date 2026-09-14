@@ -123,12 +123,15 @@ DEFAULT_RULES: tuple[RuleSpec, ...] = (
     # 15b. The user's own timezone preference (cron editor and agent
     #      locale save it; public runtime preference like language).
     _allow(r"^/api/config/user-timezone$", "config.user-timezone"),
-    # 16. Read-only model catalog (EP-1-3): the chat composer lists
-    #     models via GET /api/models; provider writes stay admin-plane
-    #     and are denied by the fail-closed default.
+    # 16. Model list/read (EP-1-3): GET /api/models is proxied with
+    #     a catalog filter for non-admins (they only ever see the
+    #     admin-opened providers); provider configuration subpaths
+    #     (custom-providers, openrouter discovery, per-provider
+    #     probing) stay admin-plane via the fail-closed default.
+    _allow(r"^/api/models$", "models.read", frozenset({"GET"})),
     _allow(
-        r"^/api/models(?:/|$)",
-        "models.read",
+        r"^/api/models/active(?:/|$)",
+        "models.active",
         frozenset({"GET"}),
     ),
     # 16b. Switching the active model is usage, not configuration:
