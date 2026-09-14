@@ -378,6 +378,5 @@ export const hubApi = {
       action?: string;
       traceId?: string;
     } = {},
-  ) =>
-    request<HubPage<HubAuditEvent>>(listPath("/hub/admin/audit", params)),
+  ) => request<HubPage<HubAuditEvent>>(listPath("/hub/admin/audit", params)),
 };
