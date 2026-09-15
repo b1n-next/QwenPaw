@@ -121,7 +121,15 @@ export interface HubUsageSummary {
   total: HubUsageTotals;
   by_user: Record<string, HubUsageTotals>;
   by_model: HubUsageModelRow[];
+  by_agent: HubUsageAgentRow[];
   by_date: HubUsageDateRow[];
+}
+
+export interface HubUsageAgentRow {
+  agent_id: string;
+  prompt_tokens: number;
+  completion_tokens: number;
+  call_count: number;
 }
 
 export interface HubProvisionerStatus {

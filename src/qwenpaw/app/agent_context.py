@@ -303,6 +303,26 @@ def get_active_agent_id() -> str:
         return "default"
 
 
+# EP-2-14: sub-agent principal. Spawned subagents keep the parent
+# agent identity for governance/approval routing, but usage and tool
+# audit attribute to this distinct principal so the hub can split
+# per-subagent cost and activity.
+_subagent_principal: ContextVar[str] = ContextVar(
+    "qwenpaw_subagent_principal",
+    default="",
+)
+
+
+def set_subagent_principal(principal: str) -> None:
+    """Set (or clear, with "") the spawned-subagent principal."""
+    _subagent_principal.set(principal or "")
+
+
+def get_subagent_principal() -> str:
+    """Active subagent principal; empty for parent/top-level turns."""
+    return _subagent_principal.get()
+
+
 def set_current_agent_id(agent_id: str) -> None:
     """Set current agent ID in context.
 

@@ -764,6 +764,7 @@
       "calls": "Panggilan",
       "byUser": "Pengguna (tenant)",
       "byModel": "Model",
+      "byAgent": "Per agen (termasuk subagen)",
       "byDate": "Tanggal",
       "empty": "Belum ada data penggunaan pada rentang ini"
     }

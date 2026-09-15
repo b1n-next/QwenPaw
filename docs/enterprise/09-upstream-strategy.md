@@ -58,6 +58,9 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/governance/policy.py` | hub_rules 第三层（evaluate 最优先）+ `apply_hub_baseline_from_env`（sha256 fail-closed；load 忽略 YAML hub_rules 键） | Ph2 | EP-2-13 |
 | `src/qwenpaw/governance/resource_governor.py` | start() load 后应用 env 基线（1 行 import + 2 行调用） | Ph2 | EP-2-13 |
 | `src/qwenpaw/hub/local_provisioner.py`（追加）/ `docker_provisioner.py`（追加） | `QWENPAW_POLICY_BASELINE_JSON` 过滤后显式放行 | Ph2 | EP-2-13 |
+| `src/qwenpaw/agents/tools/agent_management.py` | spawn 三路径铸造 `subagent_principal`（`<parent>:sub:<suffix>`）注入 request_context | Ph2 | EP-2-14 |
+| `src/qwenpaw/hooks/request_setup/contextvars_hook.py` | 子会话回合设/清 sub-principal ContextVar（审批路由仍走父身份） | Ph2 | EP-2-14 |
+| `src/qwenpaw/governance/audit.py`（追加）/ `token_usage/manager.py`（追加） | 审计 agent 列与 usage agent 维度优先取 sub-principal | Ph2 | EP-2-14 |
 
 **已废弃条目**（v1 表内、实际未走该路线，清理记录）：
 - ~~runtime usage 上报 hook~~——EP-1-4 改拉取式（hub 侧 UsageCollector），

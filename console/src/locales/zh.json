@@ -4072,6 +4072,7 @@
       "calls": "调用次数",
       "byUser": "用户（租户）",
       "byModel": "模型",
+      "byAgent": "按 Agent（含子 agent）",
       "byDate": "日期",
       "empty": "该时间范围内暂无用量数据"
     }

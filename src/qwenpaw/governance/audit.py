@@ -49,6 +49,16 @@ CREATE INDEX IF NOT EXISTS idx_audit_tool ON audit_events(tool_name);
 """
 
 
+def _audit_agent_id(agent_id: str) -> str:
+    """EP-2-14: attribute subagent tool audits to the sub-principal."""
+    try:
+        from ..app.agent_context import get_subagent_principal
+
+        return get_subagent_principal() or agent_id
+    except Exception:  # pragma: no cover - defensive import guard
+        return agent_id
+
+
 def _trace_extra() -> str:
     """Serialize the request-scoped trace id into the audit ``extra``.
 
@@ -253,7 +263,7 @@ class AuditLog:
                     (
                         _now_unix_ms(),
                         workspace_dir,
-                        tc_spec.agent_id,
+                        _audit_agent_id(tc_spec.agent_id),
                         tc_spec.session_id,
                         tc_spec.tool_name,
                         tc_spec.target,

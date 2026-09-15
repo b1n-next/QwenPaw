@@ -1394,6 +1394,36 @@ export default function HubPage() {
                       <table>
                         <thead>
                           <tr>
+                            <th>{t("hub.usage.byAgent")}</th>
+                            <th>{t("hub.usage.promptTokens")}</th>
+                            <th>{t("hub.usage.completionTokens")}</th>
+                            <th>{t("hub.usage.calls")}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(usage?.by_agent ?? []).map((row) => (
+                            <tr key={row.agent_id}>
+                              <td className={styles.monoCell}>
+                                {row.agent_id}
+                              </td>
+                              <td>{row.prompt_tokens}</td>
+                              <td>{row.completion_tokens}</td>
+                              <td>{row.call_count}</td>
+                            </tr>
+                          ))}
+                          {(usage?.by_agent ?? []).length === 0 && (
+                            <EmptyRow
+                              colSpan={4}
+                              message={t("hub.usage.empty")}
+                            />
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className={styles.tableWrap}>
+                      <table>
+                        <thead>
+                          <tr>
                             <th>{t("hub.usage.byDate")}</th>
                             <th>{t("hub.usage.promptTokens")}</th>
                             <th>{t("hub.usage.completionTokens")}</th>

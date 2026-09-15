@@ -69,6 +69,7 @@ class ContextVarsSetupHook(LifecycleHook):
             set_current_agent_id,
             set_current_approval_route,
             set_current_channel,
+            set_subagent_principal,
             set_current_root_session_id,
             set_current_session_id as _set_app_session_id,
             set_current_user_id,
@@ -87,9 +88,20 @@ class ContextVarsSetupHook(LifecycleHook):
         set_current_user_id(ctx.request.user_id)
         set_current_channel(getattr(ctx.request, "channel", None))
         request_context = getattr(ctx.request, "request_context", None)
-        if isinstance(request_context, dict) and request_context.get(
-            "_spawn_subagent",
-        ):
+        is_subagent_turn = isinstance(
+            request_context,
+            dict,
+        ) and request_context.get("_spawn_subagent")
+        # EP-2-14: attribute usage/audit to the spawned sub-principal;
+        # cleared on every parent/top-level turn.
+        set_subagent_principal(
+            (
+                str(request_context.get("subagent_principal") or "")
+                if is_subagent_turn
+                else ""
+            ),
+        )
+        if is_subagent_turn:
             approval_route = {
                 key: request_context.get(key)
                 for key in (

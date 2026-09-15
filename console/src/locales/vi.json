@@ -750,6 +750,7 @@
       "calls": "Số lần gọi",
       "byUser": "Người dùng (tenant)",
       "byModel": "Mô hình",
+      "byAgent": "Theo agent (gồm subagent)",
       "byDate": "Ngày",
       "empty": "Chưa có dữ liệu trong khoảng này"
     }

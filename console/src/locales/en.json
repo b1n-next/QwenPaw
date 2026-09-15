@@ -4215,6 +4215,7 @@
       "calls": "Calls",
       "byUser": "User (tenant)",
       "byModel": "Model",
+      "byAgent": "By Agent (incl. subagents)",
       "byDate": "Date",
       "empty": "No usage data in this range"
     }

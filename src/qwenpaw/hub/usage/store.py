@@ -161,6 +161,19 @@ class UsageStore:
                     params,
                 )
             }
+            by_agent_rows = connection.execute(
+                f"""
+                SELECT agent_id,
+                       SUM(prompt_tokens) AS prompt_tokens,
+                       SUM(completion_tokens) AS completion_tokens,
+                       SUM(call_count) AS call_count,
+                       COUNT(*) AS rows
+                FROM usage_counters WHERE {where}
+                GROUP BY agent_id
+                ORDER BY SUM(call_count) DESC
+                """,
+                params,
+            ).fetchall()
             by_model_rows = connection.execute(
                 f"""
                 SELECT model,
@@ -207,6 +220,17 @@ class UsageStore:
                 }
                 for tenant, entry in sorted(by_tenant.items())
             },
+            "by_agent": [
+                {
+                    "agent_id": (
+                        row["agent_id"] if row["agent_id"] else "(default)"
+                    ),
+                    "prompt_tokens": row["prompt_tokens"],
+                    "completion_tokens": row["completion_tokens"],
+                    "call_count": row["call_count"],
+                }
+                for row in by_agent_rows
+            ],
             "by_model": [
                 {
                     "model": row["model"],

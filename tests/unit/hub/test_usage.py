@@ -61,6 +61,36 @@ class TestUsageStore:
         models = {entry["model"] for entry in summary["by_model"]}
         assert models == {"m1", "m2"}
 
+    def test_summary_splits_subagent_principals(self, tmp_path: Path):
+        """EP-2-14: by_agent separates sub-principals from the parent."""
+        store = UsageStore(tmp_path / "usage.db")
+        store.upsert_rows(
+            "personal-u1",
+            [
+                _row(model="m1", prompt=100),
+                _row(
+                    model="m1",
+                    agent="coder:sub:abcd1234",
+                    prompt=25,
+                ),
+                _row(
+                    model="m2",
+                    agent="coder:sub:efff5678",
+                    prompt=5,
+                ),
+            ],
+        )
+        summary = store.summary()
+        agents = {
+            entry["agent_id"]: entry["prompt_tokens"]
+            for entry in summary["by_agent"]
+        }
+        assert agents == {
+            "(default)": 100,
+            "coder:sub:abcd1234": 25,
+            "coder:sub:efff5678": 5,
+        }
+
     def test_repoll_is_idempotent(self, tmp_path: Path):
         store = UsageStore(tmp_path / "usage.db")
         store.upsert_rows("t1", [_row(prompt=100)])
