@@ -119,27 +119,27 @@ ASK）；无"第 N 步暂停等签发"的一等原语，不支持分支/并行/D
 
 | # | 差距 | 归类 | 严重度 |
 |---|---|---|---|
-| G-P1 | 无 DAG 画布编排器（节点/连线/属性面板/Human Gate 卡片） | 编排 | 高 |
-| G-P2 | loop 无 human_gate 原语（审批只在工具层） | 编排 | 高 |
-| G-P3 | harness registry 封闭（硬编码 factory，无插件钩子） | 编排 | 高 |
-| G-P4 | 策略无 hub 集中下发/版本化/签名（每节点本地 YAML） | 治理贯通 | 高 |
-| G-P5 | 审批不持久化（内存态）、不回流 hub、无多级/会签 | 治理贯通 | 高 |
-| G-P6 | 双审计库无 trace_id 贯穿；本地可 purge、无防篡改 | 治理贯通 | 高 |
-| G-P7 | 子 agent 共享父身份，无 principal 降权/预算归集 | 治理贯通 | 中 |
-| G-P8 | 无 MCP server 化（不能进企业 MCP 网关） | 互操作 | 中 |
-| G-P9 | A2A 碎片化（标准客户端困在插件、无 agent-card 服务端） | 互操作 | 中 |
-| G-P10 | RAG 检索栈外包（无内置向量索引，文档级 RAG 无入口） | 能力 | 高 |
-| G-P11 | hook 无工具级挂点（DLP/风控接不进工具链） | 治理贯通 | 中 |
-| G-P12 | 无 Prompt 资产版本管理/Diff；无 API Key 池 | 产品 | 中 |
-| G-P13 | 无 Agent 模板市场/中枢大厅聚合页 | 产品 | 中 |
-| G-P14 | 会话单机 JSON、沙箱无容器后端、无移动 H5 审批 | 规模化 | 低（Phase 3） |
+| G-P1 | 无 DAG 画布编排器（节点/连线/属性面板/Human Gate 卡片） | 编排 | 高 | ✅ EP-2-17 `129c8b66` + EP-2-18 `343e51e1` |
+| G-P2 | loop 无 human_gate 原语（审批只在工具层） | 编排 | 高 | ✅ EP-2-15 `357c11b7` |
+| G-P3 | harness registry 封闭（硬编码 factory，无插件钩子） | 编排 | 高 | ✅ EP-2-16 `3063b8be` |
+| G-P4 | 策略无 hub 集中下发/版本化/签名（每节点本地 YAML） | 治理贯通 | 高 | ✅ EP-2-13 `885257ca` |
+| G-P5 | 审批不持久化（内存态）、不回流 hub、无多级/会签 | 治理贯通 | 高 | ✅ EP-2-12 `f16c1c67` |
+| G-P6 | 双审计库无 trace_id 贯穿；本地可 purge、无防篡改 | 治理贯通 | 高 | ✅ EP-2-11 `7433d5b3` |
+| G-P7 | 子 agent 共享父身份，无 principal 降权/预算归集 | 治理贯通 | 中 | ✅ EP-2-14 `46dbb0d5` |
+| G-P8 | 无 MCP server 化（不能进企业 MCP 网关） | 互操作 | 中 | ✅ EP-2-20 `50ac4387` |
+| G-P9 | A2A 碎片化（标准客户端困在插件、无 agent-card 服务端） | 互操作 | 中 | ✅ EP-2-21 `6e4f9b6d` |
+| G-P10 | RAG 检索栈外包（无内置向量索引，文档级 RAG 无入口） | 能力 | 高 | ✅ EP-2-22 `785b7557` |
+| G-P11 | hook 无工具级挂点（DLP/风控接不进工具链） | 治理贯通 | 中 | ✅ EP-2-23 `6c953fb2` |
+| G-P12 | 无 Prompt 资产版本管理/Diff；无 API Key 池 | 产品 | 中 | ✅ EP-2-24 `231dcf4b` |
+| G-P13 | 无 Agent 模板市场/中枢大厅聚合页 | 产品 | 中 | ✅ EP-2-19 `50894b98` |
+| G-P14 | 会话单机 JSON、沙箱无容器后端、无移动 H5 审批 | 规模化 | 低（Phase 3） | ⬜ Phase 3 候选（未启动） |
 
 ## §5 Phase 2 平台线 WBS
 
 > 票号 EP-2-11 起（EP-2-1..2-10 为既有治理线，见 10 号文档，不重复）。
 > 预估口径同 10 号：1 人 + AI 辅助。优先级：P0（及格线）> P1（平台成立）> P2（生态）。
 
-### P0 · 治理贯通（企业底座及格线，4 周）
+### P0 · 治理贯通（企业底座及格线，4 周）— ✅ 全部完成
 
 | 票 | 内容 | 交付物 | DoD | 预估 | 依赖 | 关联 |
 |---|---|---|---|---|---|---|
@@ -148,7 +148,7 @@ ASK）；无"第 N 步暂停等签发"的一等原语，不支持分支/并行/D
 | EP-2-13 | 策略 hub 下发：hub 存组织 baseline policy（版本化+hash 签名）→ provisioner 注入 env → runtime 启动校验合并（hub baseline 压过本地） | `hub/policy_catalog/` + bootstrap env 扩展 + `governance/policy.py` 合并层 | 改 hub 策略→runtime 重启生效；本地无法降级 hub 规则 | 4d | — | G-P4，衔接 EP-2-1 |
 | EP-2-14 | 子 agent 身份降权：spawn 时分配 sub-principal（`user:xxx:agent:N`），工具审计与预算按 principal 归集 | `agent_management.py` principal 注入 + 审计列 + usage 归集 | hub 用量页按子 agent 拆分可见 | 3d | EP-2-11 | G-P7 |
 
-### P1 · 编排原语（平台成立，5-6 周）
+### P1 · 编排原语（平台成立，5-6 周）— ✅ 全部完成
 
 | 票 | 内容 | 交付物 | DoD | 预估 | 依赖 | 关联 |
 |---|---|---|---|---|---|---|
@@ -158,7 +158,7 @@ ASK）；无"第 N 步暂停等签发"的一等原语，不支持分支/并行/D
 | EP-2-18 | DAG 画布编排器（前端）：reactflow 画布 + 节点面板（模型/Prompt/Tools/Human Gate）+ 右侧属性面板 + 发布为 Agent 模板 | `console/src/pages/Composer/` + graph API 对接 | 拖拽连线发布一个含 Human Gate 的图智能体并可从大厅启动 | 6d | EP-2-17 | G-P1 |
 | EP-2-19 | Agent 模板市场 + 中枢大厅：模板打包（graph+prompt+skills 清单）/上架审批/一键实例化；大厅聚合页（资产卡+健康度+模板入口） | `hub/templates/` + `console/src/pages/Hub/Agents` + Market 模板 tab | member 从大厅选模板→实例化→对话跑通；admin 上下架 | 5d | EP-2-18 | G-P13 |
 
-### P2 · 生态与产品补齐（按需排队）
+### P2 · 生态与产品补齐（按需排队）— ✅ 全部完成
 
 | 票 | 内容 | 交付物 | DoD | 预估 | 依赖 | 关联 |
 |---|---|---|---|---|---|---|

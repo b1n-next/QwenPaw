@@ -68,6 +68,16 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/graph/`（新目录：schema/executor/state_store） | EP-2-17 图执行引擎（零上游文件触碰） | Ph2 | EP-2-17 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/graph` 路由（1 行 import + include） | Ph2 | EP-2-18 |
 | `src/qwenpaw/hub/control_app.py`（追加） | EP-2-19 模板市场路由（member 列表/实例化 + admin CRUD/上下架，graph 经内部 token 推送 runtime） | Ph2 | EP-2-19 |
+| `src/qwenpaw/app/agent_context.py`（新文件，20 行） | EP-2-14 sub-principal ContextVar 模块（set/clear helper；新文件不算改上游，登记备查） | Ph2 | EP-2-14 |
+| `src/qwenpaw/hub/usage/store.py`（追加） | EP-2-14 usage 汇总 `by_agent` 维度（+24） | Ph2 | EP-2-14 |
+| `src/qwenpaw/loop/gates/__init__.py`（追加） | EP-2-15 导出 HumanGate（1 行 import/export） | Ph2 | EP-2-15 |
+| `console/src/api/types/agent.ts`（追加）/ `console/src/pages/Agent/Config/components/AgentLoopCard.tsx`（追加） | EP-2-15 human_gate 类型与卡片（+1/+43） | Ph2 | EP-2-15 |
+| `console/src/App.tsx`（追加） | EP-2-18 `/composer` lazy 路由（AuthGuard + Suspense，1 个 Route 元素） | Ph2 | EP-2-18 |
+| `src/qwenpaw/hub/trace.py` + `src/qwenpaw/hub/policy_catalog/` + `src/qwenpaw/hub/templates/` + `src/qwenpaw/hub/prompt_library/` + `src/qwenpaw/hub/key_pool/`（新文件） | EP-2-11/13/19/24 hub 侧新模块（登记备查；零上游文件触碰） | Ph2 | 各票 |
+| `src/qwenpaw/mcp_server/`（新目录） | EP-2-20 MCP server（protocol/tools/stdio/http，零上游文件触碰） | Ph2 | EP-2-20 |
+| `src/qwenpaw/a2a/`（新目录） | EP-2-21 A2A server + core client（server.py 挂载经 `_app.py` 行，零上游文件触碰） | Ph2 | EP-2-21 |
+| `src/qwenpaw/knowledge/` + `src/qwenpaw/app/routers/knowledge.py` + `src/qwenpaw/agents/tools/knowledge_search.py`（新文件） | EP-2-22 知识库层 + API + 工具（零上游文件触碰；挂载/导入经白名单既有行） | Ph2 | EP-2-22 |
+| `src/qwenpaw/toolhooks/`（新目录） | EP-2-23 工具级 hook 层（零上游文件触碰；漏斗接线见 react_agent.py 行） | Ph2 | EP-2-23 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/mcp-server`（1 行 import + include；`/api/mcp/*` 既有客户端面不动） | Ph2 | EP-2-20 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 A2A 面（root `/.well-known/agent-card.json` + `/api/a2a`，2 行 include） | Ph2 | EP-2-21 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/knowledge`（1 行 import + include） | Ph2 | EP-2-22 |

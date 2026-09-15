@@ -51,9 +51,9 @@ tag 补记：`enterprise/v0.1`（Phase 0 收口 @717c85ff）、`enterprise/v0.2`
 | EP-2-8b | 问数 M4（08 号里程碑四，收尾切片——占位票，M3 后细化） | 3d |
 | EP-2-9 | runtime 受限 profile（B6，直连场景） | 2d |
 | EP-2-10 | 升级金丝雀流程 + 环境分层 values（I2） | 2d |
-| EP-2-11..2-14 | **平台线 P0 · 治理贯通**：trace_id 贯穿 / 审批持久化回流 / 策略 hub 下发 / 子 agent 降权（票面与 DoD 见 [11 §5](11-platform-assessment.md)） | 13d |
-| EP-2-15..2-19 | **平台线 P1 · 编排原语**：loop human_gate / harness registry 插件化 / 图执行引擎 / DAG 画布 / 模板市场+大厅（见 11 §5） | 22d |
-| EP-2-20..2-24 | **平台线 P2 · 生态补齐**：MCP server 化 / A2A 服务端 / 知识库 / 工具级 hook / Prompt 资产+Key 池（见 11 §5） | 22d |
+| EP-2-11..2-14 ☑ | **平台线 P0 · 治理贯通**：trace_id 贯穿 / 审批持久化回流 / 策略 hub 下发 / 子 agent 降权（票面与 DoD 见 [11 §5](11-platform-assessment.md)；`7433d5b3`/`f16c1c67`/`885257ca`/`46dbb0d5`） | 13d |
+| EP-2-15..2-19 ☑ | **平台线 P1 · 编排原语**：loop human_gate / harness registry 插件化 / 图执行引擎 / DAG 画布 / 模板市场+大厅（见 11 §5；`357c11b7`/`3063b8be`/`129c8b66`/`343e51e1`/`50894b98`） | 22d |
+| EP-2-20..2-24 ☑ | **平台线 P2 · 生态补齐**：MCP server 化 / A2A 服务端 / 知识库 / 工具级 hook / Prompt 资产+Key 池（见 11 §5；`50ac4387`/`6e4f9b6d`/`785b7557`/`6c953fb2`/`231dcf4b`） | 22d |
 
 **Phase 2 DoD**：tag `enterprise/v0.3`；05/07/08 验收节全过。
 
