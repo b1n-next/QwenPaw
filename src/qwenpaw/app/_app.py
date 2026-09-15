@@ -16,6 +16,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from qwenpaw.mcp_server.router import router as mcp_router
+
 from ..__version__ import __version__
 from ..backup import BackupManager
 from ..backup._utils.safe_swap import cleanup_startup_restore_artifacts
@@ -937,6 +939,10 @@ app.include_router(loops_router, prefix="/api")
 
 # Graph orchestration router (EP-2-18): /api/graph
 app.include_router(graph_router, prefix="/api")
+
+# MCP server endpoint (EP-2-20): /api/mcp-server (QwenPaw AS the
+# server; /api/mcp/* stays the pre-existing MCP client plane)
+app.include_router(mcp_router, prefix="/api")
 
 # Agent-scoped router: /api/agents/{agentId}/chats, etc.
 agent_scoped_router = create_agent_scoped_router()
