@@ -16,6 +16,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from qwenpaw.a2a.server import api_router as a2a_api_router
+from qwenpaw.a2a.server import well_known_router as a2a_well_known
 from qwenpaw.mcp_server.router import router as mcp_router
 
 from ..__version__ import __version__
@@ -943,6 +945,11 @@ app.include_router(graph_router, prefix="/api")
 # MCP server endpoint (EP-2-20): /api/mcp-server (QwenPaw AS the
 # server; /api/mcp/* stays the pre-existing MCP client plane)
 app.include_router(mcp_router, prefix="/api")
+
+# A2A server surface (EP-2-21): discovery at the domain root and the
+# JSON-RPC message endpoint under /api/a2a
+app.include_router(a2a_well_known)
+app.include_router(a2a_api_router, prefix="/api")
 
 # Agent-scoped router: /api/agents/{agentId}/chats, etc.
 agent_scoped_router = create_agent_scoped_router()

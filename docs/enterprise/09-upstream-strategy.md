@@ -69,6 +69,7 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/graph` 路由（1 行 import + include） | Ph2 | EP-2-18 |
 | `src/qwenpaw/hub/control_app.py`（追加） | EP-2-19 模板市场路由（member 列表/实例化 + admin CRUD/上下架，graph 经内部 token 推送 runtime） | Ph2 | EP-2-19 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/mcp-server`（1 行 import + include；`/api/mcp/*` 既有客户端面不动） | Ph2 | EP-2-20 |
+| `src/qwenpaw/app/_app.py`（追加） | 挂载 A2A 面（root `/.well-known/agent-card.json` + `/api/a2a`，2 行 include） | Ph2 | EP-2-21 |
 
 **已废弃条目**（v1 表内、实际未走该路线，清理记录）：
 - ~~runtime usage 上报 hook~~——EP-1-4 改拉取式（hub 侧 UsageCollector），
