@@ -415,7 +415,8 @@
       "credentials": "Thông tin xác thực",
       "audit": "Nhật ký kiểm tra",
       "settings": "Cài đặt hệ thống",
-      "usage": "Lượng dùng"
+      "usage": "Lượng dùng",
+      "agents": "Sảnh agent"
     },
     "actions": {
       "backToQwenPaw": "Quay lại QwenPaw",
@@ -753,6 +754,12 @@
       "byAgent": "Theo agent (gồm subagent)",
       "byDate": "Ngày",
       "empty": "Chưa có dữ liệu trong khoảng này"
+    },
+    "agents": {
+      "eyebrow": "Thị trường mẫu",
+      "title": "Agent từ mẫu",
+      "description": "Chọn mẫu do quản trị viên công bố và khởi tạo vào runtime cá nhân bằng một cú nhấp",
+      "instantiated": "Đã khởi tạo mẫu — sẵn sàng trò chuyện"
     }
   },
   "login": {

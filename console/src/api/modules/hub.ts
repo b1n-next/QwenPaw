@@ -132,6 +132,24 @@ export interface HubUsageAgentRow {
   call_count: number;
 }
 
+export interface HubAgentTemplate {
+  template_id: string;
+  name: string;
+  description: string;
+  revision: number;
+  updated_at: string | null;
+  graph_node_count: number;
+  skills: string[];
+}
+
+export interface InstantiateResult {
+  template_id: string;
+  name: string;
+  prompt: string;
+  skills: string[];
+  graph_pushed: boolean;
+}
+
 export interface HubProvisionerStatus {
   available: boolean;
   reason?: string | null;
@@ -376,6 +394,12 @@ export const hubApi = {
     const suffix = query.toString() ? `?${query.toString()}` : "";
     return request<HubUsageSummary>(`/hub/admin/usage/summary${suffix}`);
   },
+  listAgentTemplates: () =>
+    request<{ templates: HubAgentTemplate[] }>("/hub/templates"),
+  instantiateTemplate: (templateId: string) =>
+    request<InstantiateResult>(`/hub/templates/${templateId}/instantiate`, {
+      method: "POST",
+    }),
   collectUsage: () =>
     request<{ collected_rows: number; last_error: string | null }>(
       "/hub/admin/usage/collect",

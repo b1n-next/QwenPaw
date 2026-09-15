@@ -3444,7 +3444,8 @@
       "credentials": "Credenciais",
       "audit": "Registro de auditoria",
       "settings": "Configurações do sistema",
-      "usage": "Uso"
+      "usage": "Uso",
+      "agents": "Salão de agentes"
     },
     "actions": {
       "backToQwenPaw": "Voltar para QwenPaw",
@@ -3782,6 +3783,12 @@
       "byAgent": "Por agente (incl. subagentes)",
       "byDate": "Data",
       "empty": "Sem dados de uso neste intervalo"
+    },
+    "agents": {
+      "eyebrow": "Mercado de modelos",
+      "title": "Agentes a partir de modelos",
+      "description": "Escolha um modelo publicado pelo admin e o instancie no seu runtime pessoal em um clique",
+      "instantiated": "Modelo instanciado — pronto para conversar"
     }
   },
   "login": {

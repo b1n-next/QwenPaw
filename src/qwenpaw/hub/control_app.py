@@ -71,6 +71,7 @@ from .models import (
 )
 from .operations import HubOperationsStore
 from .policy_catalog import PolicyCatalogStore
+from .templates import TemplateStore
 from .trace import TRACE_HEADER, trace_id_from_headers
 from .usage import UsageCollector, UsageStore
 from .oauth_routes import oauth_callback_route, runtime_oauth_callback_path
@@ -390,6 +391,10 @@ def create_hub_app(  # pylint: disable=too-many-statements
     model_catalog = app.state.model_catalog
     # EP-2-13: organization governance baseline (same control.db).
     app.state.policy_catalog = PolicyCatalogStore(
+        runtime_service.registry.database_path,
+    )
+    # EP-2-19: agent template marketplace (same control.db).
+    app.state.template_store = TemplateStore(
         runtime_service.registry.database_path,
     )
     # EP-1-4: usage accounting store (collector started in lifespan).
@@ -1393,6 +1398,177 @@ def create_hub_app(  # pylint: disable=too-many-statements
             "created_at": record.created_at,
             "updated_at": record.updated_at,
         }
+
+    @app.get("/api/hub/templates")
+    async def list_market_templates(
+        _user: HubUser = Depends(require_user),
+    ) -> dict[str, object]:
+        """Hall listing: members see published templates only."""
+        templates = await run_in_threadpool(
+            app.state.template_store.list_templates,
+            published_only=True,
+        )
+        return {
+            "templates": [
+                {
+                    key: item[key]
+                    for key in (
+                        "template_id",
+                        "name",
+                        "description",
+                        "revision",
+                        "updated_at",
+                        "graph_node_count",
+                        "skills",
+                    )
+                }
+                for item in templates
+            ],
+        }
+
+    @app.post("/api/hub/templates/{template_id}/instantiate")
+    async def instantiate_template(
+        template_id: str,
+        user: HubUser = Depends(require_user),
+    ) -> dict[str, object]:
+        """Instantiate one template into the caller's personal runtime.
+
+        Pushes the manifest graph to the runtime's graph template store
+        (internal token, server-to-server) and returns the conversation
+        seed so the console can open a chat.
+        """
+        template = await run_in_threadpool(
+            app.state.template_store.get_template,
+            template_id,
+        )
+        if template is None or template["status"] != "published":
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "code": "TEMPLATE_NOT_FOUND",
+                    "message": "Template is not published",
+                },
+            )
+        graph = (template.get("manifest") or {}).get("graph")
+        pushed = False
+        if graph:
+            pushed = await _push_graph_to_runtime(user, graph)
+        await record_audit(
+            user,
+            "template.instantiated",
+            "template",
+            template_id,
+            {"graph_pushed": pushed, "revision": template["revision"]},
+        )
+        return {
+            "template_id": template_id,
+            "name": template["name"],
+            "prompt": template.get("prompt", ""),
+            "skills": template.get("skills", []),
+            "graph_pushed": pushed,
+        }
+
+    async def _push_graph_to_runtime(user: HubUser, graph: dict) -> bool:
+        """Best-effort graph publish into the user's running runtime."""
+        records = await run_in_threadpool(runtime_service.list)
+        record = next(
+            (
+                item
+                for item in records
+                if item.owner_user_id == user.user_id
+                and getattr(item, "state", None) == "running"
+            ),
+            None,
+        )
+        if record is None:
+            return False
+        try:
+            token = await run_in_threadpool(
+                credential_vault.get_runtime_secret,
+                tenant_id=record.tenant_id,
+                runtime_id=record.runtime_id,
+                name="QWENPAW_RUNTIME_INTERNAL_TOKEN",
+            )
+        except Exception:  # noqa: BLE001 - instantiation must not 500
+            return False
+        target = f"http://{record.host}:{record.port}/api/graph/publish"
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    target,
+                    json={"graph": graph},
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+            return response.status_code == 200
+        except httpx.HTTPError:
+            return False
+
+    @app.get("/api/hub/admin/templates")
+    async def admin_list_templates(
+        _admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Admin marketplace listing (all statuses)."""
+        templates = await run_in_threadpool(
+            app.state.template_store.list_templates,
+        )
+        return {"templates": templates}
+
+    @app.post("/api/hub/admin/templates")
+    async def admin_upsert_template(
+        request: Request,
+        _admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Create or update one template (revision bumps)."""
+        body = await request.json()
+        template_id = str(body.get("template_id") or "").strip()
+        manifest = body.get("manifest")
+        status = str(body.get("status") or "draft")
+        try:
+            template = await run_in_threadpool(
+                app.state.template_store.upsert_template,
+                template_id,
+                manifest,
+                created_by=_admin.username,
+                status=status,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_TEMPLATE", "message": str(exc)},
+            ) from None
+        await record_audit(
+            _admin,
+            "template.updated",
+            "template",
+            template_id,
+            {"revision": template.get("revision"), "status": status},
+        )
+        return {"template": template}
+
+    @app.patch("/api/hub/admin/templates/{template_id}")
+    async def admin_set_template_status(
+        template_id: str,
+        request: Request,
+        _admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Publish or offline one template."""
+        body = await request.json()
+        status = str(body.get("status") or "").strip()
+        template = await run_in_threadpool(
+            app.state.template_store.set_status,
+            template_id,
+            status,
+        )
+        if template is None:
+            raise HTTPException(status_code=404, detail="template not found")
+        await record_audit(
+            _admin,
+            "template.status_changed",
+            "template",
+            template_id,
+            {"status": status, "revision": template["revision"]},
+        )
+        return {"template": template}
 
     @app.get("/api/hub/admin/policy/baseline")
     async def get_policy_baseline(

@@ -3885,7 +3885,8 @@
       "credentials": "Credentials",
       "audit": "Audit log",
       "settings": "System settings",
-      "usage": "Usage"
+      "usage": "Usage",
+      "agents": "Agent hall"
     },
     "actions": {
       "backToQwenPaw": "Back to QwenPaw",
@@ -4223,6 +4224,12 @@
       "byAgent": "By Agent (incl. subagents)",
       "byDate": "Date",
       "empty": "No usage data in this range"
+    },
+    "agents": {
+      "eyebrow": "Template market",
+      "title": "Agents from templates",
+      "description": "Pick an admin-published template and instantiate it into your personal runtime in one click",
+      "instantiated": "Template instantiated — chat is ready"
     }
   },
   "login": {

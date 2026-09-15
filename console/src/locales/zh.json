@@ -3742,7 +3742,8 @@
       "credentials": "凭据",
       "audit": "审计日志",
       "settings": "系统设置",
-      "usage": "用量统计"
+      "usage": "用量统计",
+      "agents": "智能体大厅"
     },
     "actions": {
       "backToQwenPaw": "返回 QwenPaw",
@@ -4080,6 +4081,12 @@
       "byAgent": "按 Agent（含子 agent）",
       "byDate": "日期",
       "empty": "该时间范围内暂无用量数据"
+    },
+    "agents": {
+      "eyebrow": "模板市场",
+      "title": "从模板开始的智能体",
+      "description": "选择管理员发布的模板，一键实例化到你的个人运行时",
+      "instantiated": "模板已实例化——可以开始对话"
     }
   },
   "login": {

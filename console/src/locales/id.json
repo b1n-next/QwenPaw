@@ -429,7 +429,8 @@
       "credentials": "Kredensial",
       "audit": "Catatan audit",
       "settings": "Pengaturan sistem",
-      "usage": "Penggunaan"
+      "usage": "Penggunaan",
+      "agents": "Aula agen"
     },
     "actions": {
       "backToQwenPaw": "Kembali ke QwenPaw",
@@ -767,6 +768,12 @@
       "byAgent": "Per agen (termasuk subagen)",
       "byDate": "Tanggal",
       "empty": "Belum ada data penggunaan pada rentang ini"
+    },
+    "agents": {
+      "eyebrow": "Pasar templat",
+      "title": "Agen dari templat",
+      "description": "Pilih templat yang diterbitkan admin dan instance-kan ke runtime pribadi Anda sekali klik",
+      "instantiated": "Templat di-instance — siap mengobrol"
     }
   },
   "login": {

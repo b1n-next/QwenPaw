@@ -2,6 +2,7 @@ import type { HubRuntime } from "../../api/modules/hub";
 
 export type Section =
   | "overview"
+  | "agents"
   | "runtimes"
   | "users"
   | "usage"

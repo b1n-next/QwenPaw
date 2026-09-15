@@ -25,6 +25,7 @@ import {
   ChartNoAxesCombined,
   CircleStop,
   Gauge,
+  LayoutGrid,
   HardDrive,
   House,
   KeyRound,
@@ -58,7 +59,9 @@ import {
   type HubDockerImagePull,
   type HubHealth,
   type HubOverview,
+  type HubAgentTemplate,
   type HubUsageSummary,
+  type InstantiateResult,
   type HubRuntime,
   type HubSettings,
   type HubUser,
@@ -125,6 +128,22 @@ export default function HubPage() {
 
   const loadOverview = useCallback(async () => {
     setOverview(await hubApi.getOverview());
+  }, []);
+
+  const [agentTemplates, setAgentTemplates] = useState<HubAgentTemplate[]>([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
+  const [instantiating, setInstantiating] = useState<string | null>(null);
+  const [lastInstantiation, setLastInstantiation] =
+    useState<InstantiateResult | null>(null);
+
+  const loadAgentTemplates = useCallback(async () => {
+    setAgentsLoading(true);
+    try {
+      const response = await hubApi.listAgentTemplates();
+      setAgentTemplates(response.templates || []);
+    } finally {
+      setAgentsLoading(false);
+    }
   }, []);
 
   const loadUsage = useCallback(async () => {
@@ -345,6 +364,8 @@ export default function HubPage() {
       const request =
         section === "overview" && me?.role === "admin"
           ? loadOverview()
+          : section === "agents"
+          ? loadAgentTemplates()
           : section === "runtimes"
           ? loadRuntimes(1)
           : section === "users" && me?.role === "admin"
@@ -365,6 +386,7 @@ export default function HubPage() {
     credentialQuery,
     credentialScope,
     auditAction,
+    loadAgentTemplates,
     loadAudit,
     loadCredentials,
     loadRuntimes,
@@ -393,12 +415,28 @@ export default function HubPage() {
 
   const refreshSection = async () => {
     if (section === "overview") await loadOverview();
+    if (section === "agents") await loadAgentTemplates();
     if (section === "runtimes") await loadRuntimes(runtimes.page);
     if (section === "users") await loadUsers(users.page);
     if (section === "credentials") await loadCredentials(credentials.page);
     if (section === "usage") await loadUsage();
     if (section === "audit") await loadAudit(audit.page);
     if (section === "settings") await loadSettings();
+  };
+
+  const instantiate = async (templateId: string) => {
+    setInstantiating(templateId);
+    try {
+      const result = await hubApi.instantiateTemplate(templateId);
+      setLastInstantiation(result);
+      void message.success(
+        t("hub.agents.instantiated", "Template instantiated — chat is ready"),
+      );
+    } catch (error) {
+      void message.error((error as Error).message);
+    } finally {
+      setInstantiating(null);
+    }
   };
 
   const saveSettings = async (values: SettingsFormValues) => {
@@ -591,6 +629,11 @@ export default function HubPage() {
         ]
       : []),
     {
+      id: "agents" as const,
+      label: t("hub.navigation.agents"),
+      icon: LayoutGrid,
+    },
+    {
       id: "runtimes" as const,
       label: t("hub.navigation.runtimes"),
       icon: Boxes,
@@ -752,6 +795,74 @@ export default function HubPage() {
               )}
               {section === "overview" && overview && (
                 <OverviewPanel overview={overview} t={t} />
+              )}
+              {section === "agents" && (
+                <section>
+                  <PageHeader
+                    eyebrow={t("hub.agents.eyebrow")}
+                    title={t("hub.agents.title")}
+                    description={t("hub.agents.description")}
+                  />
+                  {agentsLoading && (
+                    <p>{t("hub.agents.loading", "Loading templates…")}</p>
+                  )}
+                  {!agentsLoading && !agentTemplates.length && (
+                    <p>{t("hub.agents.empty", "No published templates yet")}</p>
+                  )}
+                  {agentTemplates.map((template) => (
+                    <div
+                      key={template.template_id}
+                      className={styles.templateCard}
+                    >
+                      <div className={styles.templateHeader}>
+                        <strong>{template.name}</strong>
+                        <span className={styles.templateMeta}>
+                          {template.template_id} · rev {template.revision} ·{" "}
+                          {template.graph_node_count}{" "}
+                          {t("hub.agents.nodes", "graph nodes")}
+                        </span>
+                      </div>
+                      {template.description && (
+                        <p className={styles.templateDesc}>
+                          {template.description}
+                        </p>
+                      )}
+                      {!!template.skills.length && (
+                        <p className={styles.templateMeta}>
+                          {t("hub.agents.skills", "Skills")}:{" "}
+                          {template.skills.join(", ")}
+                        </p>
+                      )}
+                      <Button
+                        type="primary"
+                        size="small"
+                        loading={instantiating === template.template_id}
+                        onClick={() => void instantiate(template.template_id)}
+                      >
+                        {t("hub.agents.instantiate", "Instantiate")}
+                      </Button>
+                    </div>
+                  ))}
+                  {lastInstantiation && (
+                    <div className={styles.templateCard}>
+                      <strong>
+                        {t("hub.agents.seedTitle", "Conversation seed")}
+                      </strong>
+                      <p className={styles.templateMeta}>
+                        {lastInstantiation.name}
+                        {lastInstantiation.graph_pushed
+                          ? ` · ${t(
+                              "hub.agents.graphPushed",
+                              "graph published to your runtime",
+                            )}`
+                          : ""}
+                      </p>
+                      <pre className={styles.templatePrompt}>
+                        {lastInstantiation.prompt}
+                      </pre>
+                    </div>
+                  )}
+                </section>
               )}
               {section === "runtimes" && (
                 <section>
