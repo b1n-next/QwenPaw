@@ -57,9 +57,8 @@ class HumanGate(LoopGate):
     def priority(self) -> int:
         return 20  # after the hard iteration cap (10)
 
-    def activate(  # pylint: disable=arguments-differ
+    def activate(  # pylint: disable=arguments-renamed
         self,
-        *,
         rounds: Optional[set[int]] = None,
         timeout_seconds: Optional[float] = None,
         message: str = "",
