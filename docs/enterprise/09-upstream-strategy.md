@@ -66,6 +66,7 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/harnesses/runtime.py`（追加） | providers() 列表改走 `list_provider_items()`（1 处 for 源替换） | Ph2 | EP-2-16 |
 | `src/qwenpaw/plugins/api.py`（追加） | `PluginApi.register_harness_provider` 扩展点 | Ph2 | EP-2-16 |
 | `src/qwenpaw/graph/`（新目录：schema/executor/state_store） | EP-2-17 图执行引擎（零上游文件触碰） | Ph2 | EP-2-17 |
+| `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/graph` 路由（1 行 import + include） | Ph2 | EP-2-18 |
 
 **已废弃条目**（v1 表内、实际未走该路线，清理记录）：
 - ~~runtime usage 上报 hook~~——EP-1-4 改拉取式（hub 侧 UsageCollector），
