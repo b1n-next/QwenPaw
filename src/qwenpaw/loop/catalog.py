@@ -11,6 +11,7 @@ from ..config.config import DoomLoopConfig, DoomLoopStageConfig
 from .gates.base import StopGate
 from .gates.completion import CompletionRubricGate
 from .gates.doom_loop import DoomLoopGate
+from .gates.human import HumanGate
 from .gates.iteration import IterationGate
 from .gates.limits import TimeoutGate, TokenBudgetGate, ToolCallBudgetGate
 from .gates.rubric import QualitativeRubricGate
@@ -26,6 +27,29 @@ class IterationParams(_Params):
     """Iteration gate parameters."""
 
     max_iterations: int = Field(default=40, ge=1, le=500)
+
+
+class HumanGateParams(_Params):
+    """EP-2-15: suspend the loop for human approval."""
+
+    at_rounds: list[int] = Field(
+        default_factory=list,
+        description="Loop rounds that trigger the human gate (1-based).",
+    )
+    every_n_rounds: int = Field(
+        default=0,
+        description="Trigger every N rounds instead of fixed rounds.",
+    )
+    timeout_seconds: float = Field(
+        default=600.0,
+        ge=1.0,
+        le=86400.0,
+        description="How long to wait for the human decision.",
+    )
+    message: str = Field(
+        default="",
+        description="Question shown on the approval card.",
+    )
 
 
 class DoomLoopParams(_Params):
@@ -204,6 +228,17 @@ def _entries() -> list[GateCatalogEntry]:
     """Build the immutable catalog declaration."""
     return [
         GateCatalogEntry(
+            type="human_gate",
+            title="Human gate",
+            description=(
+                "Suspend the loop for human approval at chosen rounds; "
+                "deny or timeout terminates the loop."
+            ),
+            category="approval",
+            params_model=HumanGateParams,
+            factory=lambda params: HumanGate(**_dump(params)),
+        ),
+        GateCatalogEntry(
             type="iteration",
             title="Iteration limit",
             description="Stop after a fixed number of loop iterations.",
@@ -284,6 +319,7 @@ __all__ = [
     "DoomLoopParams",
     "GateCatalog",
     "GateCatalogEntry",
+    "HumanGateParams",
     "IterationParams",
     "QualitativeRubricParams",
     "TokenBudgetParams",

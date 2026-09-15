@@ -2794,7 +2794,12 @@
       "safeTemplate": "安全运行",
       "researchTemplate": "预算研究",
       "qualityTemplate": "质量优先",
-      "blankTemplate": "空白流程"
+      "blankTemplate": "空白流程",
+      "humanGateTitle": "人工闸门",
+      "humanGateDescription": "在指定轮次挂起循环等待人工审批；驳回或超时则终止循环",
+      "everyNRounds": "每 N 轮询问",
+      "gateTimeout": "等待超时（秒）",
+      "gateMessage": "审批卡上展示的问题"
     },
     "doomLoopEnabled": "重复行为保护",
     "doomLoopEnabledTooltip": "当 Agent 陷入重复相同操作时自动介入",

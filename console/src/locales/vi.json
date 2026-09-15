@@ -2125,7 +2125,12 @@
       "safeTemplate": "Chạy an toàn",
       "researchTemplate": "Nghiên cứu có ngân sách",
       "qualityTemplate": "Ưu tiên chất lượng",
-      "blankTemplate": "Pipeline trống"
+      "blankTemplate": "Pipeline trống",
+      "humanGateTitle": "Cổng kiểm duyệt",
+      "humanGateDescription": "Tạm dừng vòng lặp để chờ phê duyệt tại các vòng đã chọn; từ chối hoặc hết thời gian sẽ kết thúc",
+      "everyNRounds": "Hỏi mỗi N vòng",
+      "gateTimeout": "Thời gian chờ (giây)",
+      "gateMessage": "Câu hỏi hiển thị trên thẻ phê duyệt"
     },
     "doomLoopEnabled": "Bảo vệ hành vi lặp lại",
     "doomLoopEnabledTooltip": "Tự động can thiệp khi agent bị kẹt lặp lại cùng một hành động",

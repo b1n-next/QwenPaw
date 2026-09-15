@@ -2936,7 +2936,12 @@
       "safeTemplate": "Safe run",
       "researchTemplate": "Budgeted research",
       "qualityTemplate": "Quality first",
-      "blankTemplate": "Blank pipeline"
+      "blankTemplate": "Blank pipeline",
+      "humanGateTitle": "Human gate",
+      "humanGateDescription": "Suspend the loop for human approval at chosen rounds; deny or timeout terminates the loop.",
+      "everyNRounds": "Ask every N rounds",
+      "gateTimeout": "Wait timeout (seconds)",
+      "gateMessage": "Question shown on the approval card"
     },
     "doomLoopEnabled": "Repetition Protection",
     "doomLoopEnabledTooltip": "Automatically intervene when the agent gets stuck repeating the same actions",

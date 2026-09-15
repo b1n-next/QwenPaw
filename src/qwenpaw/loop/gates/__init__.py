@@ -20,6 +20,7 @@ from .configured import ConfiguredGate
 from .doom_loop import DoomLoopGate
 from .file_loop_gate import FileLoopGate
 from .handler import StopHandler
+from .human import HumanGate
 from .iteration import IterationGate
 from .limits import TimeoutGate, TokenBudgetGate, ToolCallBudgetGate
 from .runner import run_stop_handlers
@@ -43,6 +44,7 @@ __all__ = [
     "DoomLoopGate",
     "FileLoopGate",
     "GoalStatusRubric",
+    "HumanGate",
     "IterationGate",
     "LoopGate",
     "RubricEvaluation",

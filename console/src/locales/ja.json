@@ -2340,7 +2340,12 @@
       "safeTemplate": "安全な実行",
       "researchTemplate": "予算付き調査",
       "qualityTemplate": "品質優先",
-      "blankTemplate": "空のパイプライン"
+      "blankTemplate": "空のパイプライン",
+      "humanGateTitle": "ヒューマンゲート",
+      "humanGateDescription": "指定ラウンドでループを一時停止し承認を待機。拒否またはタイムアウトで終了",
+      "everyNRounds": "N ラウンドごとに確認",
+      "gateTimeout": "待機タイムアウト（秒）",
+      "gateMessage": "承認カードに表示する質問"
     },
     "doomLoopEnabled": "繰り返し行動保護",
     "doomLoopEnabledTooltip": "エージェントが同じ操作を繰り返している場合に自動的に介入します",

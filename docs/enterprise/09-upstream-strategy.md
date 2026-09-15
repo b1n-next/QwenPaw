@@ -61,6 +61,7 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/agents/tools/agent_management.py` | spawn 三路径铸造 `subagent_principal`（`<parent>:sub:<suffix>`）注入 request_context | Ph2 | EP-2-14 |
 | `src/qwenpaw/hooks/request_setup/contextvars_hook.py` | 子会话回合设/清 sub-principal ContextVar（审批路由仍走父身份） | Ph2 | EP-2-14 |
 | `src/qwenpaw/governance/audit.py`（追加）/ `token_usage/manager.py`（追加） | 审计 agent 列与 usage agent 维度优先取 sub-principal | Ph2 | EP-2-14 |
+| `src/qwenpaw/loop/catalog.py` | 第 8 种门 `human_gate` 注册（HumanGateParams + catalog 条目） | Ph2 | EP-2-15 |
 
 **已废弃条目**（v1 表内、实际未走该路线，清理记录）：
 - ~~runtime usage 上报 hook~~——EP-1-4 改拉取式（hub 侧 UsageCollector），

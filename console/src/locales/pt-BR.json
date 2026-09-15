@@ -2578,7 +2578,12 @@
       "safeTemplate": "Execução segura",
       "researchTemplate": "Pesquisa com orçamento",
       "qualityTemplate": "Qualidade primeiro",
-      "blankTemplate": "Pipeline vazio"
+      "blankTemplate": "Pipeline vazio",
+      "humanGateTitle": "Portão humano",
+      "humanGateDescription": "Suspende o loop para aprovação humana nas rodadas escolhidas; negar ou timeout encerra o loop",
+      "everyNRounds": "Perguntar a cada N rodadas",
+      "gateTimeout": "Tempo de espera (segundos)",
+      "gateMessage": "Pergunta exibida no cartão de aprovação"
     },
     "doomLoopEnabled": "Proteção contra Repetição",
     "doomLoopEnabledTooltip": "Intervir automaticamente quando o agente fica preso repetindo as mesmas ações",

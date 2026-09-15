@@ -3277,7 +3277,12 @@
       "safeTemplate": "Jalankan aman",
       "researchTemplate": "Riset beranggaran",
       "qualityTemplate": "Utamakan kualitas",
-      "blankTemplate": "Pipeline kosong"
+      "blankTemplate": "Pipeline kosong",
+      "humanGateTitle": "Gerbang manusia",
+      "humanGateDescription": "Menangguhkan loop untuk persetujuan manusia pada ronde terpilih; tolak atau timeout mengakhiri loop",
+      "everyNRounds": "Tanya setiap N ronde",
+      "gateTimeout": "Batas tunggu (detik)",
+      "gateMessage": "Pertanyaan pada kartu persetujuan"
     },
     "doomLoopEnabled": "Perlindungan Perilaku Berulang",
     "doomLoopEnabledTooltip": "Intervensi otomatis saat agen terjebak mengulangi tindakan yang sama",
