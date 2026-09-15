@@ -72,6 +72,7 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 A2A 面（root `/.well-known/agent-card.json` + `/api/a2a`，2 行 include） | Ph2 | EP-2-21 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/knowledge`（1 行 import + include） | Ph2 | EP-2-22 |
 | `src/qwenpaw/agents/tools/__init__.py`（追加） | 导入 knowledge_search 工具模块（1 行 import，装饰器自注册） | Ph2 | EP-2-22 |
+| `src/qwenpaw/agents/react_agent.py`（追加） | EP-2-23 `_execute_tool_call` 漏斗内插 toolhooks 三挂点分发（pre/post/failure + trace_id，约 35 行，函数局部 import 无顶层依赖） | Ph2 | EP-2-23 |
 
 **已废弃条目**（v1 表内、实际未走该路线，清理记录）：
 - ~~runtime usage 上报 hook~~——EP-1-4 改拉取式（hub 侧 UsageCollector），
