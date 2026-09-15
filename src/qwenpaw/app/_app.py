@@ -63,6 +63,7 @@ from .routers.agent_scoped import AgentContextMiddleware
 from .routers.approval import router as approval_router
 from .routers.coding_mode import router as coding_mode_router
 from .routers.healthz import router as healthz_router
+from .routers.knowledge import router as knowledge_router
 from .routers.graph import router as graph_router
 from .routers.loops import router as loops_router
 from .routers.tool_calls import router as tool_calls_router
@@ -950,6 +951,9 @@ app.include_router(mcp_router, prefix="/api")
 # JSON-RPC message endpoint under /api/a2a
 app.include_router(a2a_well_known)
 app.include_router(a2a_api_router, prefix="/api")
+
+# Knowledge base API (EP-2-22): /api/knowledge
+app.include_router(knowledge_router, prefix="/api")
 
 # Agent-scoped router: /api/agents/{agentId}/chats, etc.
 agent_scoped_router = create_agent_scoped_router()

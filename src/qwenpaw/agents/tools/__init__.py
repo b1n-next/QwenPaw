@@ -45,6 +45,7 @@ from .file_io import (  # noqa: E402
 from .file_search import grep_search, glob_search  # noqa: E402
 from .shell import execute_shell_command  # noqa: E402
 from .send_file import send_file_to_user  # noqa: E402
+from .knowledge_search import knowledge_search  # noqa: E402
 from .web_search import web_search, web_fetch  # noqa: E402
 from .desktop_screenshot import desktop_screenshot  # noqa: E402
 from .view_media import view_image, view_video  # noqa: E402
