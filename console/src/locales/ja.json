@@ -3164,7 +3164,9 @@
       "audit": "監査ログ",
       "settings": "システム設定",
       "usage": "使用量",
-      "agents": "エージェントホール"
+      "agents": "エージェントホール",
+      "prompts": "プロンプト資産庫",
+      "keys": "キープール"
     },
     "actions": {
       "backToQwenPaw": "QwenPawに戻る",
@@ -3508,6 +3510,37 @@
       "title": "テンプレートから作るエージェント",
       "description": "管理者が公開したテンプレートを選び、ワンクリックで個人ランタイムに実体化",
       "instantiated": "テンプレートを実体化しました — チャット可能です"
+    },
+    "prompts": {
+      "eyebrow": "ガバナンス",
+      "title": "プロンプト資産庫",
+      "description": "提案・承認・公開。メンバーは承認済み版のみ閲覧",
+      "assetId": "アセット ID",
+      "name": "名前",
+      "content": "内容",
+      "propose": "提案",
+      "proposed": "提案済み — 承認待ち",
+      "version": "バージョン",
+      "pending": "承認待ち",
+      "review": "確認",
+      "approve": "承認",
+      "reject": "却下",
+      "approved": "承認して公開しました",
+      "by": "提案者"
+    },
+    "keys": {
+      "eyebrow": "ガバナンス",
+      "title": "キープール",
+      "description": "プロバイダーごとにラウンドロビン。無効化は即時反映",
+      "provider": "プロバイダー",
+      "keyValue": "キー値",
+      "add": "追加",
+      "added": "キーを追加しました",
+      "uses": "回数",
+      "disable": "無効化",
+      "enable": "有効化",
+      "lease": "リース",
+      "leasedId": "リース済み"
     }
   },
   "login": {

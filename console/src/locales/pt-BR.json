@@ -3445,7 +3445,9 @@
       "audit": "Registro de auditoria",
       "settings": "Configurações do sistema",
       "usage": "Uso",
-      "agents": "Salão de agentes"
+      "agents": "Salão de agentes",
+      "prompts": "Biblioteca de prompts",
+      "keys": "Pool de chaves"
     },
     "actions": {
       "backToQwenPaw": "Voltar para QwenPaw",
@@ -3789,6 +3791,37 @@
       "title": "Agentes a partir de modelos",
       "description": "Escolha um modelo publicado pelo admin e o instancie no seu runtime pessoal em um clique",
       "instantiated": "Modelo instanciado — pronto para conversar"
+    },
+    "prompts": {
+      "eyebrow": "Governança",
+      "title": "Biblioteca de prompts",
+      "description": "Propor, aprovar, publicar — membros leem apenas versões aprovadas",
+      "assetId": "ID do ativo",
+      "name": "Nome",
+      "content": "Conteúdo",
+      "propose": "Propor",
+      "proposed": "Proposto — aguardando revisão",
+      "version": "versão",
+      "pending": "aguardando revisão",
+      "review": "Revisar",
+      "approve": "Aprovar",
+      "reject": "Rejeitar",
+      "approved": "Aprovado e publicado",
+      "by": "por"
+    },
+    "keys": {
+      "eyebrow": "Governança",
+      "title": "Pool de chaves",
+      "description": "Round-robin por provedor; desativar tem efeito imediato",
+      "provider": "Provedor",
+      "keyValue": "Valor da chave",
+      "add": "Adicionar",
+      "added": "Chave adicionada",
+      "uses": "usos",
+      "disable": "Desativar",
+      "enable": "Ativar",
+      "lease": "Locar",
+      "leasedId": "locada"
     }
   },
   "login": {

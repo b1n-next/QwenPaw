@@ -3743,7 +3743,9 @@
       "audit": "审计日志",
       "settings": "系统设置",
       "usage": "用量统计",
-      "agents": "智能体大厅"
+      "agents": "智能体大厅",
+      "prompts": "Prompt 资产库",
+      "keys": "Key 池"
     },
     "actions": {
       "backToQwenPaw": "返回 QwenPaw",
@@ -4087,6 +4089,37 @@
       "title": "从模板开始的智能体",
       "description": "选择管理员发布的模板，一键实例化到你的个人运行时",
       "instantiated": "模板已实例化——可以开始对话"
+    },
+    "prompts": {
+      "eyebrow": "治理",
+      "title": "Prompt 资产库",
+      "description": "提案—审批—发布；成员只读已批准版本",
+      "assetId": "资产 ID",
+      "name": "名称",
+      "content": "内容",
+      "propose": "提交提案",
+      "proposed": "已提交提案，待审批",
+      "version": "版本",
+      "pending": "待审批",
+      "review": "查看",
+      "approve": "批准",
+      "reject": "驳回",
+      "approved": "已批准发布",
+      "by": "提案人"
+    },
+    "keys": {
+      "eyebrow": "治理",
+      "title": "Key 池",
+      "description": "按 provider 轮询分发，禁用即时生效",
+      "provider": "Provider",
+      "keyValue": "Key 值",
+      "add": "添加",
+      "added": "Key 已添加",
+      "uses": "次数",
+      "disable": "禁用",
+      "enable": "启用",
+      "lease": "试租",
+      "leasedId": "租得"
     }
   },
   "login": {

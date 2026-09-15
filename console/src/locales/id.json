@@ -430,7 +430,9 @@
       "audit": "Catatan audit",
       "settings": "Pengaturan sistem",
       "usage": "Penggunaan",
-      "agents": "Aula agen"
+      "agents": "Aula agen",
+      "prompts": "Pustaka prompt",
+      "keys": "Pool kunci"
     },
     "actions": {
       "backToQwenPaw": "Kembali ke QwenPaw",
@@ -774,6 +776,37 @@
       "title": "Agen dari templat",
       "description": "Pilih templat yang diterbitkan admin dan instance-kan ke runtime pribadi Anda sekali klik",
       "instantiated": "Templat di-instance — siap mengobrol"
+    },
+    "prompts": {
+      "eyebrow": "Tata kelola",
+      "title": "Pustaka prompt",
+      "description": "Usulkan — setujui — terbitkan; anggota hanya membaca versi yang disetujui",
+      "assetId": "ID aset",
+      "name": "Nama",
+      "content": "Konten",
+      "propose": "Usulkan",
+      "proposed": "Diajukan — menunggu review",
+      "version": "versi",
+      "pending": "menunggu review",
+      "review": "Tinjau",
+      "approve": "Setujui",
+      "reject": "Tolak",
+      "approved": "Disetujui dan diterbitkan",
+      "by": "oleh"
+    },
+    "keys": {
+      "eyebrow": "Tata kelola",
+      "title": "Pool kunci",
+      "description": "Round-robin per provider; menonaktifkan langsung berlaku",
+      "provider": "Provider",
+      "keyValue": "Nilai kunci",
+      "add": "Tambah",
+      "added": "Kunci ditambahkan",
+      "uses": "pemakaian",
+      "disable": "Nonaktifkan",
+      "enable": "Aktifkan",
+      "lease": "Sewa",
+      "leasedId": "disewakan"
     }
   },
   "login": {

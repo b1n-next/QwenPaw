@@ -8,7 +8,20 @@ export type Section =
   | "usage"
   | "credentials"
   | "audit"
+  | "prompts"
+  | "keys"
   | "settings";
+
+export interface PromptFormValues {
+  assetId: string;
+  name: string;
+  content: string;
+}
+
+export interface KeyFormValues {
+  provider: string;
+  keyValue: string;
+}
 
 export interface SettingsFormValues {
   publicBaseUrl?: string;

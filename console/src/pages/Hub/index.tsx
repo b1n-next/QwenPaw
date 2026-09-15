@@ -24,7 +24,9 @@ import {
   Boxes,
   ChartNoAxesCombined,
   CircleStop,
+  BookOpen,
   Gauge,
+  KeySquare,
   LayoutGrid,
   HardDrive,
   House,
@@ -60,6 +62,9 @@ import {
   type HubHealth,
   type HubOverview,
   type HubAgentTemplate,
+  type HubPoolKey,
+  type HubPromptAsset,
+  type HubPromptDetail,
   type HubUsageSummary,
   type InstantiateResult,
   type HubRuntime,
@@ -74,6 +79,8 @@ import {
   formatImageSize,
   PAGE_SIZE,
   type PageData,
+  type KeyFormValues,
+  type PromptFormValues,
   type Section,
   type SettingsFormValues,
   STATE_COLORS,
@@ -144,6 +151,24 @@ export default function HubPage() {
     } finally {
       setAgentsLoading(false);
     }
+  }, []);
+
+  const [promptAssets, setPromptAssets] = useState<HubPromptAsset[]>([]);
+  const [promptDetail, setPromptDetail] = useState<HubPromptDetail | null>(
+    null,
+  );
+  const [poolKeys, setPoolKeys] = useState<HubPoolKey[]>([]);
+  const [leaseResult, setLeaseResult] = useState<string | null>(null);
+  const [promptSaving, setPromptSaving] = useState(false);
+
+  const loadPrompts = useCallback(async () => {
+    const response = await hubApi.adminListPrompts();
+    setPromptAssets(response.prompts || []);
+  }, []);
+
+  const loadKeys = useCallback(async () => {
+    const response = await hubApi.adminListKeys();
+    setPoolKeys(response.keys || []);
   }, []);
 
   const loadUsage = useCallback(async () => {
@@ -376,6 +401,10 @@ export default function HubPage() {
           ? loadUsage()
           : section === "audit" && me?.role === "admin"
           ? loadAudit(1)
+          : section === "prompts" && me?.role === "admin"
+          ? loadPrompts()
+          : section === "keys" && me?.role === "admin"
+          ? loadKeys()
           : section === "settings" && me?.role === "admin"
           ? loadSettings()
           : Promise.resolve();
@@ -388,6 +417,8 @@ export default function HubPage() {
     auditAction,
     loadAgentTemplates,
     loadAudit,
+    loadKeys,
+    loadPrompts,
     loadCredentials,
     loadRuntimes,
     loadSettings,
@@ -421,7 +452,85 @@ export default function HubPage() {
     if (section === "credentials") await loadCredentials(credentials.page);
     if (section === "usage") await loadUsage();
     if (section === "audit") await loadAudit(audit.page);
+    if (section === "prompts") await loadPrompts();
+    if (section === "keys") await loadKeys();
     if (section === "settings") await loadSettings();
+  };
+
+  const submitPrompt = async (values: PromptFormValues) => {
+    setPromptSaving(true);
+    try {
+      await hubApi.proposePrompt(
+        values.assetId.trim(),
+        values.name.trim(),
+        values.content,
+      );
+      void message.success(t("hub.prompts.proposed", "Proposed"));
+      await loadPrompts();
+    } catch (error) {
+      void message.error((error as Error).message);
+    } finally {
+      setPromptSaving(false);
+    }
+  };
+
+  const reviewPrompt = async (assetId: string, version: number) => {
+    try {
+      await hubApi.reviewPrompt(assetId, version, "approved");
+      void message.success(t("hub.prompts.approved", "Approved"));
+      await loadPrompts();
+      if (promptDetail?.asset_id === assetId) {
+        setPromptDetail(null);
+      }
+    } catch (error) {
+      void message.error((error as Error).message);
+    }
+  };
+
+  const rejectPrompt = async (assetId: string, version: number) => {
+    try {
+      await hubApi.reviewPrompt(assetId, version, "rejected");
+      await loadPrompts();
+      if (promptDetail?.asset_id === assetId) {
+        setPromptDetail(null);
+      }
+    } catch (error) {
+      void message.error((error as Error).message);
+    }
+  };
+
+  const openPrompt = async (assetId: string) => {
+    const response = await hubApi.adminGetPrompt(assetId);
+    setPromptDetail(response.prompt);
+  };
+
+  const addKey = async (values: KeyFormValues) => {
+    try {
+      await hubApi.adminAddKey(values.provider.trim(), values.keyValue);
+      void message.success(t("hub.keys.added", "Key added"));
+      await loadKeys();
+    } catch (error) {
+      void message.error((error as Error).message);
+    }
+  };
+
+  const toggleKey = async (keyId: string, status: string) => {
+    const next = status === "active" ? "disabled" : "active";
+    try {
+      await hubApi.adminSetKeyStatus(keyId, next as "active" | "disabled");
+      await loadKeys();
+    } catch (error) {
+      void message.error((error as Error).message);
+    }
+  };
+
+  const testLease = async (provider: string) => {
+    try {
+      const response = await hubApi.leaseKey(provider);
+      setLeaseResult(response.lease?.key_id ?? null);
+    } catch (error) {
+      void message.error((error as Error).message);
+    }
   };
 
   const instantiate = async (templateId: string) => {
@@ -663,6 +772,16 @@ export default function HubPage() {
             id: "audit" as const,
             label: t("hub.navigation.audit"),
             icon: ScrollText,
+          },
+          {
+            id: "prompts" as const,
+            label: t("hub.navigation.prompts"),
+            icon: BookOpen,
+          },
+          {
+            id: "keys" as const,
+            label: t("hub.navigation.keys"),
+            icon: KeySquare,
           },
           {
             id: "settings" as const,
@@ -1619,6 +1738,178 @@ export default function HubPage() {
                     />
                     <PageFooter page={audit} onChange={loadAudit} />
                   </DataPanel>
+                </section>
+              )}
+              {section === "prompts" && me?.role === "admin" && (
+                <section>
+                  <PageHeader
+                    eyebrow={t("hub.prompts.eyebrow")}
+                    title={t("hub.prompts.title")}
+                    description={t("hub.prompts.description")}
+                  />
+                  <Form
+                    layout="vertical"
+                    onFinish={(values) => void submitPrompt(values)}
+                  >
+                    <div className={styles.templateCard}>
+                      <Form.Item
+                        name="assetId"
+                        label={t("hub.prompts.assetId")}
+                        rules={[{ required: true }]}
+                      >
+                        <Input placeholder="greeter" />
+                      </Form.Item>
+                      <Form.Item
+                        name="name"
+                        label={t("hub.prompts.name")}
+                        rules={[{ required: true }]}
+                      >
+                        <Input />
+                      </Form.Item>
+                      <Form.Item
+                        name="content"
+                        label={t("hub.prompts.content")}
+                        rules={[{ required: true }]}
+                      >
+                        <Input.TextArea rows={4} />
+                      </Form.Item>
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        loading={promptSaving}
+                      >
+                        {t("hub.prompts.propose", "Propose")}
+                      </Button>
+                    </div>
+                  </Form>
+                  {promptAssets.map((asset) => (
+                    <div key={asset.asset_id} className={styles.templateCard}>
+                      <div className={styles.templateHeader}>
+                        <strong>{asset.name}</strong>
+                        <span className={styles.templateMeta}>
+                          {asset.asset_id} ·{" "}
+                          {t("hub.prompts.version", "version")}{" "}
+                          {asset.current_version}
+                          {asset.has_pending
+                            ? ` · ${t("hub.prompts.pending", "pending review")}`
+                            : ""}
+                        </span>
+                      </div>
+                      <Button
+                        size="small"
+                        onClick={() => void openPrompt(asset.asset_id)}
+                      >
+                        {t("hub.prompts.review", "Review")}
+                      </Button>
+                    </div>
+                  ))}
+                  {promptDetail && (
+                    <div className={styles.templateCard}>
+                      <strong>{promptDetail.name}</strong>
+                      {promptDetail.versions
+                        .filter((item) => item.status === "pending")
+                        .map((item) => (
+                          <div
+                            key={item.version}
+                            className={styles.templateMeta}
+                          >
+                            v{item.version} — {t("hub.prompts.by", "by")}{" "}
+                            {item.proposed_by}
+                            <Button
+                              size="small"
+                              type="primary"
+                              onClick={() =>
+                                void reviewPrompt(
+                                  promptDetail.asset_id,
+                                  item.version,
+                                )
+                              }
+                            >
+                              {t("hub.prompts.approve", "Approve")}
+                            </Button>{" "}
+                            <Button
+                              size="small"
+                              danger
+                              onClick={() =>
+                                void rejectPrompt(
+                                  promptDetail.asset_id,
+                                  item.version,
+                                )
+                              }
+                            >
+                              {t("hub.prompts.reject", "Reject")}
+                            </Button>
+                          </div>
+                        ))}
+                      <pre className={styles.templatePrompt}>
+                        {promptDetail.content}
+                      </pre>
+                    </div>
+                  )}
+                </section>
+              )}
+              {section === "keys" && me?.role === "admin" && (
+                <section>
+                  <PageHeader
+                    eyebrow={t("hub.keys.eyebrow")}
+                    title={t("hub.keys.title")}
+                    description={t("hub.keys.description")}
+                  />
+                  <Form
+                    layout="vertical"
+                    onFinish={(values) => void addKey(values)}
+                  >
+                    <div className={styles.templateCard}>
+                      <Form.Item
+                        name="provider"
+                        label={t("hub.keys.provider")}
+                        rules={[{ required: true }]}
+                      >
+                        <Input placeholder="openai" />
+                      </Form.Item>
+                      <Form.Item
+                        name="keyValue"
+                        label={t("hub.keys.keyValue")}
+                        rules={[{ required: true }]}
+                      >
+                        <Input.Password />
+                      </Form.Item>
+                      <Button type="primary" htmlType="submit">
+                        {t("hub.keys.add", "Add")}
+                      </Button>
+                    </div>
+                  </Form>
+                  {poolKeys.map((key) => (
+                    <div key={key.key_id} className={styles.templateCard}>
+                      <div className={styles.templateHeader}>
+                        <strong>{key.provider}</strong>
+                        <span className={styles.templateMeta}>
+                          {key.key_id} · {key.status} ·{" "}
+                          {t("hub.keys.uses", "uses")} {key.use_count}
+                        </span>
+                      </div>
+                      <Button
+                        size="small"
+                        danger={key.status === "active"}
+                        onClick={() => void toggleKey(key.key_id, key.status)}
+                      >
+                        {key.status === "active"
+                          ? t("hub.keys.disable", "Disable")
+                          : t("hub.keys.enable", "Enable")}
+                      </Button>{" "}
+                      <Button
+                        size="small"
+                        onClick={() => void testLease(key.provider)}
+                      >
+                        {t("hub.keys.lease", "Lease")}
+                      </Button>
+                    </div>
+                  ))}
+                  {leaseResult && (
+                    <p className={styles.templateMeta}>
+                      {t("hub.keys.leasedId", "leased")}: {leaseResult}
+                    </p>
+                  )}
                 </section>
               )}
               {section === "settings" &&

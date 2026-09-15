@@ -71,6 +71,8 @@ from .models import (
 )
 from .operations import HubOperationsStore
 from .policy_catalog import PolicyCatalogStore
+from .key_pool import KeyPool
+from .prompt_library import PromptLibrary
 from .templates import TemplateStore
 from .trace import TRACE_HEADER, trace_id_from_headers
 from .usage import UsageCollector, UsageStore
@@ -395,6 +397,13 @@ def create_hub_app(  # pylint: disable=too-many-statements
     )
     # EP-2-19: agent template marketplace (same control.db).
     app.state.template_store = TemplateStore(
+        runtime_service.registry.database_path,
+    )
+    # EP-2-24: prompt library + provider key pool (same control.db).
+    app.state.prompt_library = PromptLibrary(
+        runtime_service.registry.database_path,
+    )
+    app.state.key_pool = KeyPool(
         runtime_service.registry.database_path,
     )
     # EP-1-4: usage accounting store (collector started in lifespan).
@@ -1569,6 +1578,235 @@ def create_hub_app(  # pylint: disable=too-many-statements
             {"status": status, "revision": template["revision"]},
         )
         return {"template": template}
+
+    @app.get("/api/hub/prompts")
+    async def list_prompts(
+        _user: HubUser = Depends(require_user),
+    ) -> dict[str, object]:
+        """Approved prompt assets for members."""
+        assets = await run_in_threadpool(
+            app.state.prompt_library.list_assets,
+        )
+        return {"prompts": assets}
+
+    @app.get("/api/hub/prompts/{asset_id}")
+    async def get_prompt(
+        asset_id: str,
+        _user: HubUser = Depends(require_user),
+    ) -> dict[str, object]:
+        """Current approved content of one asset."""
+        asset = await run_in_threadpool(
+            app.state.prompt_library.get_asset,
+            asset_id,
+        )
+        if asset is None or asset["current_version"] == 0:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "code": "PROMPT_NOT_FOUND",
+                    "message": "no approved version",
+                },
+            )
+        return {
+            "asset_id": asset["asset_id"],
+            "name": asset["name"],
+            "category": asset["category"],
+            "current_version": asset["current_version"],
+            "content": asset["content"],
+        }
+
+    @app.post("/api/hub/admin/prompts")
+    async def propose_prompt(
+        request: Request,
+        admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Create an asset or propose its next version (pending)."""
+        body = await request.json()
+        try:
+            asset = await run_in_threadpool(
+                app.state.prompt_library.propose,
+                str(body.get("asset_id") or ""),
+                str(body.get("name") or ""),
+                str(body.get("content") or ""),
+                proposed_by=admin.username,
+                category=str(body.get("category") or "general"),
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_PROMPT", "message": str(exc)},
+            ) from None
+        await record_audit(
+            admin,
+            "prompt.proposed",
+            "prompt",
+            asset["asset_id"],
+            {"version": asset["versions"][0]["version"]},
+        )
+        return {"prompt": asset}
+
+    @app.get("/api/hub/admin/prompts")
+    async def admin_list_prompts(
+        _admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """All assets with pending-proposal flags."""
+        assets = await run_in_threadpool(
+            app.state.prompt_library.list_assets,
+            include_pending=True,
+        )
+        return {"prompts": assets}
+
+    @app.get("/api/hub/admin/prompts/{asset_id}")
+    async def admin_get_prompt(
+        asset_id: str,
+        _admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Asset with its full version history."""
+        asset = await run_in_threadpool(
+            app.state.prompt_library.get_asset,
+            asset_id,
+        )
+        if asset is None:
+            raise HTTPException(status_code=404, detail="not found")
+        return {"prompt": asset}
+
+    @app.post("/api/hub/admin/prompts/{asset_id}/review")
+    async def review_prompt(
+        asset_id: str,
+        request: Request,
+        admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Approve or reject a pending version."""
+        body = await request.json()
+        version = int(body.get("version") or 0)
+        decision = str(body.get("decision") or "").strip()
+        if decision not in ("approved", "rejected"):
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_DECISION", "message": "bad"},
+            )
+        try:
+            asset = await run_in_threadpool(
+                app.state.prompt_library.review,
+                asset_id,
+                version,
+                decision,
+                reviewed_by=admin.username,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_PROMPT", "message": str(exc)},
+            ) from None
+        if asset is None:
+            raise HTTPException(
+                status_code=404,
+                detail="version not pending",
+            )
+        await record_audit(
+            admin,
+            f"prompt.{decision}",
+            "prompt",
+            asset_id,
+            {"version": version},
+        )
+        return {"prompt": asset}
+
+    @app.get("/api/hub/admin/keys")
+    async def admin_list_keys(
+        _admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Key pool metadata (values never listed)."""
+        keys = await run_in_threadpool(app.state.key_pool.list_keys)
+        return {"keys": keys}
+
+    @app.post("/api/hub/admin/keys")
+    async def admin_add_key(
+        request: Request,
+        admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Register one provider key."""
+        body = await request.json()
+        try:
+            key = await run_in_threadpool(
+                app.state.key_pool.add_key,
+                str(body.get("provider") or ""),
+                str(body.get("key_value") or ""),
+                created_by=admin.username,
+                key_id=str(body.get("key_id") or ""),
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_KEY", "message": str(exc)},
+            ) from None
+        await record_audit(
+            admin,
+            "key.added",
+            "api_key",
+            key["key_id"],
+            {"provider": key["provider"]},
+        )
+        return {"key": key}
+
+    @app.patch("/api/hub/admin/keys/{key_id}")
+    async def admin_set_key_status(
+        key_id: str,
+        request: Request,
+        admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Enable or disable one key."""
+        body = await request.json()
+        status = str(body.get("status") or "").strip()
+        try:
+            key = await run_in_threadpool(
+                app.state.key_pool.set_status,
+                key_id,
+                status,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_KEY", "message": str(exc)},
+            ) from None
+        if key is None:
+            raise HTTPException(status_code=404, detail="key not found")
+        await record_audit(
+            admin,
+            "key.status_changed",
+            "api_key",
+            key_id,
+            {"status": status},
+        )
+        return {"key": key}
+
+    @app.post("/api/hub/keys/lease")
+    async def lease_key(
+        request: Request,
+        _user: HubUser = Depends(require_user),
+    ) -> dict[str, object]:
+        """Lease the next key of a provider (round-robin, counted)."""
+        body = await request.json()
+        provider = str(body.get("provider") or "")
+        try:
+            key = await run_in_threadpool(
+                app.state.key_pool.lease,
+                provider,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_PROVIDER", "message": str(exc)},
+            ) from None
+        if key is None:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "code": "NO_ACTIVE_KEY",
+                    "message": f"no active key for '{provider}'",
+                },
+            )
+        return {"lease": key}
 
     @app.get("/api/hub/admin/policy/baseline")
     async def get_policy_baseline(

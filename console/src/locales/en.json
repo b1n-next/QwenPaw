@@ -3886,7 +3886,9 @@
       "audit": "Audit log",
       "settings": "System settings",
       "usage": "Usage",
-      "agents": "Agent hall"
+      "agents": "Agent hall",
+      "prompts": "Prompt library",
+      "keys": "Key pool"
     },
     "actions": {
       "backToQwenPaw": "Back to QwenPaw",
@@ -4230,6 +4232,37 @@
       "title": "Agents from templates",
       "description": "Pick an admin-published template and instantiate it into your personal runtime in one click",
       "instantiated": "Template instantiated — chat is ready"
+    },
+    "prompts": {
+      "eyebrow": "Governance",
+      "title": "Prompt library",
+      "description": "Propose, approve, publish — members read approved versions only",
+      "assetId": "Asset ID",
+      "name": "Name",
+      "content": "Content",
+      "propose": "Propose",
+      "proposed": "Proposed — pending review",
+      "version": "version",
+      "pending": "pending review",
+      "review": "Review",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approved": "Approved and published",
+      "by": "by"
+    },
+    "keys": {
+      "eyebrow": "Governance",
+      "title": "Key pool",
+      "description": "Round-robin per provider; disabling takes effect immediately",
+      "provider": "Provider",
+      "keyValue": "Key value",
+      "add": "Add",
+      "added": "Key added",
+      "uses": "uses",
+      "disable": "Disable",
+      "enable": "Enable",
+      "lease": "Lease",
+      "leasedId": "leased"
     }
   },
   "login": {

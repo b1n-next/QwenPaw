@@ -416,7 +416,9 @@
       "audit": "Nhật ký kiểm tra",
       "settings": "Cài đặt hệ thống",
       "usage": "Lượng dùng",
-      "agents": "Sảnh agent"
+      "agents": "Sảnh agent",
+      "prompts": "Thư viện prompt",
+      "keys": "Vùng key"
     },
     "actions": {
       "backToQwenPaw": "Quay lại QwenPaw",
@@ -760,6 +762,37 @@
       "title": "Agent từ mẫu",
       "description": "Chọn mẫu do quản trị viên công bố và khởi tạo vào runtime cá nhân bằng một cú nhấp",
       "instantiated": "Đã khởi tạo mẫu — sẵn sàng trò chuyện"
+    },
+    "prompts": {
+      "eyebrow": "Quản trị",
+      "title": "Thư viện prompt",
+      "description": "Đề xuất — duyệt — công bố; thành viên chỉ đọc bản đã duyệt",
+      "assetId": "ID tài sản",
+      "name": "Tên",
+      "content": "Nội dung",
+      "propose": "Đề xuất",
+      "proposed": "Đã đề xuất — chờ duyệt",
+      "version": "phiên bản",
+      "pending": "chờ duyệt",
+      "review": "Xem",
+      "approve": "Duyệt",
+      "reject": "Từ chối",
+      "approved": "Đã duyệt và công bố",
+      "by": "bởi"
+    },
+    "keys": {
+      "eyebrow": "Quản trị",
+      "title": "Vùng key",
+      "description": "Round-robin theo provider; vô hiệu hóa có hiệu lực ngay",
+      "provider": "Provider",
+      "keyValue": "Giá trị key",
+      "add": "Thêm",
+      "added": "Đã thêm key",
+      "uses": "lượt",
+      "disable": "Vô hiệu",
+      "enable": "Kích hoạt",
+      "lease": "Thuê",
+      "leasedId": "đã thuê"
     }
   },
   "login": {
