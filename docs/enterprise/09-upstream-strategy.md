@@ -62,6 +62,9 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/hooks/request_setup/contextvars_hook.py` | 子会话回合设/清 sub-principal ContextVar（审批路由仍走父身份） | Ph2 | EP-2-14 |
 | `src/qwenpaw/governance/audit.py`（追加）/ `token_usage/manager.py`（追加） | 审计 agent 列与 usage agent 维度优先取 sub-principal | Ph2 | EP-2-14 |
 | `src/qwenpaw/loop/catalog.py` | 第 8 种门 `human_gate` 注册（HumanGateParams + catalog 条目） | Ph2 | EP-2-15 |
+| `src/qwenpaw/harnesses/registry.py` | 插件 harness 注册表（builtin id 保留、config_fields 泛化重建键、动态 catalog） | Ph2 | EP-2-16 |
+| `src/qwenpaw/harnesses/runtime.py`（追加） | providers() 列表改走 `list_provider_items()`（1 处 for 源替换） | Ph2 | EP-2-16 |
+| `src/qwenpaw/plugins/api.py`（追加） | `PluginApi.register_harness_provider` 扩展点 | Ph2 | EP-2-16 |
 
 **已废弃条目**（v1 表内、实际未走该路线，清理记录）：
 - ~~runtime usage 上报 hook~~——EP-1-4 改拉取式（hub 侧 UsageCollector），
