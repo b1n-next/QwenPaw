@@ -62,10 +62,11 @@ def _get_session(request: Request) -> Any:
     """Get or create a SafeJSONSession for PawApp storage."""
     # pylint: disable=unused-argument
     try:
-        from ..app.chats.session import SafeJSONSession
-        from ..constant import WORKING_DIR
+        # Phase 3 (G-P14): QWENPAW_SESSION_STORE=sqlite switches to the
+        # SQLite backend; default keeps the stock JSON-file store.
+        from ..app.chats.session_store import build_session_store
 
-        return SafeJSONSession(save_dir=str(WORKING_DIR))
+        return build_session_store()
     except Exception:
         return None
 
