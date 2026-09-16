@@ -80,6 +80,8 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/toolhooks/`（新目录） | EP-2-23 工具级 hook 层（零上游文件触碰；漏斗接线见 react_agent.py 行） | Ph2 | EP-2-23 |
 | `src/qwenpaw/app/chats/session_store.py`（新文件） | Ph3 G-P14 SQLite 会话后端 + 工厂（零上游文件触碰） | Ph3 | G-P14 |
 | `src/qwenpaw/pawapp/deps.py`（追加） | Ph3 会话存储改走 build_session_store() 工厂（默认 file 行为不变，try 块内 2 行替换） | Ph3 | G-P14 |
+| `src/qwenpaw/sandbox/container_sandbox.py`（新文件） | Ph3 G-P14 docker 容器沙箱后端（零上游文件触碰） | Ph3 | G-P14 |
+| `src/qwenpaw/sandbox/config.py`（追加） | Ph3 `SandboxMode.CONTAINER` 枚举值 + create_sandbox 分支（+6 行） | Ph3 | G-P14 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/mcp-server`（1 行 import + include；`/api/mcp/*` 既有客户端面不动） | Ph2 | EP-2-20 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 A2A 面（root `/.well-known/agent-card.json` + `/api/a2a`，2 行 include） | Ph2 | EP-2-21 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/knowledge`（1 行 import + include） | Ph2 | EP-2-22 |

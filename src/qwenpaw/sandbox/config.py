@@ -68,6 +68,7 @@ class SandboxMode(str, Enum):
     BUBBLEWRAP = "bubblewrap"  # Linux bubblewrap (preferred)
     LANDLOCK = "landlock"  # Linux Landlock LSM (fallback)
     WINDOWS = "windows"  # Windows (AppContainer / WRITE_RESTRICTED token)
+    CONTAINER = "container"  # docker container (any OCI runtime)
     NONE = "none"  # No isolation, direct execution
 
 
@@ -727,6 +728,10 @@ def create_sandbox(  # pylint: disable=too-many-return-statements
         fallback_mode = detect_platform_mode()
         config = replace(config, mode=fallback_mode)
 
+    if config.mode == SandboxMode.CONTAINER:
+        from .container_sandbox import ContainerSandbox
+
+        return ContainerSandbox(config)
     if config.mode == SandboxMode.SEATBELT:
         from .macos_sandbox import MacOSSandbox
 

@@ -132,7 +132,7 @@ ASK）；无"第 N 步暂停等签发"的一等原语，不支持分支/并行/D
 | G-P11 | hook 无工具级挂点（DLP/风控接不进工具链） | 治理贯通 | 中 | ✅ EP-2-23 `6c953fb2` |
 | G-P12 | 无 Prompt 资产版本管理/Diff；无 API Key 池 | 产品 | 中 | ✅ EP-2-24 `231dcf4b` |
 | G-P13 | 无 Agent 模板市场/中枢大厅聚合页 | 产品 | 中 | ✅ EP-2-19 `50894b98` |
-| G-P14 | 会话单机 JSON、沙箱无容器后端、无移动 H5 审批 | 规模化 | 低（Phase 3） | ◐ 会话 SQLite 后端已落（`QWENPAW_SESSION_STORE=sqlite`，pawapp deps 工厂接线）；沙箱容器后端与移动 H5 审批未启动 |
+| G-P14 | 会话单机 JSON、沙箱无容器后端、无移动 H5 审批 | 规模化 | 低（Phase 3） | ◐ 会话 SQLite 后端已落（`QWENPAW_SESSION_STORE=sqlite`）；容器沙箱后端已落（`SandboxMode.CONTAINER`，docker run/exec/rm，`--runtime` 可选 gVisor/Kata，内存/pids 为真实 cgroup 限额）；移动 H5 审批未启动 |
 
 ## §5 Phase 2 平台线 WBS
 
