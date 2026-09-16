@@ -141,6 +141,17 @@ git push -u origin feature/enterprise
 - 需求对齐：在 #7318 按官方模板回帖（内网可信、控制台权限、集中模型目录三点），
   争取官方方向覆盖 → 自研退役。
 
+### 5.1 撞车 PR 跟踪（月检，最近一次 2026-09-16）
+
+| PR | 状态 | 我方撞面 | 处置 |
+|---|---|---|---|
+| #7696 local admin bootstrap | **merged 09-15**（`hub/bootstrap.py` 新文件 + `auth.py` +229 + `cli/hub_cmd.py`） | `hub/bootstrap_admin.py`（我们自研，k8s initContainer 流程在用） | **平行实现共存**：上游走 CLI 命令、我方走 initContainer。文件零冲突（上游树无 bootstrap_admin.py）。替换为官方实现需切 runbook + helm（独立票 EP-3-x，未排期）；替换前两条路径并存，文档标注优先官方 CLI |
+| #7683 hub 审计（login attempts + denied runtime creation） | **merged 09-15**（`control_app.py` +121 + 测试） | `control_app.py` 我方 +472 主接线（白名单最重行） | **rebase 融合点**：语义互补（上游补 login attempts/denied creation 两类事件，我方有 `acl.denied`/template/prompt/key 事件族）。下次 rebase `control_app.py` 必冲突，按行人工融合两套发射器，勿丢任一侧 |
+| 2026-09-15/16 批量扫描（7763/7741/7636/7759/7758/7756/7787/7750/7704/7682/7681/7782） | 全部 merged | 无 | console/agents/memory/skill/mcp-**客户端**修复，不触我方首创模块（graph/a2a/mcp_server/knowledge/toolhooks/hub 子包），无新撞面 |
+| #7318 需求对齐帖 | open（09-11 更新后无新决策） | — | 继续观望；官方覆盖任一自研点即提替换票 |
+
+- 上游 09-16 HEAD：`7f945a46`；本地下次 fetch 后把 `enterprise/baseline` 对表基线推进纳入 EP-1-10 例程。
+
 ## 6. 实现状态与白名单维护（2026-09-14 追溯审计建立）
 
 - **基线**：`enterprise/baseline-983b3ceb`（tag 常驻）。当前 diff：53 文件、
