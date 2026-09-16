@@ -147,7 +147,7 @@ git push -u origin feature/enterprise
 
 | PR | 状态 | 我方撞面 | 处置 |
 |---|---|---|---|
-| #7696 local admin bootstrap | **merged 09-15**（`hub/bootstrap.py` 新文件 + `auth.py` +229 + `cli/hub_cmd.py`） | `hub/bootstrap_admin.py`（我们自研，k8s initContainer 流程在用） | **平行实现共存**：上游走 CLI 命令、我方走 initContainer。文件零冲突（上游树无 bootstrap_admin.py）。替换为官方实现需切 runbook + helm（独立票 EP-3-x，未排期）；替换前两条路径并存，文档标注优先官方 CLI |
+| #7696 local admin bootstrap | **merged 09-15**（`hub/bootstrap.py` + `auth.py` + `cli/hub_cmd.py`） | `hub/bootstrap_admin.py` | **已替换（09-17）**：核心逻辑 100% 走官方 API（`ensure_admin_initialization_available` + `initialize_hub_admin`，root 解析 `QWENPAW_HUB_DIR`）；我方只剩非交互 + 幂等容器壳（~30 行，官方交互式 CLI 无法服务 initContainer 的两个约束）。helm initContainer 已切 env 注入形态。白名单条目从「平行自研」降级为「官方实现的容器壳」 |
 | #7683 hub 审计（login attempts + denied runtime creation） | **merged 09-15**（`control_app.py` +121 + 测试） | `control_app.py` 我方 +472 主接线（白名单最重行） | **已执行融合（09-16 merge `ac6759c5`）**：`record_audit` 签名合并 `trace_id + outcome + remote_address` 双族参数，两套发射器并存；上游 `record_auth_event` 一并并入；`WORKING_DIR` import 因上游重构移除 |
 | 2026-09-15/16 批量扫描（7763/7741/7636/7759/7758/7756/7787/7750/7704/7682/7681/7782） | 全部 merged | 无 | console/agents/memory/skill/mcp-**客户端**修复，不触我方首创模块（graph/a2a/mcp_server/knowledge/toolhooks/hub 子包），无新撞面 |
 | #7318 需求对齐帖 | open（09-11 更新后无新决策） | — | 继续观望；官方覆盖任一自研点即提替换票 |

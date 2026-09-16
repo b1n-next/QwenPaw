@@ -101,7 +101,7 @@ RUNTIME_CAPS = RuntimeCaps(
 - `RuntimeRecord` 是 frozen dataclass，状态回填走 `dataclasses.replace`
   （与 docker provisioner 一致）；
 - 首管理员：公网绑定（0.0.0.0）要求已有 enabled admin，chart 用
-  initContainer 跑 `python -m qwenpaw.hub.bootstrap_admin`（幂等）解决鸡生蛋；
+  initContainer 跑 `python -m qwenpaw.hub.bootstrap_admin`（幂等；核心逻辑已切官方 #7696 API，我方仅存非交互+幂等容器壳，root 经 `QWENPAW_HUB_DIR` 注入）解决鸡生蛋；
 - `hub.provisioner` schema Literal 扩为 `local|docker|k8s`（config.py 单行）。
 
 安装/升级/排障手册：`docs/enterprise/runbook-k8s-install.md`。

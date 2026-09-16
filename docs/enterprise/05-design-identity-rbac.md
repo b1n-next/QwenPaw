@@ -65,7 +65,7 @@ CREATE TABLE policies (
 |---|---|---|
 | 本地账号 + 双角色（admin/user） | ✅ Ph0 | `hub/auth.py` `HubAuthService`（PBKDF2 600k 迭代、HMAC 版本化 token、末位 admin 保护、禁自改） |
 | 首注册即管理员 | ✅ Ph0 | `auth.py` register()：user_count()==0 → role=admin；此后受 registration_enabled 开关控制 |
-| 容器化首管理员 bootstrap | ✅ Ph1 | `hub/bootstrap_admin.py`（幂等；helm initContainer 调用，见 06 §7） |
+| 容器化首管理员 bootstrap | ✅ Ph1 | `hub/bootstrap_admin.py`（幂等容器壳；核心逻辑为官方 #7696 `hub/bootstrap.py` API，见 06 §7 与 09 §5.1） |
 | ACL 引擎 role 模型（D4 最小半边） | ✅ Ph0 | `hub/acl/engine.py`：admin 直通（role-admin），user 走有序规则 fail-closed + acl.json overlay 热载 |
 | groups / policies 求值 / OIDC / 组映射 | ☐ Ph2 | EP-2-1（groups+policies 并入 AclEngine）/ EP-2-2（OIDC 授权码+JIT+组映射）均未开始 |
 

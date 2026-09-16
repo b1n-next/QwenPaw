@@ -21,15 +21,19 @@ spec:
       initContainers:
         # EP-1-8: public bind refuses to start before an enabled admin
         # exists; create the first admin idempotently on the hub PVC.
+        # #7696 replacement: the shell delegates to the official
+        # hub/bootstrap.py API; only the non-interactive + idempotent
+        # container wrapper remains ours.
         - name: bootstrap-admin
           image: "{{ .Values.image.registry }}{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          env:
+            - name: QWENPAW_HUB_DIR
+              value: /var/lib/qwenpaw
           command:
             - python
             - -m
             - qwenpaw.hub.bootstrap_admin
-            - --root
-            - /var/lib/qwenpaw
             - --username
             - {{ .Values.hub.adminUsername | quote }}
             - --password
