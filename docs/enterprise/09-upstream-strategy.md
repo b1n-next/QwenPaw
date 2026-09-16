@@ -136,8 +136,7 @@ git push -u origin feature/enterprise
 
 ## 5. 给上游回馈（降低长期维护成本）
 
-- Phase 0 的"控制台能力权限 + 代理 ACL"上游为空白点（已核查）→ 完成后整理成 PR 提交
-  （干净实现，无 enterprise 耦合）；被合并即从白名单移除该 patch；
+- Phase 0 的"控制台能力权限 + 代理 ACL"上游为空白点（已核查）→ **干净 PR 已备（09-16）**：分支 `upstream/acl`（基于 main `7f945a46`，commit `c9964883`）：`hub/acl/` 纯增量 + `control_app.py` +37 接线（engine 挂载 / `GET /api/hub/me/permissions` / personal_runtime_proxy decide 门，拒绝事件走 #7683 发射器 `outcome=denied`）+ 72 测试；enterprise 耦合已剥（3 个依赖 model_catalog/websocket 扩展的集成测试移出、docstring 中性化、探针路径移到 member 允许面）。PR 正文：`pr-2026-09-16-acl.md`。开 PR 动作留待人工（跨仓权限）；被合并即从白名单移除该 patch；
 - 需求对齐：在 #7318 按官方模板回帖（内网可信、控制台权限、集中模型目录三点），
   争取官方方向覆盖 → 自研退役。
 
