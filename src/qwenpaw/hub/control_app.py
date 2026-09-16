@@ -34,7 +34,6 @@ from starlette.concurrency import run_in_threadpool
 
 from ..__version__ import __version__
 from ..app.exception_handlers import register_exception_handlers
-from ..constant import WORKING_DIR
 from ..utils.http import is_loopback_host, runtime_host_allowed
 from ..utils.oauth_callback import HUB_OAUTH_CALLBACK_URL_HEADER
 from .access_security import HubAccessSecurity
