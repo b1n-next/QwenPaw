@@ -60,6 +60,7 @@ from .routers.coding_mode import router as coding_mode_router
 from .routers.healthz import router as healthz_router
 from .routers.loops import router as loops_router
 from .routers.tool_calls import router as tool_calls_router
+from .routers.knowledge import router as knowledge_router
 from .routers.voice import voice_router
 
 # Apply log level on load so reload child process gets same level as CLI.
@@ -896,6 +897,9 @@ register_builtin_control_links()
 app.include_router(healthz_router, prefix="/api")
 
 app.include_router(tool_calls_router, prefix="/api")
+
+# Knowledge base API: /api/knowledge
+app.include_router(knowledge_router, prefix="/api")
 
 # Approval router: /api/approval/approve, /api/approval/deny, etc.
 app.include_router(approval_router, prefix="/api")
