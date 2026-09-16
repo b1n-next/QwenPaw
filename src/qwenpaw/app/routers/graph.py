@@ -17,6 +17,7 @@ specification (LLM wiring lands with EP-2-19 template instantiation);
 from __future__ import annotations
 
 import json
+import logging
 import threading
 import uuid
 from pathlib import Path
@@ -33,6 +34,8 @@ from ...graph.executor import (
 )
 from ...graph.schema import GraphSchema
 from ...graph.state_store import GraphStateStore
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/graph", tags=["graph"])
 
@@ -192,6 +195,14 @@ async def resume_run(run_id: str, request: ResumeRequest) -> Dict[str, Any]:
     with _executors_lock:
         executor = _executors.get(run_id)
     if executor is None:
+        # EP-2-18 follow-up: rebuild executors for runs suspended before
+        # a process restart (run state lives in graph_runs.db; the
+        # executor itself is stateless beyond schema + handlers).
+        executor = _rebuild_executor(run_id)
+        if executor is not None:
+            with _executors_lock:
+                _executors[run_id] = executor
+    if executor is None:
         raise HTTPException(
             status_code=409,
             detail={
@@ -208,6 +219,33 @@ async def resume_run(run_id: str, request: ResumeRequest) -> Dict[str, Any]:
     except ValueError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from None
     return _run_payload(result)
+
+
+def _rebuild_executor(run_id: str) -> GraphExecutor | None:
+    """Recreate an executor for a persisted suspended run.
+
+    Returns None when the run is unknown, already terminal, or its
+    template was deleted after the run suspended (410 semantics).
+    """
+    run = _state_store().get_run(run_id)
+    if run is None or run.get("status") != "suspended":
+        return None
+    try:
+        schema = _load_template(str(run.get("graph_id") or ""))
+    except HTTPException:
+        logger.warning(
+            "graph run %s is suspended but its template '%s' is gone; "
+            "resume stays unavailable until the template is re-published",
+            run_id,
+            run.get("graph_id"),
+        )
+        return None
+    logger.info(
+        "graph run %s executor rebuilt from template '%s' after restart",
+        run_id,
+        schema.id,
+    )
+    return _build_executor(schema)
 
 
 def _run_payload(result: Any) -> Dict[str, Any]:
