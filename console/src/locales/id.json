@@ -3676,5 +3676,36 @@
         "description": "Jalankan tugas multi-langkah yang terstruktur dan berkelanjutan."
       }
     }
+  },
+  "knowledge": {
+    "title": "Basis Pengetahuan",
+    "refresh": "Segarkan",
+    "ingest": {
+      "title": "Tambah dokumen",
+      "paste": "Tempel teks",
+      "upload": "Unggah berkas",
+      "titlePh": "Judul",
+      "textPh": "Isi teks",
+      "sourcePh": "Sumber (opsional)",
+      "tagsPh": "Tag, pisahkan koma (opsional)",
+      "dropHint": "Klik atau seret berkas teks UTF-8",
+      "submit": "Serap",
+      "missing": "Judul dan isi wajib diisi",
+      "done": "Terserap"
+    },
+    "doc": {
+      "title": "Daftar dokumen",
+      "empty": "Belum ada dokumen",
+      "chunks": "{{count}} potongan",
+      "confirm": "Hapus dokumen ini?",
+      "delete": "Hapus",
+      "deleted": "{{title}} dihapus"
+    },
+    "search": {
+      "title": "Uji pencarian",
+      "ph": "Kueri",
+      "run": "Cari",
+      "empty": "Tidak ada hasil"
+    }
   }
 }

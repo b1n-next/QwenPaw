@@ -2891,5 +2891,36 @@
         "description": "Chạy tác vụ nhiều bước có cấu trúc và liên tục."
       }
     }
+  },
+  "knowledge": {
+    "title": "Cơ sở tri thức",
+    "refresh": "Làm mới",
+    "ingest": {
+      "title": "Thêm tài liệu",
+      "paste": "Dán văn bản",
+      "upload": "Tải tệp lên",
+      "titlePh": "Tiêu đề",
+      "textPh": "Nội dung",
+      "sourcePh": "Nguồn (tùy chọn)",
+      "tagsPh": "Thẻ, phân tách bằng dấu phẩy (tùy chọn)",
+      "dropHint": "Nhấp hoặc kéo tệp văn bản UTF-8",
+      "submit": "Nhập kho",
+      "missing": "Cần tiêu đề và nội dung",
+      "done": "Đã nhập kho"
+    },
+    "doc": {
+      "title": "Danh sách tài liệu",
+      "empty": "Chưa có tài liệu",
+      "chunks": "{{count}} phân đoạn",
+      "confirm": "Xóa tài liệu này?",
+      "delete": "Xóa",
+      "deleted": "Đã xóa {{title}}"
+    },
+    "search": {
+      "title": "Thử truy xuất",
+      "ph": "Truy vấn",
+      "run": "Tìm",
+      "empty": "Không có kết quả"
+    }
   }
 }

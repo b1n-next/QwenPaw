@@ -41,6 +41,8 @@ import {
 const LoginPage = lazyImportWithRetry("./pages/Login/index");
 const HubPage = lazyImportWithRetry("./pages/Hub/index");
 const ComposerPage = lazyImportWithRetry("./pages/Composer/index");
+// EP-2-22 console slice: knowledge-base management page.
+const KnowledgePage = lazyImportWithRetry("./pages/Knowledge/index");
 // Desktop OS shell. Uses React.lazy (not lazyImportWithRetry, which only
 // resolves the ./pages/** glob) so it can load from ./os/.
 const DesktopOSPage = lazy(() => import("./os/DesktopOS"));
@@ -442,6 +444,16 @@ function AppInner({ backendInfo }: { backendInfo: BackendInfo }) {
             <AuthGuard authStatus={backendInfo.authStatus}>
               <Suspense fallback={null}>
                 <ComposerPage />
+              </Suspense>
+            </AuthGuard>
+          }
+        />
+        <Route
+          path="/knowledge"
+          element={
+            <AuthGuard authStatus={backendInfo.authStatus}>
+              <Suspense fallback={null}>
+                <KnowledgePage />
               </Suspense>
             </AuthGuard>
           }

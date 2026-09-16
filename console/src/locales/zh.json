@@ -4842,5 +4842,36 @@
         "description": "运行结构化、可持续的多步骤任务。"
       }
     }
+  },
+  "knowledge": {
+    "title": "知识库",
+    "refresh": "刷新",
+    "ingest": {
+      "title": "添加文档",
+      "paste": "粘贴文本",
+      "upload": "上传文件",
+      "titlePh": "标题",
+      "textPh": "正文内容",
+      "sourcePh": "来源（可选）",
+      "tagsPh": "标签，逗号分隔（可选）",
+      "dropHint": "点击或拖拽 UTF-8 文本文件",
+      "submit": "入库",
+      "missing": "标题与正文都必填",
+      "done": "已入库"
+    },
+    "doc": {
+      "title": "文档列表",
+      "empty": "暂无文档",
+      "chunks": "{{count}} 分块",
+      "confirm": "删除该文档？",
+      "delete": "删除",
+      "deleted": "已删除 {{title}}"
+    },
+    "search": {
+      "title": "检索试跑",
+      "ph": "查询语句",
+      "run": "检索",
+      "empty": "无命中"
+    }
   }
 }

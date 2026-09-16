@@ -4365,5 +4365,36 @@
         "description": "Execute uma tarefa estruturada e persistente em várias etapas."
       }
     }
+  },
+  "knowledge": {
+    "title": "Base de conhecimento",
+    "refresh": "Atualizar",
+    "ingest": {
+      "title": "Adicionar documentos",
+      "paste": "Colar texto",
+      "upload": "Enviar arquivo",
+      "titlePh": "Título",
+      "textPh": "Conteúdo",
+      "sourcePh": "Origem (opcional)",
+      "tagsPh": "Tags separadas por vírgula (opcional)",
+      "dropHint": "Clique ou arraste um arquivo de texto UTF-8",
+      "submit": "Ingerir",
+      "missing": "Título e conteúdo são obrigatórios",
+      "done": "Ingerido"
+    },
+    "doc": {
+      "title": "Documentos",
+      "empty": "Sem documentos",
+      "chunks": "{{count}} blocos",
+      "confirm": "Excluir este documento?",
+      "delete": "Excluir",
+      "deleted": "{{title}} excluído"
+    },
+    "search": {
+      "title": "Teste de recuperação",
+      "ph": "Consulta",
+      "run": "Buscar",
+      "empty": "Sem resultados"
+    }
   }
 }

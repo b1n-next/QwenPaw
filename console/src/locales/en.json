@@ -4824,5 +4824,36 @@
         "description": "Run a structured, persistent multi-step task."
       }
     }
+  },
+  "knowledge": {
+    "title": "Knowledge Base",
+    "refresh": "Refresh",
+    "ingest": {
+      "title": "Add documents",
+      "paste": "Paste text",
+      "upload": "Upload file",
+      "titlePh": "Title",
+      "textPh": "Body text",
+      "sourcePh": "Source (optional)",
+      "tagsPh": "Tags, comma-separated (optional)",
+      "dropHint": "Click or drag a UTF-8 text file",
+      "submit": "Ingest",
+      "missing": "Both title and body are required",
+      "done": "Ingested"
+    },
+    "doc": {
+      "title": "Documents",
+      "empty": "No documents",
+      "chunks": "{{count}} chunks",
+      "confirm": "Delete this document?",
+      "delete": "Delete",
+      "deleted": "Deleted {{title}}"
+    },
+    "search": {
+      "title": "Retrieval try-out",
+      "ph": "Query",
+      "run": "Search",
+      "empty": "No matches"
+    }
   }
 }

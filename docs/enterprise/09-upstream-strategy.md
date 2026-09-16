@@ -84,6 +84,8 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/sandbox/config.py`（追加） | Ph3 `SandboxMode.CONTAINER` 枚举值 + create_sandbox 分支（+6 行） | Ph3 | G-P14 |
 | `src/qwenpaw/app/routers/mobile.py`（新文件） | Ph3 G-P14 移动 H5 审批页（内联 HTML 单页，零依赖零构建，复用 /api/approval） | Ph3 | G-P14 |
 | `src/qwenpaw/app/routers/graph.py`（追加） | Ph3 悬项收口：resume miss 时 `_rebuild_executor` 从 graph_runs.db 重建（status=suspended + 模板在盘 → 重建续跑；模板缺失/终态 → 409） | Ph3 | EP-2-18 悬项 |
+| `console/src/pages/Knowledge/`（新目录） | EP-2-22 console 收口：知识库管理页（列表/粘贴入库/上传/删除/检索试跑，antd，零新依赖） | Ph2+ | EP-2-22 |
+| `console/src/api/modules/knowledge.ts`（新文件） | EP-2-22 知识库 API 客户端（Form 编码变体，沿用 graph.ts 约定） | Ph2+ | EP-2-22 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/mobile/approvals`（1 行 import + include，根路径非 /api） | Ph3 | G-P14 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/mcp-server`（1 行 import + include；`/api/mcp/*` 既有客户端面不动） | Ph2 | EP-2-20 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 A2A 面（root `/.well-known/agent-card.json` + `/api/a2a`，2 行 include） | Ph2 | EP-2-21 |
