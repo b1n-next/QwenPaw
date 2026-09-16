@@ -163,10 +163,10 @@ git push -u origin feature/enterprise
 | #7696 local admin bootstrap | **merged 09-15**（`hub/bootstrap.py` + `auth.py` + `cli/hub_cmd.py`） | `hub/bootstrap_admin.py` | **已替换（09-17）**：核心逻辑 100% 走官方 API（`ensure_admin_initialization_available` + `initialize_hub_admin`，root 解析 `QWENPAW_HUB_DIR`）；我方只剩非交互 + 幂等容器壳（~30 行，官方交互式 CLI 无法服务 initContainer 的两个约束）。helm initContainer 已切 env 注入形态。白名单条目从「平行自研」降级为「官方实现的容器壳」 |
 | #7683 hub 审计（login attempts + denied runtime creation） | **merged 09-15**（`control_app.py` +121 + 测试） | `control_app.py` 我方 +472 主接线（白名单最重行） | **已执行融合（09-16 merge `ac6759c5`）**：`record_audit` 签名合并 `trace_id + outcome + remote_address` 双族参数，两套发射器并存；上游 `record_auth_event` 一并并入；`WORKING_DIR` import 因上游重构移除 |
 | 2026-09-15/16 批量扫描（7763/7741/7636/7759/7758/7756/7787/7750/7704/7682/7681/7782） | 全部 merged | 无 | console/agents/memory/skill/mcp-**客户端**修复，不触我方首创模块（graph/a2a/mcp_server/knowledge/toolhooks/hub 子包），无新撞面 |
-| 2026-09-17 例行扫描（7783 ACP 委托 / 6569 console EIO/EPIPE / 7805 字重 / 7732 ACP 权限选项 / 7789 多文件夹项目目录） | 全部 merged（09-16） | 无语义撞车（ACP/console/proj-dir 域不交我方自研模块）；但 3 个白名单文件上游再动：`config/config.py`（上+6/我-106）、`app/agent_context.py`（上±29）、`hooks/request_setup/contextvars_hook.py`（上+18/我-18，互删改） | **登记 rebase 人工复核点 ×3**；未达"立即合并"阈值（无高危重构），留下次例行合并窗口（见步骤 6） |
+| 2026-09-17 例行扫描（7783 ACP 委托 / 6569 console EIO/EPIPE / 7805 字重 / 7732 ACP 权限选项 / 7789 多文件夹项目目录） | 全部 merged（09-16） | 无语义撞车（ACP/console/proj-dir 域不交我方自研模块）；但 3 个白名单文件上游再动：`config/config.py`（上+6/我-106）、`app/agent_context.py`（上±29）、`hooks/request_setup/contextvars_hook.py`（上+18/我-18，互删改） | **已消化（09-17 预演合并 `0ba13ef3`）**：三文件 git 零冲突自动融合且语义复核通过（上游新增 multi-folder 逻辑落位于我方删改区之外：contextvars_hook 保 `set_current_project_dirs` 新调用 + 我方删减不冲突；agent_context 上游 ±29 为 `get_project_dirs_for_request` 新增，与我方 EP-2-14 改动分属不同函数）；hooks+projdir 98 例、app+agents 5588 例、console 3641 例全绿 |
 | #7318 需求对齐帖 | open（09-11 更新后无新决策） | — | 继续观望；官方覆盖任一自研点即提替换票 |
 
-- 上游 09-17 HEAD：`d12bcd6c`（09-16 合并 `7f945a46` **已 merge 进 feature/enterprise，`ac6759c5`**）。基线 tag 已推进：`enterprise/baseline-7f945a46`（fork diff 口径 204 文件 +34016/-119，含 Phase 3 全部自研；§6 白名单表以此为准）。`d12bcd6c..HEAD` 5 合并留下次窗口。
+- 上游 09-17 HEAD：`d12bcd6c`——**已 merge 进 feature/enterprise（`0ba13ef3`，零冲突，三复核点语义复核通过）**。上轮：`7f945a46` → `ac6759c5`（control_app 融合）。基线 tag：`enterprise/baseline-7f945a46`；`d12bcd6c` 合并后基线 diff 重算留下次月检（§5.1 步骤 5）。
 
 ## 6. 实现状态与白名单维护（2026-09-14 追溯审计建立）
 
