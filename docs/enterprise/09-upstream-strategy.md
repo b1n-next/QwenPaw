@@ -82,6 +82,8 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/pawapp/deps.py`（追加） | Ph3 会话存储改走 build_session_store() 工厂（默认 file 行为不变，try 块内 2 行替换） | Ph3 | G-P14 |
 | `src/qwenpaw/sandbox/container_sandbox.py`（新文件） | Ph3 G-P14 docker 容器沙箱后端（零上游文件触碰） | Ph3 | G-P14 |
 | `src/qwenpaw/sandbox/config.py`（追加） | Ph3 `SandboxMode.CONTAINER` 枚举值 + create_sandbox 分支（+6 行） | Ph3 | G-P14 |
+| `src/qwenpaw/app/routers/mobile.py`（新文件） | Ph3 G-P14 移动 H5 审批页（内联 HTML 单页，零依赖零构建，复用 /api/approval） | Ph3 | G-P14 |
+| `src/qwenpaw/app/_app.py`（追加） | 挂载 `/mobile/approvals`（1 行 import + include，根路径非 /api） | Ph3 | G-P14 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/mcp-server`（1 行 import + include；`/api/mcp/*` 既有客户端面不动） | Ph2 | EP-2-20 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 A2A 面（root `/.well-known/agent-card.json` + `/api/a2a`，2 行 include） | Ph2 | EP-2-21 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/knowledge`（1 行 import + include） | Ph2 | EP-2-22 |
