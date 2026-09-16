@@ -94,7 +94,7 @@
 | G1 | Runtime Provisioner 第三实现：K8s（per-tenant Pod） | HUB | ✅（六方法 + 14 单测 + kind 验收四项（Pod/PVC/Service/stop 保会话/fail-closed）；06 §7.1） | P1 | Ph1 | **高** |
 | G2 | 能力协商协议（requirement ⊆ capability 才调度；schema 借 `SandboxCapability`） | HUB/GLM/AUD | 🟡（类存在，协商未实现） | P2 | Ph2 | 中 |
 | G3 | 拒绝启动而非降级（fail-closed）+ 硬拒绝/软降级区分 | HUB/GLM | 🟡（**Ph1 半边达成**：preflight fail-closed + k8s 清单资源限额（06 §7）；能力级细分（G2 协商）仍 Ph2） | P1 | Ph1✅/Ph2（细分） | 中 |
-| G4 | gVisor/Kata/MicroVM 后端 | HUB | ❌ | P3 | Ph3 | 中 |
+| G4 | gVisor/Kata/MicroVM 后端 | HUB | ✅（`SandboxMode.CONTAINER`：docker run/exec/rm，`platform_hints[container_runtime]` 直通 `--runtime`（gVisor/Kata 零代码切换），内存/pids 为真实 cgroup 限额；live 验收套真 daemon 证明隔离属性（2026-09-17，`aee532b8`/`5255f348`）） | ✅ | Ph3（已提前落） | — |
 | G5 | 远程 runtime 后端（跨机） | HUB | ❌ | P3 | backlog | 中 |
 | G6 | per-tenant 运行时池与资源上限（Docker 已有 limits，K8s 用 quotas/limits） | HUB/GLM | 🟡 | P1 | Ph1 | 高 |
 | G7 | 常驻 Agent Pod + 按需沙箱 Job 两级执行（K8s 场景沙箱不逐调用启 Pod） | AUD/GLM | ❌ | P2 | Ph2 | 中 |
