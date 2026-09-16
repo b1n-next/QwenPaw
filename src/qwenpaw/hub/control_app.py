@@ -11,6 +11,7 @@ import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator
+from urllib.parse import unquote
 
 import httpx
 import uvicorn
@@ -48,7 +49,8 @@ from .api_models import (
     PasswordChangeBody,
     RuntimeCreateBody,
 )
-from .auth import HubAuthService, HubUser
+from .auth import HubAuthService, HubDatabaseBusyError, HubUser
+from .bootstrap import get_hub_root
 from .config import HubConfig, HubConfigStore
 from .credentials import TenantCredentialVault
 from .model_catalog import ModelCatalogStore
@@ -91,14 +93,6 @@ from .static_files import (
     resolve_console_static_dir,
 )
 from . import websocket_proxy
-
-
-def get_hub_root() -> Path:
-    """Resolve the Hub data root without changing ordinary App paths."""
-    configured = os.environ.get("QWENPAW_HUB_DIR", "").strip()
-    if configured:
-        return Path(configured).expanduser().resolve()
-    return (WORKING_DIR / "hub").resolve()
 
 
 def build_runtime_service(
@@ -451,6 +445,24 @@ def create_hub_app(  # pylint: disable=too-many-statements
             raise HTTPException(status_code=401, detail="Not authenticated")
         return user
 
+    def require_personal_runtime_user(
+        path: str,
+        request: Request,
+        authorization: str | None = Header(default=None),
+    ) -> HubUser:
+        # Match decoding by the Runtime ASGI server and file preview router.
+        normalized_path = unquote(unquote(path)).replace("\\", "/")
+        # Native file previews cannot attach an Authorization header.
+        if (
+            authorization is None
+            and request.method in {"GET", "HEAD"}
+            and path.startswith("files/preview/")
+            and not {".", ".."}.intersection(normalized_path.split("/"))
+        ):
+            token = request.query_params.get("token", "")
+            authorization = f"Bearer {token}"
+        return require_user(authorization)
+
     def require_admin(user: HubUser = Depends(require_user)) -> HubUser:
         if not user.is_admin:
             raise HTTPException(
@@ -502,6 +514,9 @@ def create_hub_app(  # pylint: disable=too-many-statements
         resource_id: str,
         detail: dict[str, Any] | None = None,
         trace_id: str | None = None,
+        *,
+        outcome: str = "success",
+        remote_address: str | None = None,
     ) -> None:
         await run_in_threadpool(
             operations.record,
@@ -512,7 +527,46 @@ def create_hub_app(  # pylint: disable=too-many-statements
             resource_id=resource_id,
             detail=detail,
             trace_id=trace_id,
+            outcome=outcome,
+            remote_address=remote_address,
         )
+
+    async def record_auth_event(
+        action: str,
+        username: str,
+        remote_address: str,
+        *,
+        outcome: str,
+        user: HubUser | None = None,
+        reason: str | None = None,
+    ) -> None:
+        """Persist one authentication attempt on a best-effort basis.
+
+        Rejected attempts have no authenticated actor yet, so the
+        attempted username is the only usable identity. Telemetry must
+        never turn a granted login into a server error, nor replace the
+        real rejection status of a failed attempt, so store failures are
+        logged instead of propagated.
+        """
+        try:
+            await run_in_threadpool(
+                operations.record,
+                actor_user_id=user.user_id if user is not None else "",
+                actor_username=(
+                    user.username if user is not None else username
+                ),
+                action=action,
+                resource_type="user",
+                resource_id=(user.user_id if user is not None else username),
+                detail={"reason": reason} if reason else None,
+                outcome=outcome,
+                remote_address=remote_address,
+            )
+        except Exception:  # pylint: disable=broad-except
+            logging.getLogger(__name__).warning(
+                "Hub authentication audit event %s was not persisted",
+                action,
+            )
 
     async def personal_runtime(user: HubUser) -> RuntimeRecord:
         try:
@@ -690,8 +744,28 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 body.password,
             )
         except PermissionError as exc:
+            await record_auth_event(
+                "auth.register",
+                body.username,
+                client_ip,
+                outcome="failure",
+                reason=str(exc),
+            )
             raise HTTPException(status_code=403, detail=str(exc)) from exc
+        except HubDatabaseBusyError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail=str(exc),
+                headers={"Retry-After": "1"},
+            ) from exc
         except ValueError as exc:
+            await record_auth_event(
+                "auth.register",
+                body.username,
+                client_ip,
+                outcome="failure",
+                reason=str(exc),
+            )
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         await record_audit(
             user,
@@ -699,6 +773,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
             "user",
             user.user_id,
             {"role": user.role},
+            remote_address=client_ip,
         )
         return {
             "token": token,
@@ -720,8 +795,22 @@ def create_hub_app(  # pylint: disable=too-many-statements
             )
         except PermissionError as exc:
             access_security.record_attempt("login", client_ip)
+            await record_auth_event(
+                "auth.login",
+                body.username,
+                client_ip,
+                outcome="failure",
+                reason=str(exc),
+            )
             raise HTTPException(status_code=401, detail=str(exc)) from exc
         access_security.clear("login", client_ip)
+        await record_auth_event(
+            "auth.login",
+            body.username,
+            client_ip,
+            outcome="success",
+            user=user,
+        )
         return {
             "token": token,
             "username": user.username,
@@ -1139,14 +1228,38 @@ def create_hub_app(  # pylint: disable=too-many-statements
         body: RuntimeCreateBody,
         user: HubUser = Depends(require_user),
     ) -> dict[str, Any]:
+        async def audit_creation_failure(reason: str) -> None:
+            """Audit one denied creation without masking its real status."""
+            try:
+                await record_audit(
+                    user,
+                    "runtime.create",
+                    "runtime",
+                    body.runtime_id,
+                    {
+                        "auto_start": body.auto_start,
+                        "reason": reason[:200],
+                    },
+                    outcome="failure",
+                )
+            except Exception:  # pylint: disable=broad-except
+                logging.getLogger(__name__).warning(
+                    "Hub runtime.create failure audit was not persisted",
+                )
+
         reserved_metadata = {"local", "docker"} & set(body.metadata)
         if reserved_metadata:
+            await audit_creation_failure(
+                "Runtime backend settings are administrator-controlled."
+                f" rejected keys: {sorted(reserved_metadata)}",
+            )
             raise HTTPException(
                 status_code=400,
                 detail=(
                     "Runtime backend settings are " "administrator-controlled."
                 ),
             )
+
         try:
             record = await run_in_threadpool(
                 runtime_service.create,
@@ -1163,25 +1276,29 @@ def create_hub_app(  # pylint: disable=too-many-statements
                     "start",
                     body.runtime_id,
                 )
-            await record_audit(
-                user,
-                "runtime.create",
-                "runtime",
-                record.runtime_id,
-                {
-                    "auto_start": body.auto_start,
-                    "provisioner": record.provisioner,
-                },
-            )
-            return await runtime_payload(record)
         except RuntimeOperationConflictError as exc:
+            await audit_creation_failure(str(exc))
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except RuntimeProvisionerUnavailableError as exc:
+            await audit_creation_failure(str(exc))
             raise HTTPException(status_code=503, detail=str(exc)) from exc
         except ValueError as exc:
+            await audit_creation_failure(str(exc))
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except Exception as exc:
+            await audit_creation_failure(str(exc))
             raise HTTPException(status_code=500, detail=str(exc)) from exc
+        await record_audit(
+            user,
+            "runtime.create",
+            "runtime",
+            record.runtime_id,
+            {
+                "auto_start": body.auto_start,
+                "provisioner": record.provisioner,
+            },
+        )
+        return await runtime_payload(record)
 
     @app.get("/api/hub/runtimes/{runtime_id}")
     async def get_runtime(
@@ -2116,7 +2233,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
     async def personal_runtime_proxy(
         path: str,
         request: Request,
-        user: HubUser = Depends(require_user),
+        user: HubUser = Depends(require_personal_runtime_user),
     ) -> Response:
         # EP-2-11 governance bridging: one trace id per proxied request,
         # echoed downstream (runtime audit) and on the response.
