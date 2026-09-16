@@ -156,6 +156,9 @@ codex = [
 qoder = [
     "qoder-agent-sdk==1.0.9",
 ]
+sessions = [
+    "redis>=5.0.0,<7",
+]
 qwenpaw-data = [
     "qwenpaw-data-context>=0.1,<0.2",
     "qwenpaw-data-host-core>=0.1,<0.2",

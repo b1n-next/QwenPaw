@@ -86,6 +86,8 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/app/routers/graph.py`（追加） | Ph3 悬项收口：resume miss 时 `_rebuild_executor` 从 graph_runs.db 重建（status=suspended + 模板在盘 → 重建续跑；模板缺失/终态 → 409） | Ph3 | EP-2-18 悬项 |
 | `console/src/pages/Knowledge/`（新目录） | EP-2-22 console 收口：知识库管理页（列表/粘贴入库/上传/删除/检索试跑，antd，零新依赖） | Ph2+ | EP-2-22 |
 | `console/src/api/modules/knowledge.ts`（新文件） | EP-2-22 知识库 API 客户端（Form 编码变体，沿用 graph.ts 约定） | Ph2+ | EP-2-22 |
+| `src/qwenpaw/app/chats/session_store_redis.py`（新文件） | Ph3 G-P14 增强：Redis 会话后端（可选依赖 `qwenpaw[sessions]`，`QWENPAW_SESSION_STORE=redis` + `QWENPAW_SESSION_REDIS_URL`；lazy import，未启用零依赖） | Ph3 | G-P14 |
+| `src/qwenpaw/app/chats/session_store.py`（追加） | Ph3 工厂增 redis 分支（+7 行）；`pyproject.toml` 追加 `sessions` extra（redis>=5,<7） | Ph3 | G-P14 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/mobile/approvals`（1 行 import + include，根路径非 /api） | Ph3 | G-P14 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/mcp-server`（1 行 import + include；`/api/mcp/*` 既有客户端面不动） | Ph2 | EP-2-20 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 A2A 面（root `/.well-known/agent-card.json` + `/api/a2a`，2 行 include） | Ph2 | EP-2-21 |

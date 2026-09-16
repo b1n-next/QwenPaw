@@ -34,6 +34,7 @@ CREATE INDEX IF NOT EXISTS idx_session_states_session
 
 _ENV_BACKEND = "QWENPAW_SESSION_STORE"
 _ENV_DB_PATH = "QWENPAW_SESSION_DB"
+_ENV_REDIS_URL = "QWENPAW_SESSION_REDIS_URL"
 _DEFAULT_DB_NAME = "sessions.db"
 
 
@@ -50,13 +51,21 @@ def build_session_store():
     """Pick the configured session store.
 
     ``QWENPAW_SESSION_STORE=sqlite`` selects the SQLite backend
-    (``QWENPAW_SESSION_DB`` overrides the database path); anything
-    else keeps the stock JSON-file store — zero behavior change by
-    default.
+    (``QWENPAW_SESSION_DB`` overrides the database path);
+    ``QWENPAW_SESSION_STORE=redis`` selects the Redis backend
+    (``QWENPAW_SESSION_REDIS_URL`` overrides the connection URL,
+    optional 'redis' dependency required); anything else keeps the
+    stock JSON-file store — zero behavior change by default.
     """
     backend = os.environ.get(_ENV_BACKEND, "").strip().lower()
     if backend == "sqlite":
         return SqliteSession(database_path=_db_path())
+    if backend == "redis":
+        from .session_store_redis import RedisSession
+
+        return RedisSession(
+            redis_url=os.environ.get(_ENV_REDIS_URL, "").strip(),
+        )
     from .session import SafeJSONSession
     from ...constant import WORKING_DIR
 
