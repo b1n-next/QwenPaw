@@ -2,11 +2,9 @@ import { useMemo } from "react";
 
 import { flattenMenu } from "@/layouts/registry/adapter";
 import { filterMenuForAgentCapabilities } from "@/layouts/registry/capabilities";
-import { filterMenuForPermissions } from "@/layouts/registry/permissions";
 import { partitionSidebarEntries } from "@/layouts/registry/sidebarEntries";
 import { useMenuItems, useRoutes } from "@/plugins/registry/hooks";
 import { useAgentStore } from "@/stores/agentStore";
-import { useDeniedRouteIds } from "@/stores/hubPermissionsStore";
 
 export function useSidebarEntryGroups() {
   const routes = useRoutes();
@@ -14,7 +12,6 @@ export function useSidebarEntryGroups() {
   const rawSettingsMenu = useMenuItems("primary.settings");
   const { selectedAgent, agents } = useAgentStore();
   const currentAgent = agents.find((agent) => agent.id === selectedAgent);
-  const deniedRouteIds = useDeniedRouteIds();
 
   return useMemo(() => {
     const capabilities = currentAgent
@@ -28,18 +25,11 @@ export function useSidebarEntryGroups() {
       : undefined;
     return partitionSidebarEntries(
       flattenMenu(
-        filterMenuForPermissions(
-          filterMenuForAgentCapabilities(rawAgentMenu, capabilities),
-          deniedRouteIds,
-        ),
+        filterMenuForAgentCapabilities(rawAgentMenu, capabilities),
         routes,
         18,
       ),
-      flattenMenu(
-        filterMenuForPermissions(rawSettingsMenu, deniedRouteIds),
-        routes,
-        18,
-      ),
+      flattenMenu(rawSettingsMenu, routes, 18),
     );
-  }, [currentAgent, deniedRouteIds, rawAgentMenu, rawSettingsMenu, routes]);
+  }, [currentAgent, rawAgentMenu, rawSettingsMenu, routes]);
 }

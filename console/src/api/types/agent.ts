@@ -124,7 +124,6 @@ export interface RubricGateConfig {
 }
 
 export type CustomGateType =
-  | "human_gate"
   | "iteration"
   | "doom_loop"
   | "token_budget"

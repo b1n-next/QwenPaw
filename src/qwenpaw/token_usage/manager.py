@@ -17,16 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 def _usage_agent_id() -> str:
-    """Sub-principal first, else ContextVar agent id; empty when unset."""
+    """ContextVar agent id only; empty when unset."""
     try:
-        from ..app.agent_context import (
-            get_subagent_principal,
-            peek_current_agent_id,
-        )
+        from ..app.agent_context import peek_current_agent_id
 
-        principal = get_subagent_principal()
-        if principal:
-            return principal
         return peek_current_agent_id()
     except Exception:
         logger.warning(

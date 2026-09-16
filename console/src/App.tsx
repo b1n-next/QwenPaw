@@ -40,7 +40,6 @@ import {
 
 const LoginPage = lazyImportWithRetry("./pages/Login/index");
 const HubPage = lazyImportWithRetry("./pages/Hub/index");
-const ComposerPage = lazyImportWithRetry("./pages/Composer/index");
 // Desktop OS shell. Uses React.lazy (not lazyImportWithRetry, which only
 // resolves the ./pages/** glob) so it can load from ./os/.
 const DesktopOSPage = lazy(() => import("./os/DesktopOS"));
@@ -434,16 +433,6 @@ function AppInner({ backendInfo }: { backendInfo: BackendInfo }) {
             <Suspense fallback={null}>
               <LoginPage />
             </Suspense>
-          }
-        />
-        <Route
-          path="/composer"
-          element={
-            <AuthGuard authStatus={backendInfo.authStatus}>
-              <Suspense fallback={null}>
-                <ComposerPage />
-              </Suspense>
-            </AuthGuard>
           }
         />
         <Route

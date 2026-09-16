@@ -843,12 +843,15 @@ def test_proxy_rejects_non_loopback_runtime_record(tmp_path: Path) -> None:
     with _client(tmp_path, transport) as client:
         token = _register(client, "owner")
         headers = _headers(token)
-        assert client.get("/api/probe", headers=headers).status_code == 200
+        assert (
+            client.get("/api/console/ping-probe", headers=headers).status_code
+            == 200
+        )
         service = client.app.state.runtime_service
         record = service.registry.list()[0]
         service.registry.save(replace(record, host="192.0.2.10"))
 
-        response = client.get("/api/probe", headers=headers)
+        response = client.get("/api/console/ping-probe", headers=headers)
 
     assert response.status_code == 503
     assert "loopback-only" in response.json()["detail"]
@@ -959,7 +962,10 @@ def test_deleted_personal_runtime_is_recreated_on_next_proxy(
         member, member_token = _create_user(client, "member")
         member_headers = _headers(member_token)
         assert (
-            client.get("/api/agents", headers=member_headers).status_code
+            client.get(
+                "/api/console/ping-probe",
+                headers=member_headers,
+            ).status_code
             == 200
         )
         runtime_id = f"personal-{member.user_id[:24]}"
@@ -975,7 +981,10 @@ def test_deleted_personal_runtime_is_recreated_on_next_proxy(
             f"/api/hub/runtimes/{runtime_id}",
             headers=_headers(admin_token),
         )
-        recreated_response = client.get("/api/agents", headers=member_headers)
+        recreated_response = client.get(
+            "/api/console/ping-probe",
+            headers=member_headers,
+        )
         recreated = client.app.state.runtime_service.get(runtime_id)
 
         assert stopped.status_code == 200
@@ -1088,8 +1097,8 @@ def test_authenticated_user_restarts_only_their_personal_runtime(
     with _client(tmp_path, httpx.MockTransport(proxy_handler)) as client:
         admin_token = _register(client, "owner")
         member, member_token = _create_user(client, "member")
-        client.get("/api/probe", headers=_headers(admin_token))
-        client.get("/api/probe", headers=_headers(member_token))
+        client.get("/api/console/ping-probe", headers=_headers(admin_token))
+        client.get("/api/console/ping-probe", headers=_headers(member_token))
 
         restarted = client.post(
             "/api/hub/me/runtime/restart",
@@ -1122,7 +1131,10 @@ def test_admin_stop_and_disable_have_distinct_owner_recovery(
         member, member_token = _create_user(client, "member")
         member_headers = _headers(member_token)
         assert (
-            client.get("/api/agents", headers=member_headers).status_code
+            client.get(
+                "/api/console/ping-probe",
+                headers=member_headers,
+            ).status_code
             == 200
         )
         runtime_id = f"personal-{member.user_id[:24]}"
@@ -1132,7 +1144,10 @@ def test_admin_stop_and_disable_have_distinct_owner_recovery(
             headers=_headers(admin_token),
         )
         health = client.get("/api/hub/healthz", headers=member_headers)
-        blocked_proxy = client.get("/api/agents", headers=member_headers)
+        blocked_proxy = client.get(
+            "/api/console/ping-probe",
+            headers=member_headers,
+        )
 
         assert stopped.status_code == 200
         assert stopped.json()["desired_state"] == "stopped"
@@ -1190,7 +1205,10 @@ def test_admin_stop_and_disable_have_distinct_owner_recovery(
         assert enabled.status_code == 200
         assert enabled.json()["start_policy"] == "owner_allowed"
         assert (
-            client.get("/api/agents", headers=member_headers).status_code
+            client.get(
+                "/api/console/ping-probe",
+                headers=member_headers,
+            ).status_code
             == 200
         )
         assert (

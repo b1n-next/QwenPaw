@@ -2590,12 +2590,7 @@
       "safeTemplate": "Execução segura",
       "researchTemplate": "Pesquisa com orçamento",
       "qualityTemplate": "Qualidade primeiro",
-      "blankTemplate": "Pipeline vazio",
-      "humanGateTitle": "Portão humano",
-      "humanGateDescription": "Suspende o loop para aprovação humana nas rodadas escolhidas; negar ou timeout encerra o loop",
-      "everyNRounds": "Perguntar a cada N rodadas",
-      "gateTimeout": "Tempo de espera (segundos)",
-      "gateMessage": "Pergunta exibida no cartão de aprovação"
+      "blankTemplate": "Pipeline vazio"
     },
     "doomLoopEnabled": "Proteção contra Repetição",
     "doomLoopEnabledTooltip": "Intervir automaticamente quando o agente fica preso repetindo as mesmas ações",
@@ -3018,10 +3013,7 @@
       "global": "Configurações globais",
       "extensions": "Extensões"
     },
-    "pages": {
-      "general": "Geral",
-      "navigation": "Barra lateral"
-    },
+    "pages": { "general": "Geral", "navigation": "Barra lateral" },
     "descriptions": {
       "general": "Idioma, tema e comportamento do aplicativo",
       "navigation": "Visibilidade da barra lateral",
@@ -3468,11 +3460,7 @@
       "users": "Usuários",
       "credentials": "Credenciais",
       "audit": "Registro de auditoria",
-      "settings": "Configurações do sistema",
-      "usage": "Uso",
-      "agents": "Salão de agentes",
-      "prompts": "Biblioteca de prompts",
-      "keys": "Pool de chaves"
+      "settings": "Configurações do sistema"
     },
     "actions": {
       "backToQwenPaw": "Voltar para QwenPaw",
@@ -3631,9 +3619,7 @@
       "resource": "Recurso",
       "result": "Resultado",
       "time": "Tempo",
-      "total": "{{total}} itens",
-      "trace": "Rastreamento",
-      "filterTrace": "Filtrar por trace id (32)"
+      "total": "{{total}} itens"
     },
     "audit": {
       "eyebrow": "Segurança e governança",
@@ -3752,18 +3738,6 @@
       },
       "auth": {
         "register": "Usuário registrado do Hub"
-      },
-      "acl": {
-        "denied": "ACL negado"
-      },
-      "model": {
-        "switch_denied": "Troca fora do catálogo"
-      },
-      "approval": {
-        "resolved": "Aprovação resolvida"
-      },
-      "policy": {
-        "updated": "Baseline de política atualizado"
       }
     },
     "auditOutcomes": {
@@ -3793,60 +3767,6 @@
       "environmentName": "Nome do ambiente",
       "secretValue": "Valor secreto",
       "submit": "Criptografar e armazenar"
-    },
-    "usage": {
-      "eyebrow": "Operações",
-      "title": "Uso de modelos",
-      "description": "Tokens por usuário / modelo / data, coletados dos runtimes a cada minuto",
-      "startDate": "Data inicial",
-      "endDate": "Data final",
-      "apply": "Aplicar",
-      "refresh": "Coletar agora",
-      "promptTokens": "Tokens de entrada",
-      "completionTokens": "Tokens de saída",
-      "calls": "Chamadas",
-      "byUser": "Usuário (tenant)",
-      "byModel": "Modelo",
-      "byAgent": "Por agente (incl. subagentes)",
-      "byDate": "Data",
-      "empty": "Sem dados de uso neste intervalo"
-    },
-    "agents": {
-      "eyebrow": "Mercado de modelos",
-      "title": "Agentes a partir de modelos",
-      "description": "Escolha um modelo publicado pelo admin e o instancie no seu runtime pessoal em um clique",
-      "instantiated": "Modelo instanciado — pronto para conversar"
-    },
-    "prompts": {
-      "eyebrow": "Governança",
-      "title": "Biblioteca de prompts",
-      "description": "Propor, aprovar, publicar — membros leem apenas versões aprovadas",
-      "assetId": "ID do ativo",
-      "name": "Nome",
-      "content": "Conteúdo",
-      "propose": "Propor",
-      "proposed": "Proposto — aguardando revisão",
-      "version": "versão",
-      "pending": "aguardando revisão",
-      "review": "Revisar",
-      "approve": "Aprovar",
-      "reject": "Rejeitar",
-      "approved": "Aprovado e publicado",
-      "by": "por"
-    },
-    "keys": {
-      "eyebrow": "Governança",
-      "title": "Pool de chaves",
-      "description": "Round-robin por provedor; desativar tem efeito imediato",
-      "provider": "Provedor",
-      "keyValue": "Valor da chave",
-      "add": "Adicionar",
-      "added": "Chave adicionada",
-      "uses": "usos",
-      "disable": "Desativar",
-      "enable": "Ativar",
-      "lease": "Locar",
-      "leasedId": "locada"
     }
   },
   "login": {

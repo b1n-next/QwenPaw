@@ -441,11 +441,7 @@
       "users": "Pengguna",
       "credentials": "Kredensial",
       "audit": "Catatan audit",
-      "settings": "Pengaturan sistem",
-      "usage": "Penggunaan",
-      "agents": "Aula agen",
-      "prompts": "Pustaka prompt",
-      "keys": "Pool kunci"
+      "settings": "Pengaturan sistem"
     },
     "actions": {
       "backToQwenPaw": "Kembali ke QwenPaw",
@@ -604,9 +600,7 @@
       "resource": "Sumber daya",
       "result": "Hasil",
       "time": "Waktu",
-      "total": "item {{total}}",
-      "trace": "Trace",
-      "filterTrace": "Filter menurut trace id (32)"
+      "total": "item {{total}}"
     },
     "audit": {
       "eyebrow": "Keamanan dan pemerintahan",
@@ -725,18 +719,6 @@
       },
       "auth": {
         "register": "Pengguna Hub Terdaftar"
-      },
-      "acl": {
-        "denied": "ACL ditolak"
-      },
-      "model": {
-        "switch_denied": "Switch di luar katalog"
-      },
-      "approval": {
-        "resolved": "Persetujuan diselesaikan"
-      },
-      "policy": {
-        "updated": "Baseline kebijakan diperbarui"
       }
     },
     "auditOutcomes": {
@@ -766,60 +748,6 @@
       "environmentName": "Nama lingkungan",
       "secretValue": "Nilai rahasia",
       "submit": "Enkripsi dan simpan"
-    },
-    "usage": {
-      "eyebrow": "Operasi",
-      "title": "Penggunaan model",
-      "description": "Token per pengguna / model / tanggal, dikumpulkan dari runtime setiap menit",
-      "startDate": "Tanggal mulai",
-      "endDate": "Tanggal akhir",
-      "apply": "Terapkan",
-      "refresh": "Kumpulkan sekarang",
-      "promptTokens": "Token input",
-      "completionTokens": "Token output",
-      "calls": "Panggilan",
-      "byUser": "Pengguna (tenant)",
-      "byModel": "Model",
-      "byAgent": "Per agen (termasuk subagen)",
-      "byDate": "Tanggal",
-      "empty": "Belum ada data penggunaan pada rentang ini"
-    },
-    "agents": {
-      "eyebrow": "Pasar templat",
-      "title": "Agen dari templat",
-      "description": "Pilih templat yang diterbitkan admin dan instance-kan ke runtime pribadi Anda sekali klik",
-      "instantiated": "Templat di-instance — siap mengobrol"
-    },
-    "prompts": {
-      "eyebrow": "Tata kelola",
-      "title": "Pustaka prompt",
-      "description": "Usulkan — setujui — terbitkan; anggota hanya membaca versi yang disetujui",
-      "assetId": "ID aset",
-      "name": "Nama",
-      "content": "Konten",
-      "propose": "Usulkan",
-      "proposed": "Diajukan — menunggu review",
-      "version": "versi",
-      "pending": "menunggu review",
-      "review": "Tinjau",
-      "approve": "Setujui",
-      "reject": "Tolak",
-      "approved": "Disetujui dan diterbitkan",
-      "by": "oleh"
-    },
-    "keys": {
-      "eyebrow": "Tata kelola",
-      "title": "Pool kunci",
-      "description": "Round-robin per provider; menonaktifkan langsung berlaku",
-      "provider": "Provider",
-      "keyValue": "Nilai kunci",
-      "add": "Tambah",
-      "added": "Kunci ditambahkan",
-      "uses": "pemakaian",
-      "disable": "Nonaktifkan",
-      "enable": "Aktifkan",
-      "lease": "Sewa",
-      "leasedId": "disewakan"
     }
   },
   "login": {
@@ -3337,12 +3265,7 @@
       "safeTemplate": "Jalankan aman",
       "researchTemplate": "Riset beranggaran",
       "qualityTemplate": "Utamakan kualitas",
-      "blankTemplate": "Pipeline kosong",
-      "humanGateTitle": "Gerbang manusia",
-      "humanGateDescription": "Menangguhkan loop untuk persetujuan manusia pada ronde terpilih; tolak atau timeout mengakhiri loop",
-      "everyNRounds": "Tanya setiap N ronde",
-      "gateTimeout": "Batas tunggu (detik)",
-      "gateMessage": "Pertanyaan pada kartu persetujuan"
+      "blankTemplate": "Pipeline kosong"
     },
     "doomLoopEnabled": "Perlindungan Perilaku Berulang",
     "doomLoopEnabledTooltip": "Intervensi otomatis saat agen terjebak mengulangi tindakan yang sama",

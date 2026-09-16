@@ -886,10 +886,7 @@ def _json_safe_channel_meta(value: Any) -> Any:
     return None
 
 
-def _build_spawn_request_context(
-    current_agent_id: str,
-    subagent_session_id: str = "",
-) -> dict[str, Any]:
+def _build_spawn_request_context(current_agent_id: str) -> dict[str, Any]:
     """Build approval routing metadata without changing child identity."""
     from ...app.agent_context import (
         get_current_approval_route,
@@ -913,11 +910,6 @@ def _build_spawn_request_context(
         "channel": inherited.get("channel") or get_current_channel() or "",
         "_spawn_subagent": True,
     }
-    # EP-2-14: mint the sub-principal so usage/audit attribute to the
-    # child while governance keeps routing through the parent identity.
-    if subagent_session_id:
-        suffix = subagent_session_id.removeprefix("sub-")
-        context["subagent_principal"] = f"{current_agent_id}:sub:{suffix}"
     safe_meta = _json_safe_channel_meta(inherited.get("channel_meta") or {})
     if isinstance(safe_meta, dict) and safe_meta:
         context["channel_meta"] = safe_meta
@@ -1121,13 +1113,9 @@ async def _build_subagent_request_context(
     allowed_tools: Optional[list[str]] = None,
     skills: Optional[list[str]] = None,
     extra: Optional[dict] = None,
-    subagent_session_id: str = "",
 ) -> dict[str, Any]:
     """Build request_context with approval routing + tool/skill filters."""
-    rc = _build_spawn_request_context(
-        current_agent_id,
-        subagent_session_id=subagent_session_id,
-    )
+    rc = _build_spawn_request_context(current_agent_id)
     try:
         agent_config = await asyncio.to_thread(
             load_agent_config,
@@ -1308,7 +1296,6 @@ async def spawn_subagent(  # pylint: disable=too-many-return-statements
         current_agent_id,
         allowed_tools=allowed_tools,
         skills=skills,
-        subagent_session_id=subagent_session_id,
     )
     request_payload = {
         "session_id": subagent_session_id,
@@ -1458,7 +1445,6 @@ async def _spawn_batch(
                 current_agent_id,
                 allowed_tools=spec_allowed,
                 skills=spec_skills,
-                subagent_session_id=session_id,
             )
             payload = {
                 "session_id": session_id,
@@ -1617,7 +1603,6 @@ async def _spawn_forked_subagent(
         allowed_tools=allowed_tools,
         skills=skills,
         extra=fork_extra,
-        subagent_session_id=subagent_session_id,
     )
 
     request_payload: dict = {

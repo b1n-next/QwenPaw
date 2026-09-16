@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Hub proxy ACL (enterprise layer, Phase 0).
+"""Hub proxy ACL (hub control plane).
 
 Public surface:
 - :class:`AclEngine` / :class:`Decision` — ordered-rule evaluator

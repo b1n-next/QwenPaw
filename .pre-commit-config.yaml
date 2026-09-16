@@ -7,12 +7,9 @@ repos:
       - id: sort-simple-yaml
         exclude: '(?x)(.*/skills/.*|^scripts/pack/|^e2e/)'
       - id: check-yaml
-        # deploy/helm templates embed Go templating ({{ .Values.* }})
-        # and are validated by `helm lint`/`helm template` instead.
         exclude: |
           (?x)^(
-              meta.yaml|
-              deploy/helm/.*
+              meta.yaml
           )$
       - id: check-xml
         exclude: '(?x)(.*/skills/.*|^scripts/pack/|^e2e/)'

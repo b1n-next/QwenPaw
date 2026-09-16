@@ -4,10 +4,7 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-import os
-import re
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator
@@ -34,8 +31,7 @@ from starlette.concurrency import run_in_threadpool
 
 from ..__version__ import __version__
 from ..app.exception_handlers import register_exception_handlers
-from ..constant import WORKING_DIR
-from ..utils.http import is_loopback_host, runtime_host_allowed
+from ..utils.http import is_loopback_host
 from ..utils.oauth_callback import HUB_OAUTH_CALLBACK_URL_HEADER
 from .access_security import HubAccessSecurity
 from .acl import AclEngine, permissions_payload
@@ -53,11 +49,7 @@ from .auth import HubAuthService, HubDatabaseBusyError, HubUser
 from .bootstrap import get_hub_root
 from .config import HubConfig, HubConfigStore
 from .credentials import TenantCredentialVault
-from .model_catalog import ModelCatalogStore
 from .provisioner import RuntimeProvisionerUnavailableError
-from .provisioners.k8s import K8sRuntimeProvisioner
-
-
 from .local_provisioner import LocalProcessRuntimeProvisioner
 from .docker_images import DockerImagePullStore
 from .docker_provisioner import (
@@ -72,12 +64,6 @@ from .models import (
     RuntimeState,
 )
 from .operations import HubOperationsStore
-from .policy_catalog import PolicyCatalogStore
-from .key_pool import KeyPool
-from .prompt_library import PromptLibrary
-from .templates import TemplateStore
-from .trace import TRACE_HEADER, trace_id_from_headers
-from .usage import UsageCollector, UsageStore
 from .oauth_routes import oauth_callback_route, runtime_oauth_callback_path
 from .proxy_limits import (
     ProxyRequestIdleTimeoutError,
@@ -106,17 +92,8 @@ def build_runtime_service(
         registry.database_path,
         resolved_root / "secrets" / ".vault_key",
     )
-    model_catalog = ModelCatalogStore(
-        registry.database_path,
-        resolved_root / "secrets" / ".model_catalog_key",
-    )
-    policy_catalog = PolicyCatalogStore(registry.database_path)
     local_provisioner = LocalProcessRuntimeProvisioner()
     docker_provisioner = DockerRuntimeProvisioner(resolved_root)
-    # EP-1-6: k8s provisioner; preflight fail-closes until the cluster
-    # is reachable and QWENPAW_HUB_RUNTIME_HOST_SUFFIXES is configured.
-    k8s_provisioner = K8sRuntimeProvisioner()
-    k8s_provisioner.configure(_k8s_provisioner_config())
 
     def runtime_environment(record: Any) -> dict[str, str]:
         environment = credential_vault.resolve_environment(
@@ -130,20 +107,6 @@ def build_runtime_service(
             runtime_id=record.runtime_id,
             name="QWENPAW_RUNTIME_INTERNAL_TOKEN",
         )
-        # EP-1-2: inject the admin-maintained model catalog (decrypted
-        # server-side only; consumed by the runtime bootstrap hook).
-        bootstrap = model_catalog.bootstrap_payload()
-        if bootstrap:
-            environment["QWENPAW_MODEL_BOOTSTRAP_JSON"] = json.dumps(
-                bootstrap,
-            )
-        # EP-2-13: organization policy baseline (hub_rules outrank the
-        # runtime's builtin/user layers once applied at startup).
-        baseline = policy_catalog.baseline_payload()
-        if baseline:
-            environment["QWENPAW_POLICY_BASELINE_JSON"] = json.dumps(
-                baseline,
-            )
         return environment
 
     return RuntimeService(
@@ -152,134 +115,10 @@ def build_runtime_service(
         provisioners={
             local_provisioner.name: local_provisioner,
             docker_provisioner.name: docker_provisioner,
-            k8s_provisioner.name: k8s_provisioner,
         },
         credential_provider=runtime_environment,
         hub_config=hub_config,
     )
-
-
-def _catalog_provider_ids(model_catalog: Any) -> set[str]:
-    """Enabled provider ids from the admin catalog."""
-    return {
-        record.provider_id
-        for record in model_catalog.list_providers(include_disabled=False)
-    }
-
-
-def _filter_models_payload(
-    raw: bytes,
-    allowed_ids: set[str],
-) -> bytes:
-    """Keep only catalog providers in a ``GET /api/models`` body.
-
-    Non-admins must not even see cloud providers they could never use
-    (unreachable from the intranet, and a data-egress surface). A body
-    that fails to parse is passed through untouched — the runtime owns
-    that contract and a parse failure means an upstream anomaly, not a
-    governance decision.
-    """
-    try:
-        data = json.loads(raw)
-    except json.JSONDecodeError:
-        return raw
-    if not isinstance(data, list):
-        return raw
-    filtered = [
-        provider
-        for provider in data
-        if isinstance(provider, dict) and provider.get("id") in allowed_ids
-    ]
-    return json.dumps(filtered).encode("utf-8")
-
-
-def _catalog_allows_activation(
-    model_catalog: Any,
-    raw_body: bytes,
-) -> bool:
-    """Return True when the activation payload targets a catalog model.
-
-    Parses a ``PUT /api/models/active`` body and checks the
-    provider/model pair against the enabled admin catalog.
-    """
-    try:
-        payload = json.loads(raw_body or b"{}")
-    except json.JSONDecodeError:
-        return False
-    if not isinstance(payload, dict):
-        return False
-    provider_id = str(payload.get("provider_id") or "")
-    model_id = str(payload.get("model") or payload.get("model_id") or "")
-    if not provider_id or not model_id:
-        return False
-    provider = model_catalog.get_provider(provider_id)
-    if provider is None or not provider.enabled:
-        return False
-    return model_id in (provider.models or [])
-
-
-class ModelNotInCatalogError(Exception):
-    """Member model activation targets outside the admin catalog."""
-
-
-async def _enforce_model_activation_catalog(
-    app: FastAPI,
-    user: HubUser,
-    request: Request,
-) -> bytes | None:
-    """Enforce the admin catalog on member model activations.
-
-    Returns the buffered request body when it was consumed for
-    validation (the proxy must then forward those exact bytes), or
-    ``None`` when the request is not a member activation and can
-    stream through untouched. Raises 403 MODEL_NOT_IN_CATALOG when
-    the target is outside the enabled admin catalog.
-    """
-    if (
-        request.method != "PUT"
-        or request.url.path != "/api/models/active"
-        or user.role == "admin"
-    ):
-        return None
-    raw_body = await request.body()
-    allowed_target = await run_in_threadpool(
-        _catalog_allows_activation,
-        app.state.model_catalog,
-        raw_body,
-    )
-    if not allowed_target:
-        raise ModelNotInCatalogError()
-    return raw_body
-
-
-def _k8s_provisioner_config() -> dict[str, object]:
-    """Read k8s provisioner settings from QWENPAW_HUB_K8S_* env vars.
-
-    Keeps configuration ops-only (no upstream schema change): every
-    key is optional; an unconfigured provisioner simply fails its
-    preflight until the cluster is reachable.
-    """
-    mapping = {
-        "QWENPAW_HUB_K8S_NAMESPACE": "namespace",
-        "QWENPAW_HUB_K8S_IMAGE": "image",
-        "QWENPAW_HUB_K8S_PORT": "port",
-        "QWENPAW_HUB_K8S_CLUSTER_DOMAIN": "cluster_domain",
-        "QWENPAW_HUB_K8S_IMAGE_PULL_POLICY": "image_pull_policy",
-        "QWENPAW_HUB_K8S_STORAGE_CLASS": "storage_class",
-        "QWENPAW_HUB_K8S_PVC_SIZE": "pvc_size",
-        "QWENPAW_HUB_K8S_CPU_REQUEST": "cpu_request",
-        "QWENPAW_HUB_K8S_CPU_LIMIT": "cpu_limit",
-        "QWENPAW_HUB_K8S_MEMORY_REQUEST": "memory_request",
-        "QWENPAW_HUB_K8S_MEMORY_LIMIT": "memory_limit",
-        "QWENPAW_HUB_K8S_SERVICE_ACCOUNT": "service_account",
-        "QWENPAW_HUB_K8S_STARTUP_TIMEOUT": "startup_timeout_seconds",
-    }
-    config: dict[str, object] = {}
-    for env_name, key in mapping.items():
-        value = os.environ.get(env_name)
-        if value:
-            config[key] = value
-    return config
 
 
 def create_hub_app(  # pylint: disable=too-many-statements
@@ -312,14 +151,6 @@ def create_hub_app(  # pylint: disable=too-many-statements
     operations = HubOperationsStore(
         runtime_service.registry.database_path,
         runtime_service.root_dir,
-    )
-    # EP-1-4: pull-based usage accounting (no runtime patches).
-    usage_store = UsageStore(runtime_service.registry.database_path)
-    usage_collector = UsageCollector(
-        runtime_service=runtime_service,
-        credential_vault=credential_vault,
-        store=usage_store,
-        transport=proxy_transport,
     )
     access_security = HubAccessSecurity(
         effective_config.control_plane.security,
@@ -358,11 +189,9 @@ def create_hub_app(  # pylint: disable=too-many-statements
 
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-        usage_collector.start()
         try:
             yield
         finally:
-            await usage_collector.stop()
             if docker_pulls is not None:
                 await run_in_threadpool(docker_pulls.close)
             await run_in_threadpool(runtime_service.close)
@@ -372,48 +201,20 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.state.runtime_service = runtime_service
     app.state.auth_service = hub_auth
     app.state.hub_config = effective_config
+    # Optional role ACL overlay at <hub root>/acl.json
+    # (hot-reloadable; absent file = built-in defaults).
+    app.state.acl = AclEngine.from_env(config_dir=runtime_service.root_dir)
     app.state.config_store = config_store
     app.state.operations = operations
     app.state.access_security = access_security
     app.state.docker_pulls = docker_pulls
-    # Enterprise ACL: optional overlay at <hub root>/acl.json (hot reload).
-    app.state.acl = AclEngine.from_env(config_dir=runtime_service.root_dir)
-    # EP-1-1: central model provider catalog (shares control.db + its
-    # own secrets key under <hub root>/secrets/).
-    app.state.model_catalog = ModelCatalogStore(
-        runtime_service.registry.database_path,
-        runtime_service.root_dir / "secrets" / ".model_catalog_key",
-    )
-    model_catalog = app.state.model_catalog
-    # EP-2-13: organization governance baseline (same control.db).
-    app.state.policy_catalog = PolicyCatalogStore(
-        runtime_service.registry.database_path,
-    )
-    # EP-2-19: agent template marketplace (same control.db).
-    app.state.template_store = TemplateStore(
-        runtime_service.registry.database_path,
-    )
-    # EP-2-24: prompt library + provider key pool (same control.db).
-    app.state.prompt_library = PromptLibrary(
-        runtime_service.registry.database_path,
-    )
-    app.state.key_pool = KeyPool(
-        runtime_service.registry.database_path,
-    )
-    # EP-1-4: usage accounting store (collector started in lifespan).
-    app.state.usage_store = usage_store
-    app.state.usage_collector = usage_collector
 
     def require_loopback_runtime(record: RuntimeRecord) -> None:
-        # EP-1-6: k8s runtimes live at cluster Service DNS names; the
-        # shared runtime_host_allowed helper honours the ops-provisioned
-        # suffix allowlist (fail-closed otherwise).
-        if runtime_host_allowed(record.host, record.provisioner):
-            return
-        raise HTTPException(
-            status_code=503,
-            detail="Managed runtime endpoint must be loopback-only",
-        )
+        if not is_loopback_host(record.host):
+            raise HTTPException(
+                status_code=503,
+                detail="Managed runtime endpoint must be loopback-only",
+            )
 
     def runtime_url(
         record: RuntimeRecord,
@@ -513,7 +314,6 @@ def create_hub_app(  # pylint: disable=too-many-statements
         resource_type: str,
         resource_id: str,
         detail: dict[str, Any] | None = None,
-        trace_id: str | None = None,
         *,
         outcome: str = "success",
         remote_address: str | None = None,
@@ -526,7 +326,6 @@ def create_hub_app(  # pylint: disable=too-many-statements
             resource_type=resource_type,
             resource_id=resource_id,
             detail=detail,
-            trace_id=trace_id,
             outcome=outcome,
             remote_address=remote_address,
         )
@@ -827,18 +626,18 @@ def create_hub_app(  # pylint: disable=too-many-statements
             "user": user.to_dict(),
         }
 
+    @app.get("/api/hub/me/permissions")
+    async def current_identity_permissions(
+        user: HubUser = Depends(require_user),
+    ) -> dict[str, Any]:
+        """Console capability map for the caller's role."""
+        return permissions_payload(user.role)
+
     @app.get("/api/hub/me")
     async def current_identity(
         user: HubUser = Depends(require_user),
     ) -> dict[str, object]:
         return user.to_dict()
-
-    @app.get("/api/hub/me/permissions")
-    async def current_identity_permissions(
-        user: HubUser = Depends(require_user),
-    ) -> dict[str, object]:
-        """Console menu deny-list for the current role (UX only)."""
-        return permissions_payload(user.role)
 
     @app.post("/api/hub/me/password")
     async def change_password(
@@ -1493,12 +1292,6 @@ def create_hub_app(  # pylint: disable=too-many-statements
         query: str | None = Query(default=None, alias="q", max_length=128),
         action: str | None = Query(default=None, max_length=128),
         outcome: str | None = Query(default=None, max_length=32),
-        trace_id: str
-        | None = Query(
-            default=None,
-            max_length=32,
-            description="EP-2-11: replay one cross-plane trace",
-        ),
     ) -> dict[str, object]:
         events, total = await run_in_threadpool(
             operations.list_events,
@@ -1507,644 +1300,8 @@ def create_hub_app(  # pylint: disable=too-many-statements
             query=query,
             action=action,
             outcome=outcome,
-            trace_id=trace_id,
         )
         return _page_payload(events, page, page_size, total)
-
-    def _provider_payload(record: Any) -> dict[str, object]:
-        """Masked provider view: api_key is never echoed."""
-        return {
-            "provider_id": record.provider_id,
-            "name": record.name,
-            "base_url": record.base_url,
-            "models": record.models,
-            "default_model": record.default_model,
-            "enabled": record.enabled,
-            "api_key_set": record.api_key_set,
-            "created_at": record.created_at,
-            "updated_at": record.updated_at,
-        }
-
-    @app.get("/api/hub/templates")
-    async def list_market_templates(
-        _user: HubUser = Depends(require_user),
-    ) -> dict[str, object]:
-        """Hall listing: members see published templates only."""
-        templates = await run_in_threadpool(
-            app.state.template_store.list_templates,
-            published_only=True,
-        )
-        return {
-            "templates": [
-                {
-                    key: item[key]
-                    for key in (
-                        "template_id",
-                        "name",
-                        "description",
-                        "revision",
-                        "updated_at",
-                        "graph_node_count",
-                        "skills",
-                    )
-                }
-                for item in templates
-            ],
-        }
-
-    @app.post("/api/hub/templates/{template_id}/instantiate")
-    async def instantiate_template(
-        template_id: str,
-        user: HubUser = Depends(require_user),
-    ) -> dict[str, object]:
-        """Instantiate one template into the caller's personal runtime.
-
-        Pushes the manifest graph to the runtime's graph template store
-        (internal token, server-to-server) and returns the conversation
-        seed so the console can open a chat.
-        """
-        template = await run_in_threadpool(
-            app.state.template_store.get_template,
-            template_id,
-        )
-        if template is None or template["status"] != "published":
-            raise HTTPException(
-                status_code=404,
-                detail={
-                    "code": "TEMPLATE_NOT_FOUND",
-                    "message": "Template is not published",
-                },
-            )
-        graph = (template.get("manifest") or {}).get("graph")
-        pushed = False
-        if graph:
-            pushed = await _push_graph_to_runtime(user, graph)
-        await record_audit(
-            user,
-            "template.instantiated",
-            "template",
-            template_id,
-            {"graph_pushed": pushed, "revision": template["revision"]},
-        )
-        return {
-            "template_id": template_id,
-            "name": template["name"],
-            "prompt": template.get("prompt", ""),
-            "skills": template.get("skills", []),
-            "graph_pushed": pushed,
-        }
-
-    async def _push_graph_to_runtime(user: HubUser, graph: dict) -> bool:
-        """Best-effort graph publish into the user's running runtime."""
-        records = await run_in_threadpool(runtime_service.list)
-        record = next(
-            (
-                item
-                for item in records
-                if item.owner_user_id == user.user_id
-                and getattr(item, "state", None) == "running"
-            ),
-            None,
-        )
-        if record is None:
-            return False
-        try:
-            token = await run_in_threadpool(
-                credential_vault.get_runtime_secret,
-                tenant_id=record.tenant_id,
-                runtime_id=record.runtime_id,
-                name="QWENPAW_RUNTIME_INTERNAL_TOKEN",
-            )
-        except Exception:  # noqa: BLE001 - instantiation must not 500
-            return False
-        target = f"http://{record.host}:{record.port}/api/graph/publish"
-        try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.post(
-                    target,
-                    json={"graph": graph},
-                    headers={"Authorization": f"Bearer {token}"},
-                )
-            return response.status_code == 200
-        except httpx.HTTPError:
-            return False
-
-    @app.get("/api/hub/admin/templates")
-    async def admin_list_templates(
-        _admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Admin marketplace listing (all statuses)."""
-        templates = await run_in_threadpool(
-            app.state.template_store.list_templates,
-        )
-        return {"templates": templates}
-
-    @app.post("/api/hub/admin/templates")
-    async def admin_upsert_template(
-        request: Request,
-        _admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Create or update one template (revision bumps)."""
-        body = await request.json()
-        template_id = str(body.get("template_id") or "").strip()
-        manifest = body.get("manifest")
-        status = str(body.get("status") or "draft")
-        try:
-            template = await run_in_threadpool(
-                app.state.template_store.upsert_template,
-                template_id,
-                manifest,
-                created_by=_admin.username,
-                status=status,
-            )
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=422,
-                detail={"code": "INVALID_TEMPLATE", "message": str(exc)},
-            ) from None
-        await record_audit(
-            _admin,
-            "template.updated",
-            "template",
-            template_id,
-            {"revision": template.get("revision"), "status": status},
-        )
-        return {"template": template}
-
-    @app.patch("/api/hub/admin/templates/{template_id}")
-    async def admin_set_template_status(
-        template_id: str,
-        request: Request,
-        _admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Publish or offline one template."""
-        body = await request.json()
-        status = str(body.get("status") or "").strip()
-        template = await run_in_threadpool(
-            app.state.template_store.set_status,
-            template_id,
-            status,
-        )
-        if template is None:
-            raise HTTPException(status_code=404, detail="template not found")
-        await record_audit(
-            _admin,
-            "template.status_changed",
-            "template",
-            template_id,
-            {"status": status, "revision": template["revision"]},
-        )
-        return {"template": template}
-
-    @app.get("/api/hub/prompts")
-    async def list_prompts(
-        _user: HubUser = Depends(require_user),
-    ) -> dict[str, object]:
-        """Approved prompt assets for members."""
-        assets = await run_in_threadpool(
-            app.state.prompt_library.list_assets,
-        )
-        return {"prompts": assets}
-
-    @app.get("/api/hub/prompts/{asset_id}")
-    async def get_prompt(
-        asset_id: str,
-        _user: HubUser = Depends(require_user),
-    ) -> dict[str, object]:
-        """Current approved content of one asset."""
-        asset = await run_in_threadpool(
-            app.state.prompt_library.get_asset,
-            asset_id,
-        )
-        if asset is None or asset["current_version"] == 0:
-            raise HTTPException(
-                status_code=404,
-                detail={
-                    "code": "PROMPT_NOT_FOUND",
-                    "message": "no approved version",
-                },
-            )
-        return {
-            "asset_id": asset["asset_id"],
-            "name": asset["name"],
-            "category": asset["category"],
-            "current_version": asset["current_version"],
-            "content": asset["content"],
-        }
-
-    @app.post("/api/hub/admin/prompts")
-    async def propose_prompt(
-        request: Request,
-        admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Create an asset or propose its next version (pending)."""
-        body = await request.json()
-        try:
-            asset = await run_in_threadpool(
-                app.state.prompt_library.propose,
-                str(body.get("asset_id") or ""),
-                str(body.get("name") or ""),
-                str(body.get("content") or ""),
-                proposed_by=admin.username,
-                category=str(body.get("category") or "general"),
-            )
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=422,
-                detail={"code": "INVALID_PROMPT", "message": str(exc)},
-            ) from None
-        await record_audit(
-            admin,
-            "prompt.proposed",
-            "prompt",
-            asset["asset_id"],
-            {"version": asset["versions"][0]["version"]},
-        )
-        return {"prompt": asset}
-
-    @app.get("/api/hub/admin/prompts")
-    async def admin_list_prompts(
-        _admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """All assets with pending-proposal flags."""
-        assets = await run_in_threadpool(
-            app.state.prompt_library.list_assets,
-            include_pending=True,
-        )
-        return {"prompts": assets}
-
-    @app.get("/api/hub/admin/prompts/{asset_id}")
-    async def admin_get_prompt(
-        asset_id: str,
-        _admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Asset with its full version history."""
-        asset = await run_in_threadpool(
-            app.state.prompt_library.get_asset,
-            asset_id,
-        )
-        if asset is None:
-            raise HTTPException(status_code=404, detail="not found")
-        return {"prompt": asset}
-
-    @app.post("/api/hub/admin/prompts/{asset_id}/review")
-    async def review_prompt(
-        asset_id: str,
-        request: Request,
-        admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Approve or reject a pending version."""
-        body = await request.json()
-        version = int(body.get("version") or 0)
-        decision = str(body.get("decision") or "").strip()
-        if decision not in ("approved", "rejected"):
-            raise HTTPException(
-                status_code=422,
-                detail={"code": "INVALID_DECISION", "message": "bad"},
-            )
-        try:
-            asset = await run_in_threadpool(
-                app.state.prompt_library.review,
-                asset_id,
-                version,
-                decision,
-                reviewed_by=admin.username,
-            )
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=422,
-                detail={"code": "INVALID_PROMPT", "message": str(exc)},
-            ) from None
-        if asset is None:
-            raise HTTPException(
-                status_code=404,
-                detail="version not pending",
-            )
-        await record_audit(
-            admin,
-            f"prompt.{decision}",
-            "prompt",
-            asset_id,
-            {"version": version},
-        )
-        return {"prompt": asset}
-
-    @app.get("/api/hub/admin/keys")
-    async def admin_list_keys(
-        _admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Key pool metadata (values never listed)."""
-        keys = await run_in_threadpool(app.state.key_pool.list_keys)
-        return {"keys": keys}
-
-    @app.post("/api/hub/admin/keys")
-    async def admin_add_key(
-        request: Request,
-        admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Register one provider key."""
-        body = await request.json()
-        try:
-            key = await run_in_threadpool(
-                app.state.key_pool.add_key,
-                str(body.get("provider") or ""),
-                str(body.get("key_value") or ""),
-                created_by=admin.username,
-                key_id=str(body.get("key_id") or ""),
-            )
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=422,
-                detail={"code": "INVALID_KEY", "message": str(exc)},
-            ) from None
-        await record_audit(
-            admin,
-            "key.added",
-            "api_key",
-            key["key_id"],
-            {"provider": key["provider"]},
-        )
-        return {"key": key}
-
-    @app.patch("/api/hub/admin/keys/{key_id}")
-    async def admin_set_key_status(
-        key_id: str,
-        request: Request,
-        admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Enable or disable one key."""
-        body = await request.json()
-        status = str(body.get("status") or "").strip()
-        try:
-            key = await run_in_threadpool(
-                app.state.key_pool.set_status,
-                key_id,
-                status,
-            )
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=422,
-                detail={"code": "INVALID_KEY", "message": str(exc)},
-            ) from None
-        if key is None:
-            raise HTTPException(status_code=404, detail="key not found")
-        await record_audit(
-            admin,
-            "key.status_changed",
-            "api_key",
-            key_id,
-            {"status": status},
-        )
-        return {"key": key}
-
-    @app.post("/api/hub/keys/lease")
-    async def lease_key(
-        request: Request,
-        _user: HubUser = Depends(require_user),
-    ) -> dict[str, object]:
-        """Lease the next key of a provider (round-robin, counted)."""
-        body = await request.json()
-        provider = str(body.get("provider") or "")
-        try:
-            key = await run_in_threadpool(
-                app.state.key_pool.lease,
-                provider,
-            )
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=422,
-                detail={"code": "INVALID_PROVIDER", "message": str(exc)},
-            ) from None
-        if key is None:
-            raise HTTPException(
-                status_code=404,
-                detail={
-                    "code": "NO_ACTIVE_KEY",
-                    "message": f"no active key for '{provider}'",
-                },
-            )
-        return {"lease": key}
-
-    @app.get("/api/hub/admin/policy/baseline")
-    async def get_policy_baseline(
-        _admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Read the organization governance baseline (EP-2-13)."""
-        baseline = await run_in_threadpool(
-            app.state.policy_catalog.get_baseline,
-        )
-        return {"baseline": baseline}
-
-    @app.put("/api/hub/admin/policy/baseline")
-    async def update_policy_baseline(
-        request: Request,
-        _admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Create or replace the organization governance baseline.
-
-        Takes effect on each personal runtime's next (re)start — the
-        baseline rides the provisioner environment and is applied as a
-        rules layer local policy.yaml cannot downgrade.
-        """
-        body = await request.json()
-        rules = body.get("rules")
-        enabled = bool(body.get("enabled", True))
-        try:
-            baseline = await run_in_threadpool(
-                app.state.policy_catalog.update_baseline,
-                rules,
-                updated_by=_admin.username,
-                enabled=enabled,
-            )
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=422,
-                detail={"code": "INVALID_BASELINE", "message": str(exc)},
-            ) from None
-        await record_audit(
-            _admin,
-            "policy.updated",
-            "policy",
-            "baseline",
-            {
-                "revision": baseline.get("revision"),
-                "rule_count": len(baseline.get("rules") or []),
-                "enabled": baseline.get("enabled"),
-            },
-        )
-        return {"baseline": baseline}
-
-    @app.get("/api/hub/admin/models/providers")
-    async def list_model_providers(
-        _admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """List catalog providers (masked, secrets never echoed)."""
-        records = await run_in_threadpool(model_catalog.list_providers)
-        return {
-            "providers": [_provider_payload(r) for r in records],
-            "total": len(records),
-        }
-
-    @app.post(
-        "/api/hub/admin/models/providers",
-        status_code=201,
-    )
-    async def upsert_model_provider(
-        body: dict[str, Any],
-        admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Create or replace a catalog provider."""
-        try:
-            record = await run_in_threadpool(
-                model_catalog.upsert_provider,
-                provider_id=str(body.get("provider_id") or ""),
-                name=str(body.get("name") or body.get("provider_id") or ""),
-                base_url=str(body.get("base_url") or ""),
-                api_key=body.get("api_key"),
-                models=[str(m) for m in body.get("models") or []],
-                default_model=body.get("default_model"),
-                enabled=bool(body.get("enabled", True)),
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        await record_audit(
-            admin,
-            "model_catalog.upsert",
-            "model_provider",
-            record.provider_id,
-            detail={
-                "base_url": record.base_url,
-                "models": len(record.models),
-                "enabled": record.enabled,
-            },
-        )
-        return _provider_payload(record)
-
-    @app.patch("/api/hub/admin/models/providers/{provider_id}")
-    async def patch_model_provider(
-        provider_id: str,
-        body: dict[str, Any],
-        admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Partial update; omitted api_key keeps the stored secret."""
-        existing = model_catalog.get_provider(provider_id)
-        if existing is None:
-            raise HTTPException(status_code=404, detail="provider not found")
-        try:
-            record = await run_in_threadpool(
-                model_catalog.upsert_provider,
-                provider_id=provider_id,
-                name=str(body.get("name", existing.name)),
-                base_url=str(body.get("base_url", existing.base_url)),
-                api_key=body.get("api_key"),
-                models=list(
-                    body.get("models", existing.models),
-                ),
-                default_model=body.get(
-                    "default_model",
-                    existing.default_model,
-                ),
-                enabled=bool(body.get("enabled", existing.enabled)),
-            )
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-        await record_audit(
-            admin,
-            "model_catalog.patch",
-            "model_provider",
-            provider_id,
-            detail={"enabled": record.enabled},
-        )
-        return _provider_payload(record)
-
-    @app.delete("/api/hub/admin/models/providers/{provider_id}")
-    async def delete_model_provider(
-        provider_id: str,
-        admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Remove a catalog provider (runtimes sync on next restart)."""
-        deleted = await run_in_threadpool(
-            model_catalog.delete_provider,
-            provider_id,
-        )
-        if not deleted:
-            raise HTTPException(status_code=404, detail="provider not found")
-        await record_audit(
-            admin,
-            "model_catalog.delete",
-            "model_provider",
-            provider_id,
-            detail={},
-        )
-        return {"deleted": provider_id}
-
-    @app.post("/api/hub/admin/models/providers/{provider_id}/test")
-    async def test_model_provider(
-        provider_id: str,
-        admin: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Server-side connectivity probe (sanitized, no key echo)."""
-        record = model_catalog.get_provider(provider_id)
-        if record is None:
-            raise HTTPException(status_code=404, detail="provider not found")
-        base_url = record.base_url.rstrip("/")
-        try:
-            api_key = model_catalog.get_api_key(provider_id)
-        except KeyError:
-            api_key = ""
-        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-        try:
-            async with httpx.AsyncClient(timeout=8.0) as client:
-                response = await client.get(
-                    f"{base_url}/models",
-                    headers=headers,
-                )
-            ok = response.status_code < 500
-            message = (
-                f"upstream responded HTTP {response.status_code}"
-                if ok
-                else f"upstream error HTTP {response.status_code}"
-            )
-        except httpx.HTTPError as exc:
-            ok = False
-            message = f"connection failed: {type(exc).__name__}"
-        await record_audit(
-            admin,
-            "model_catalog.test",
-            "model_provider",
-            provider_id,
-            detail={"reachable": ok},
-        )
-        return {"success": ok, "message": message}
-
-    @app.get("/api/hub/admin/usage/summary")
-    async def usage_summary(
-        _: HubUser = Depends(require_admin),
-        start_date: str | None = Query(default=None),
-        end_date: str | None = Query(default=None),
-        tenant_id: str | None = Query(default=None),
-        model: str | None = Query(default=None),
-    ) -> dict[str, object]:
-        """Aggregated LLM usage by user / model / date (EP-1-4)."""
-        return await run_in_threadpool(
-            usage_store.summary,
-            start_date=start_date,
-            end_date=end_date,
-            tenant_id=tenant_id,
-            model=model,
-        )
-
-    @app.post("/api/hub/admin/usage/collect")
-    async def usage_collect(
-        _: HubUser = Depends(require_admin),
-    ) -> dict[str, object]:
-        """Trigger one collection pass immediately (admin/debug)."""
-        collected = await usage_collector.collect_once()
-        return {
-            "collected_rows": collected,
-            "last_pass_at": usage_collector.last_pass_at,
-            "last_error": usage_collector.last_error,
-        }
 
     @app.get(
         "/api/hub/oauth/callback/{runtime_id}/{callback_route:path}",
@@ -2229,72 +1386,37 @@ def create_hub_app(  # pylint: disable=too-many-statements
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
         include_in_schema=False,
     )
-    # pylint: disable=too-many-branches
     async def personal_runtime_proxy(
         path: str,
         request: Request,
         user: HubUser = Depends(require_personal_runtime_user),
     ) -> Response:
-        # EP-2-11 governance bridging: one trace id per proxied request,
-        # echoed downstream (runtime audit) and on the response.
-        trace_id = trace_id_from_headers(request.headers)
-        decision = app.state.acl.decide(
+        acl_decision = app.state.acl.decide(
             user.role,
             request.method,
             request.url.path,
         )
-        if not decision.allowed:
+        if not acl_decision.allowed:
             await record_audit(
                 user,
                 "acl.denied",
                 "api",
                 request.url.path,
-                {"reason": decision.reason, "method": request.method},
-                trace_id=trace_id,
+                {
+                    "reason": acl_decision.reason,
+                    "method": request.method,
+                },
+                outcome="denied",
+                remote_address=request.client.host if request.client else None,
             )
             raise HTTPException(
                 status_code=403,
                 detail={
                     "code": "ACL_DENIED",
-                    "message": "This API is restricted to administrators.",
-                    "reason": decision.reason,
+                    "message": "This API is restricted by policy.",
+                    "reason": acl_decision.reason,
                 },
             )
-        # EP-2-12: approval resolutions are buffered so the hub can
-        # mirror them into its audit ledger after the upstream answers.
-        approval_body: bytes | None = None
-        if request.method == "POST" and re.match(
-            r"^/api/approval/(?:approve|deny)$",
-            request.url.path,
-        ):
-            approval_body = await request.body()
-        # EP-1-3 governance refinement: switching the active model is
-        # usage, not configuration (validated against the catalog).
-        try:
-            activation_body = await _enforce_model_activation_catalog(
-                app,
-                user,
-                request,
-            )
-        except ModelNotInCatalogError:
-            await record_audit(
-                user,
-                "model.switch_denied",
-                "model",
-                request.url.path,
-                {"role": user.role},
-                trace_id=trace_id,
-            )
-            raise HTTPException(
-                status_code=403,
-                detail={
-                    "code": "MODEL_NOT_IN_CATALOG",
-                    "message": (
-                        "Only models from the administrator "
-                        "catalog can be activated."
-                    ),
-                },
-            ) from None
         record = await ensure_personal_runtime(user)
         target = runtime_url(
             record,
@@ -2335,9 +1457,6 @@ def create_hub_app(  # pylint: disable=too-many-statements
             "content-length",
             "host",
             HUB_OAUTH_CALLBACK_URL_HEADER.lower(),
-            # re-minted below in canonical casing; skipping the inbound
-            # copy avoids a duplicated comma-joined header value
-            TRACE_HEADER.lower(),
         }
         headers = {
             name: value
@@ -2345,7 +1464,6 @@ def create_hub_app(  # pylint: disable=too-many-statements
             if name.lower() not in excluded_request_headers
         }
         headers["X-QwenPaw-Runtime-Token"] = internal_token
-        headers[TRACE_HEADER] = trace_id
         callback_route = oauth_callback_route(request.method, path)
         if callback_route:
             public_base_url = (
@@ -2368,25 +1486,18 @@ def create_hub_app(  # pylint: disable=too-many-statements
         )
         request_complete = asyncio.Event()
         try:
-            request_content = (
-                activation_body
-                if activation_body is not None
-                else approval_body
-                if approval_body is not None
-                else limited_request_stream(
+            upstream_request = client.build_request(
+                request.method,
+                target,
+                headers=headers,
+                content=limited_request_stream(
                     request.stream(),
                     max_bytes=proxy_config.max_request_size_bytes,
                     idle_timeout_seconds=(
                         proxy_config.request_idle_timeout_seconds
                     ),
                     completion_event=request_complete,
-                )
-            )
-            upstream_request = client.build_request(
-                request.method,
-                target,
-                headers=headers,
-                content=request_content,
+                ),
             )
             upstream = await send_with_response_header_timeout(
                 client,
@@ -2431,61 +1542,6 @@ def create_hub_app(  # pylint: disable=too-many-statements
             await client.aclose()
             raise
 
-        # EP-2-12: mirror the approval resolution into the hub audit
-        # ledger (who answered which request, with which outcome).
-        if approval_body is not None:
-            decision_action = (
-                "approve"
-                if request.url.path.endswith(
-                    "/approve",
-                )
-                else "deny"
-            )
-            try:
-                parsed_body = json.loads(approval_body)
-            except ValueError:
-                parsed_body = {}
-            await record_audit(
-                user,
-                "approval.resolved",
-                "approval",
-                str(parsed_body.get("request_id") or request.url.path),
-                {
-                    "action": decision_action,
-                    "session_id": parsed_body.get("session_id"),
-                    "reason": parsed_body.get("reason"),
-                    "upstream_status": upstream.status_code,
-                },
-                trace_id=trace_id,
-            )
-
-        # EP-1-3 visibility governance: non-admins only ever see the
-        # admin-opened catalog — built-in cloud providers (free tiers
-        # included) are hidden server-side, not just in the UI.
-        if (
-            request.method == "GET"
-            and request.url.path == "/api/models"
-            and user.role != "admin"
-            and upstream.status_code == 200
-        ):
-            allowed_ids = await run_in_threadpool(
-                _catalog_provider_ids,
-                app.state.model_catalog,
-            )
-            if upstream.is_stream_consumed:
-                # pre-loaded body (e.g. test transports built with
-                # json=/content=); real network responses stream lazily
-                raw_body = upstream.content
-            else:
-                raw_body = await upstream.aread()
-            await upstream.aclose()
-            await client.aclose()
-            return Response(
-                content=_filter_models_payload(raw_body, allowed_ids),
-                status_code=200,
-                media_type="application/json",
-                headers={TRACE_HEADER: trace_id},
-            )
         excluded_response_headers = {
             "connection",
             "keep-alive",
@@ -2501,7 +1557,6 @@ def create_hub_app(  # pylint: disable=too-many-statements
             for name, value in upstream.headers.items()
             if name.lower() not in excluded_response_headers
         }
-        response_headers[TRACE_HEADER] = trace_id
 
         async def stream_upstream() -> AsyncIterator[bytes]:
             try:
@@ -2536,22 +1591,6 @@ def create_hub_app(  # pylint: disable=too-many-statements
         if user is None:
             await websocket.close(code=4401)
             return
-        ws_decision = app.state.acl.decide(
-            user.role,
-            "WS",
-            websocket.url.path,
-        )
-        if not ws_decision.allowed:
-            await record_audit(
-                user,
-                "acl.denied",
-                "api",
-                websocket.url.path,
-                {"reason": ws_decision.reason, "method": "WS"},
-                trace_id=trace_id_from_headers(websocket.headers),
-            )
-            await websocket.close(code=1008)  # policy violation
-            return
         try:
             record = await ensure_personal_runtime(user)
             target = runtime_url(
@@ -2575,7 +1614,6 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 str(target),
                 headers={
                     "X-QwenPaw-Runtime-Token": internal_token,
-                    TRACE_HEADER: (trace_id_from_headers(websocket.headers)),
                 },
                 max_size=(proxy_config.websocket_max_message_size_bytes),
             )
@@ -2673,7 +1711,7 @@ def run_hub_app(
     root_dir = get_hub_root()
     hub_config = HubConfigStore(
         root_dir / "control.db",
-    ).resolve(config_path, available_provisioners={"local", "docker", "k8s"})
+    ).resolve(config_path, available_provisioners={"local", "docker"})
     if public_bind:
         database_path = root_dir / "control.db"
         credential_vault = TenantCredentialVault(

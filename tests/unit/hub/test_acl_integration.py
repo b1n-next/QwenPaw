@@ -3,17 +3,15 @@
 
 Exercises the wired control_app: HTTP 403 with ACL_DENIED detail +
 audit events, admin bypass, the /api/hub/me/permissions endpoint,
-websocket close 1008, and the acl.json overlay via env override.
+and the acl.json overlay via env override.
 """
 
 import json
 from pathlib import Path
-from typing import AsyncIterator
 
 import httpx
 import pytest
 from httpx import MockTransport
-from starlette.websockets import WebSocketDisconnect
 
 from tests.unit.hub.test_control_app import (
     _ProxyStream,
@@ -127,20 +125,6 @@ def test_permissions_endpoint_per_role(tmp_path: Path) -> None:
         }
 
 
-def test_websocket_denied_for_user_closes_1008(tmp_path: Path) -> None:
-    with _client(tmp_path, _ok_transport()) as client:
-        _register(client, "owner")
-        _, member_token = _create_user(client, "member")
-
-        with pytest.raises(WebSocketDisconnect) as excinfo:
-            with client.websocket_connect(
-                "/api/voice/ws",
-                headers={"Authorization": f"Bearer {member_token}"},
-            ):
-                pass  # pragma: no cover - server must close first
-        assert excinfo.value.code == 1008
-
-
 def test_acl_json_overlay_via_env(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -185,153 +169,3 @@ def test_acl_json_overlay_via_env(
             ).status_code
             == 200
         )
-
-
-def test_member_model_switch_catalog_enforcement(tmp_path: Path) -> None:
-    """EP-1-3: switching is usage (allowed in-catalog), not config.
-
-    Member PUT /api/models/active forwards when the provider/model is
-    in the admin catalog and 403s with MODEL_NOT_IN_CATALOG + audit
-    otherwise.
-    """
-    with _client(tmp_path, _ok_transport()) as client:
-        _register(client, "owner")
-        member, member_token = _create_user(client, "member")
-
-        client.app.state.model_catalog.upsert_provider(
-            provider_id="corp-gpt",
-            name="Corp GPT",
-            base_url="http://corp.internal/v1",
-            api_key="corp-secret",
-            models=["corp-model-a", "corp-model-b"],
-            default_model="corp-model-a",
-        )
-
-        in_catalog = client.put(
-            "/api/models/active",
-            headers=_headers(member_token),
-            json={
-                "provider_id": "corp-gpt",
-                "model": "corp-model-b",
-                "scope": "agent",
-            },
-        )
-        assert in_catalog.status_code == 200
-
-        not_in_catalog = client.put(
-            "/api/models/active",
-            headers=_headers(member_token),
-            json={
-                "provider_id": "corp-gpt",
-                "model": "not-in-catalog",
-                "scope": "agent",
-            },
-        )
-        assert not_in_catalog.status_code == 403
-        assert (
-            not_in_catalog.json()["detail"]["code"] == "MODEL_NOT_IN_CATALOG"
-        )
-
-        unknown_provider = client.put(
-            "/api/models/active",
-            headers=_headers(member_token),
-            json={
-                "provider_id": "rogue",
-                "model": "any",
-                "scope": "agent",
-            },
-        )
-        assert unknown_provider.status_code == 403
-
-        events, total = client.app.state.operations.list_events(
-            page=1,
-            page_size=10,
-            action="model.switch_denied",
-        )
-        assert total == 2
-        assert events[0]["actor_user_id"] == member.user_id
-
-        # admin bypasses the catalog check entirely
-        _, owner_token = client.app.state.auth_service.authenticate(
-            "owner",
-            "safe-password",
-        )
-        admin_switch = client.put(
-            "/api/models/active",
-            headers=_headers(owner_token),
-            json={
-                "provider_id": "anything",
-                "model": "anywhere",
-                "scope": "agent",
-            },
-        )
-        assert admin_switch.status_code == 200
-
-
-def test_member_model_list_filtered_to_catalog(tmp_path: Path) -> None:
-    """EP-1-3 visibility: members see only admin-opened providers.
-
-    The runtime answers /api/models with every built-in provider
-    (dozens of cloud vendors with free tiers); the hub proxy filters
-    the response down to the enabled catalog for non-admins.
-    """
-    providers_payload = json.dumps(
-        [
-            {"id": "corp-gpt", "models": ["demo-model"]},
-            {"id": "openrouter", "models": ["free-thing:free"]},
-            {"id": "ollama", "models": []},
-            {"id": "github-models", "models": ["gpt-4o-mini"]},
-        ],
-    ).encode("utf-8")
-
-    class _ProviderListStream(httpx.AsyncByteStream):
-        async def __aiter__(self) -> AsyncIterator[bytes]:
-            yield providers_payload
-
-    def _models_transport(_request: httpx.Request) -> httpx.Response:
-        # fresh streaming body per request — the proxy consumes
-        # upstream responses as a stream (see _ok_transport's note)
-        return httpx.Response(200, stream=_ProviderListStream())
-
-    transport = MockTransport(_models_transport)
-    with _client(tmp_path, transport) as client:
-        _register(client, "owner")
-        _, member_token = _create_user(client, "member")
-
-        client.app.state.model_catalog.upsert_provider(
-            provider_id="corp-gpt",
-            name="Corp GPT",
-            base_url="http://corp.internal/v1",
-            api_key="corp-secret",
-            models=["demo-model"],
-            default_model="demo-model",
-        )
-
-        member_view = client.get(
-            "/api/models",
-            headers=_headers(member_token),
-        )
-        assert member_view.status_code == 200
-        provider_ids = [p["id"] for p in member_view.json()]
-        assert provider_ids == ["corp-gpt"]
-
-        # admins keep the unfiltered view
-        _, owner_token = client.app.state.auth_service.authenticate(
-            "owner",
-            "safe-password",
-        )
-        admin_view = client.get(
-            "/api/models",
-            headers=_headers(owner_token),
-        )
-        assert admin_view.status_code == 200
-        assert len(admin_view.json()) == 4
-
-        # an empty catalog means an empty list — nothing leaks
-        client.app.state.model_catalog.delete_provider("corp-gpt")
-        empty_view = client.get(
-            "/api/models",
-            headers=_headers(member_token),
-        )
-        assert empty_view.status_code == 200
-        assert empty_view.json() == []

@@ -16,10 +16,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from qwenpaw.a2a.server import api_router as a2a_api_router
-from qwenpaw.a2a.server import well_known_router as a2a_well_known
-from qwenpaw.mcp_server.router import router as mcp_router
-
 from ..__version__ import __version__
 from ..backup import BackupManager
 from ..backup._utils.safe_swap import cleanup_startup_restore_artifacts
@@ -50,7 +46,6 @@ from .auth import (
     check_proxy_config_sanity,
 )
 from .exception_handlers import register_exception_handlers
-from .trace_context import TraceContextMiddleware
 from .migration import (
     ensure_default_agent_exists,
     ensure_qa_agent_exists,
@@ -63,9 +58,6 @@ from .routers.agent_scoped import AgentContextMiddleware
 from .routers.approval import router as approval_router
 from .routers.coding_mode import router as coding_mode_router
 from .routers.healthz import router as healthz_router
-from .routers.knowledge import router as knowledge_router
-from .routers.mobile import router as mobile_router
-from .routers.graph import router as graph_router
 from .routers.loops import router as loops_router
 from .routers.tool_calls import router as tool_calls_router
 from .routers.voice import voice_router
@@ -450,29 +442,6 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
             elif app.state.startup_ready.is_set():
                 startup_display.mark_finalizing()
 
-            # EP-2-12: durable approval shadow — attach the store and
-            # re-hydrate pending approvals persisted before a restart.
-            try:
-                from .approvals.store import ApprovalStore
-
-                _approval_store = ApprovalStore(
-                    Path(WORKING_DIR) / "approvals.db",
-                )
-                from .approvals import get_approval_service as _gas
-
-                _gas().attach_store(_approval_store)
-                await _gas().restore_from_store()
-            except Exception:
-                logger.warning(
-                    "Approval persistence unavailable; running memory-only",
-                    exc_info=True,
-                )
-
-            # EP-1-2: hub-pushed model catalog (env bootstrap) runs before
-            # provider sync so catalog providers join the first sync.
-            from .model_bootstrap import apply_model_bootstrap
-
-            await apply_model_bootstrap(provider_manager)
             provider_manager.start_local_model_resume(local_model_manager)
             startup_provider_ids = provider_manager.startup_sync_provider_ids()
             asyncio.create_task(
@@ -764,10 +733,6 @@ register_exception_handlers(app)
 # Add agent context middleware for agent-scoped routes
 app.add_middleware(AgentContextMiddleware)
 
-# EP-2-11: mirror the Hub-issued trace header into a request ContextVar
-# (governance audit reads it; no-op on direct non-hub access).
-app.add_middleware(TraceContextMiddleware)
-
 app.add_middleware(AuthMiddleware)
 app.add_middleware(RuntimeBoundaryMiddleware)
 
@@ -940,24 +905,6 @@ app.include_router(coding_mode_router, prefix="/api")
 
 # Loops router: /api/loops
 app.include_router(loops_router, prefix="/api")
-
-# Graph orchestration router (EP-2-18): /api/graph
-app.include_router(graph_router, prefix="/api")
-
-# MCP server endpoint (EP-2-20): /api/mcp-server (QwenPaw AS the
-# server; /api/mcp/* stays the pre-existing MCP client plane)
-app.include_router(mcp_router, prefix="/api")
-
-# A2A server surface (EP-2-21): discovery at the domain root and the
-# JSON-RPC message endpoint under /api/a2a
-app.include_router(a2a_well_known)
-app.include_router(a2a_api_router, prefix="/api")
-
-# Knowledge base API (EP-2-22): /api/knowledge
-app.include_router(knowledge_router, prefix="/api")
-
-# Mobile H5 approval page (Phase 3, G-P14): /mobile/approvals
-app.include_router(mobile_router)
 
 # Agent-scoped router: /api/agents/{agentId}/chats, etc.
 agent_scoped_router = create_agent_scoped_router()

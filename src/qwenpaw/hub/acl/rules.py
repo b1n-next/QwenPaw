@@ -11,7 +11,7 @@ Semantics
   slashes collapsed) before matching; malformed paths are denied.
 
 Grouping rationale (chat plane vs admin plane) is documented in
-``docs/enterprise/03-design-console-permission.md`` §3 appendix.
+``design doc`` §3 appendix.
 """
 
 from __future__ import annotations

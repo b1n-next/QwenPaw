@@ -222,12 +222,10 @@ def test_compiler_preserves_pipeline_order() -> None:
     assert [gate.priority for gate in handler.gates] == [0, 10]
 
 
-def test_catalog_contains_exactly_the_builtin_gates() -> None:
-    """Eight gates since EP-2-15 added the human approval gate."""
+def test_catalog_contains_only_seven_builtin_gates() -> None:
     entries = get_gate_catalog().describe()
 
     assert {entry["type"] for entry in entries} == {
-        "human_gate",
         "iteration",
         "doom_loop",
         "token_budget",
@@ -240,7 +238,6 @@ def test_catalog_contains_exactly_the_builtin_gates() -> None:
     assert groups["qualitative_rubric"] == "completion_rubric"
     assert groups["completion_rubric"] == "completion_rubric"
     assert groups["iteration"] is None
-    assert groups["human_gate"] is None
 
 
 def _rubric_context() -> tuple[dict, Msg]:

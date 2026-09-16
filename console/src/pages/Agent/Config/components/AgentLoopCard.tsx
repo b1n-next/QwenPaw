@@ -19,7 +19,6 @@ import {
   ChevronRight,
   Repeat,
   Shield,
-  UserCheck,
   CheckCircle,
   Target,
   Rocket,
@@ -725,16 +724,6 @@ function PerToolLimits({
 
 const GATE_DEFINITIONS: GateDefinition[] = [
   {
-    type: "human_gate",
-    title: "Human gate",
-    titleKey: "agentConfig.loopMode.humanGateTitle",
-    description:
-      "Suspend the loop for human approval at chosen rounds; deny or timeout terminates the loop.",
-    descriptionKey: "agentConfig.loopMode.humanGateDescription",
-    icon: <UserCheck size={15} />,
-    defaults: { every_n_rounds: 5, timeout_seconds: 600, message: "" },
-  },
-  {
     type: "iteration",
     title: "Iteration limit",
     titleKey: "agentConfig.loopMode.iterationGateTitle",
@@ -853,38 +842,6 @@ function GateParamsEditor({
       form,
       preserve: true,
     }) as Array<{ after?: number }> | undefined) || [];
-  if (type === "human_gate") {
-    return (
-      <>
-        <div className={loopStyles.fieldGrid}>
-          <Form.Item
-            name={[...base, "every_n_rounds"]}
-            label={t("agentConfig.loopMode.everyNRounds", "Ask every N rounds")}
-          >
-            <InputNumber min={0} max={500} style={{ width: "100%" }} />
-          </Form.Item>
-          <Form.Item
-            name={[...base, "timeout_seconds"]}
-            label={t(
-              "agentConfig.loopMode.gateTimeout",
-              "Wait timeout (seconds)",
-            )}
-          >
-            <InputNumber min={1} max={86400} style={{ width: "100%" }} />
-          </Form.Item>
-        </div>
-        <Form.Item
-          name={[...base, "message"]}
-          label={t(
-            "agentConfig.loopMode.gateMessage",
-            "Question shown on the approval card",
-          )}
-        >
-          <Input maxLength={500} />
-        </Form.Item>
-      </>
-    );
-  }
   if (type === "iteration") {
     return (
       <Form.Item

@@ -21,7 +21,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { useRoutes } from "../plugins/registry/hooks";
-import { useDeniedRouteIds } from "../stores/hubPermissionsStore";
 import type { MarketPluginEntry } from "../api/modules/pluginMarket";
 import { openExternalLink } from "../utils/openExternalLink";
 import {
@@ -149,19 +148,9 @@ export default function AppStore() {
     () => new Set(routes.map((r) => r.id)),
     [routes],
   );
-  // EP-0-4 parity: the OS dock must not offer entries whose page the
-  // hub hides for the current role (they would open into 403 APIs).
-  // null (unknown/legacy backend) keeps the full catalog, mirroring
-  // the sidebar's fail-open UX; the proxy ACL still enforces access.
-  const deniedRouteIds = useDeniedRouteIds();
   const catalog = useMemo(
-    () =>
-      OS_APPS.filter(
-        (a) =>
-          availableIds.has(a.routeId) &&
-          !(deniedRouteIds && deniedRouteIds.has(a.routeId)),
-      ),
-    [availableIds, deniedRouteIds],
+    () => OS_APPS.filter((a) => availableIds.has(a.routeId)),
+    [availableIds],
   );
   const installedSet = useMemo(() => new Set(installed), [installed]);
   const installedAppVersions = useMemo(

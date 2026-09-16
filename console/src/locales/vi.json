@@ -328,10 +328,7 @@
       "global": "Cài đặt toàn cục",
       "extensions": "Tiện ích mở rộng"
     },
-    "pages": {
-      "general": "Chung",
-      "navigation": "Thanh bên"
-    },
+    "pages": { "general": "Chung", "navigation": "Thanh bên" },
     "descriptions": {
       "general": "Ngôn ngữ, giao diện và hành vi ứng dụng",
       "navigation": "Khả năng hiển thị của thanh bên",
@@ -427,11 +424,7 @@
       "users": "Người dùng",
       "credentials": "Thông tin xác thực",
       "audit": "Nhật ký kiểm tra",
-      "settings": "Cài đặt hệ thống",
-      "usage": "Lượng dùng",
-      "agents": "Sảnh agent",
-      "prompts": "Thư viện prompt",
-      "keys": "Vùng key"
+      "settings": "Cài đặt hệ thống"
     },
     "actions": {
       "backToQwenPaw": "Quay lại QwenPaw",
@@ -590,9 +583,7 @@
       "resource": "Tài nguyên",
       "result": "Kết quả",
       "time": "Thời gian",
-      "total": "{{total}} mục",
-      "trace": "Trace",
-      "filterTrace": "Lọc theo trace id (32 ký tự)"
+      "total": "{{total}} mục"
     },
     "audit": {
       "eyebrow": "An ninh và quản trị",
@@ -711,18 +702,6 @@
       },
       "auth": {
         "register": "Người dùng Hub đã đăng ký"
-      },
-      "acl": {
-        "denied": "ACL từ chối"
-      },
-      "model": {
-        "switch_denied": "Chuyển ngoài danh mục"
-      },
-      "approval": {
-        "resolved": "Phê duyệt đã xử lý"
-      },
-      "policy": {
-        "updated": "Cập nhật nền tảng chính sách"
       }
     },
     "auditOutcomes": {
@@ -752,60 +731,6 @@
       "environmentName": "Tên môi trường",
       "secretValue": "Giá trị bí mật",
       "submit": "Mã hóa và lưu trữ"
-    },
-    "usage": {
-      "eyebrow": "Vận hành",
-      "title": "Lượng dùng mô hình",
-      "description": "Token theo người dùng / mô hình / ngày, thu thập từ runtime mỗi phút",
-      "startDate": "Ngày bắt đầu",
-      "endDate": "Ngày kết thúc",
-      "apply": "Áp dụng",
-      "refresh": "Thu thập ngay",
-      "promptTokens": "Token đầu vào",
-      "completionTokens": "Token đầu ra",
-      "calls": "Số lần gọi",
-      "byUser": "Người dùng (tenant)",
-      "byModel": "Mô hình",
-      "byAgent": "Theo agent (gồm subagent)",
-      "byDate": "Ngày",
-      "empty": "Chưa có dữ liệu trong khoảng này"
-    },
-    "agents": {
-      "eyebrow": "Thị trường mẫu",
-      "title": "Agent từ mẫu",
-      "description": "Chọn mẫu do quản trị viên công bố và khởi tạo vào runtime cá nhân bằng một cú nhấp",
-      "instantiated": "Đã khởi tạo mẫu — sẵn sàng trò chuyện"
-    },
-    "prompts": {
-      "eyebrow": "Quản trị",
-      "title": "Thư viện prompt",
-      "description": "Đề xuất — duyệt — công bố; thành viên chỉ đọc bản đã duyệt",
-      "assetId": "ID tài sản",
-      "name": "Tên",
-      "content": "Nội dung",
-      "propose": "Đề xuất",
-      "proposed": "Đã đề xuất — chờ duyệt",
-      "version": "phiên bản",
-      "pending": "chờ duyệt",
-      "review": "Xem",
-      "approve": "Duyệt",
-      "reject": "Từ chối",
-      "approved": "Đã duyệt và công bố",
-      "by": "bởi"
-    },
-    "keys": {
-      "eyebrow": "Quản trị",
-      "title": "Vùng key",
-      "description": "Round-robin theo provider; vô hiệu hóa có hiệu lực ngay",
-      "provider": "Provider",
-      "keyValue": "Giá trị key",
-      "add": "Thêm",
-      "added": "Đã thêm key",
-      "uses": "lượt",
-      "disable": "Vô hiệu",
-      "enable": "Kích hoạt",
-      "lease": "Thuê",
-      "leasedId": "đã thuê"
     }
   },
   "login": {
@@ -2181,12 +2106,7 @@
       "safeTemplate": "Chạy an toàn",
       "researchTemplate": "Nghiên cứu có ngân sách",
       "qualityTemplate": "Ưu tiên chất lượng",
-      "blankTemplate": "Pipeline trống",
-      "humanGateTitle": "Cổng kiểm duyệt",
-      "humanGateDescription": "Tạm dừng vòng lặp để chờ phê duyệt tại các vòng đã chọn; từ chối hoặc hết thời gian sẽ kết thúc",
-      "everyNRounds": "Hỏi mỗi N vòng",
-      "gateTimeout": "Thời gian chờ (giây)",
-      "gateMessage": "Câu hỏi hiển thị trên thẻ phê duyệt"
+      "blankTemplate": "Pipeline trống"
     },
     "doomLoopEnabled": "Bảo vệ hành vi lặp lại",
     "doomLoopEnabledTooltip": "Tự động can thiệp khi agent bị kẹt lặp lại cùng một hành động",

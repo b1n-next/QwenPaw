@@ -83,7 +83,6 @@ export interface HubAuditEvent {
   resource_type: string;
   resource_id: string;
   outcome: string;
-  trace_id?: string | null;
   detail: Record<string, unknown>;
   created_at: string;
 }
@@ -99,83 +98,6 @@ export interface HubOverview {
     disk_percent: number;
   };
   recent_events: HubAuditEvent[];
-}
-
-export interface HubUsageTotals {
-  prompt_tokens: number;
-  completion_tokens: number;
-  call_count: number;
-}
-
-export interface HubUsageModelRow extends HubUsageTotals {
-  model: string;
-}
-
-export interface HubUsageDateRow extends HubUsageTotals {
-  date: string;
-}
-
-export interface HubUsageSummary {
-  start_date: string;
-  end_date: string;
-  total: HubUsageTotals;
-  by_user: Record<string, HubUsageTotals>;
-  by_model: HubUsageModelRow[];
-  by_agent: HubUsageAgentRow[];
-  by_date: HubUsageDateRow[];
-}
-
-export interface HubUsageAgentRow {
-  agent_id: string;
-  prompt_tokens: number;
-  completion_tokens: number;
-  call_count: number;
-}
-
-export interface HubAgentTemplate {
-  template_id: string;
-  name: string;
-  description: string;
-  revision: number;
-  updated_at: string | null;
-  graph_node_count: number;
-  skills: string[];
-}
-
-export interface InstantiateResult {
-  template_id: string;
-  name: string;
-  prompt: string;
-  skills: string[];
-  graph_pushed: boolean;
-}
-
-export interface HubPromptAsset {
-  asset_id: string;
-  name: string;
-  category: string;
-  current_version: number;
-  updated_at: string | null;
-  has_pending?: boolean;
-}
-
-export interface HubPromptDetail extends HubPromptAsset {
-  content: string;
-  versions: Array<{
-    version: number;
-    status: string;
-    proposed_by: string | null;
-    reviewed_by: string | null;
-    created_at: string | null;
-  }>;
-}
-
-export interface HubPoolKey {
-  key_id: string;
-  provider: string;
-  status: string;
-  use_count: number;
-  last_used_at: string | null;
 }
 
 export interface HubProvisionerStatus {
@@ -413,82 +335,6 @@ export const hubApi = {
       { method: "DELETE" },
     ),
   getOverview: () => request<HubOverview>("/hub/admin/overview"),
-  getUsageSummary: (
-    params: { start_date?: string; end_date?: string } = {},
-  ) => {
-    const query = new URLSearchParams();
-    if (params.start_date) query.set("start_date", params.start_date);
-    if (params.end_date) query.set("end_date", params.end_date);
-    const suffix = query.toString() ? `?${query.toString()}` : "";
-    return request<HubUsageSummary>(`/hub/admin/usage/summary${suffix}`);
-  },
-  listAgentTemplates: () =>
-    request<{ templates: HubAgentTemplate[] }>("/hub/templates"),
-  listPrompts: () => request<{ prompts: HubPromptAsset[] }>("/hub/prompts"),
-  getPrompt: (assetId: string) =>
-    request<HubPromptDetail>(`/hub/prompts/${assetId}`),
-  adminListPrompts: () =>
-    request<{ prompts: HubPromptAsset[] }>("/hub/admin/prompts"),
-  adminGetPrompt: (assetId: string) =>
-    request<{ prompt: HubPromptDetail }>(`/hub/admin/prompts/${assetId}`),
-  proposePrompt: (
-    assetId: string,
-    name: string,
-    content: string,
-    category = "general",
-  ) =>
-    request<{ prompt: HubPromptDetail }>("/hub/admin/prompts", {
-      method: "POST",
-      body: JSON.stringify({
-        asset_id: assetId,
-        name,
-        content,
-        category,
-      }),
-    }),
-  reviewPrompt: (
-    assetId: string,
-    version: number,
-    decision: "approved" | "rejected",
-  ) =>
-    request<{ prompt: HubPromptDetail }>(
-      `/hub/admin/prompts/${assetId}/review`,
-      {
-        method: "POST",
-        body: JSON.stringify({ version, decision }),
-      },
-    ),
-  adminListKeys: () => request<{ keys: HubPoolKey[] }>("/hub/admin/keys"),
-  adminAddKey: (provider: string, keyValue: string) =>
-    request<{ key: HubPoolKey }>("/hub/admin/keys", {
-      method: "POST",
-      body: JSON.stringify({ provider, key_value: keyValue }),
-    }),
-  adminSetKeyStatus: (keyId: string, status: "active" | "disabled") =>
-    request<{ key: HubPoolKey }>(`/hub/admin/keys/${keyId}`, {
-      method: "PATCH",
-      body: JSON.stringify({ status }),
-    }),
-  leaseKey: (provider: string) =>
-    request<{
-      lease: HubPoolKey & { key_value: string };
-    }>("/hub/keys/lease", {
-      method: "POST",
-      body: JSON.stringify({ provider }),
-    }),
-  instantiateTemplate: (templateId: string) =>
-    request<InstantiateResult>(`/hub/templates/${templateId}/instantiate`, {
-      method: "POST",
-    }),
-  collectUsage: () =>
-    request<{ collected_rows: number; last_error: string | null }>(
-      "/hub/admin/usage/collect",
-      { method: "POST" },
-    ),
-  listAuditEvents: (
-    params: HubListParams & {
-      action?: string;
-      traceId?: string;
-    } = {},
-  ) => request<HubPage<HubAuditEvent>>(listPath("/hub/admin/audit", params)),
+  listAuditEvents: (params: HubListParams & { action?: string } = {}) =>
+    request<HubPage<HubAuditEvent>>(listPath("/hub/admin/audit", params)),
 };

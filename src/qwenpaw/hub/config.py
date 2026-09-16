@@ -230,7 +230,7 @@ class RuntimeConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    provisioner: Literal["local", "docker", "k8s"] = "local"
+    provisioner: Literal["local", "docker"] = "local"
     docker: DockerRuntimeConfig = Field(default_factory=DockerRuntimeConfig)
 
 

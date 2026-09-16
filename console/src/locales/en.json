@@ -2964,12 +2964,7 @@
       "safeTemplate": "Safe run",
       "researchTemplate": "Budgeted research",
       "qualityTemplate": "Quality first",
-      "blankTemplate": "Blank pipeline",
-      "humanGateTitle": "Human gate",
-      "humanGateDescription": "Suspend the loop for human approval at chosen rounds; deny or timeout terminates the loop.",
-      "everyNRounds": "Ask every N rounds",
-      "gateTimeout": "Wait timeout (seconds)",
-      "gateMessage": "Question shown on the approval card"
+      "blankTemplate": "Blank pipeline"
     },
     "doomLoopEnabled": "Repetition Protection",
     "doomLoopEnabledTooltip": "Automatically intervene when the agent gets stuck repeating the same actions",
@@ -3913,11 +3908,7 @@
       "users": "Users",
       "credentials": "Credentials",
       "audit": "Audit log",
-      "settings": "System settings",
-      "usage": "Usage",
-      "agents": "Agent hall",
-      "prompts": "Prompt library",
-      "keys": "Key pool"
+      "settings": "System settings"
     },
     "actions": {
       "backToQwenPaw": "Back to QwenPaw",
@@ -4076,9 +4067,7 @@
       "resource": "Resource",
       "result": "Result",
       "time": "Time",
-      "total": "{{total}} items",
-      "trace": "Trace",
-      "filterTrace": "Filter by trace id (32 chars)"
+      "total": "{{total}} items"
     },
     "audit": {
       "eyebrow": "Security and governance",
@@ -4197,18 +4186,6 @@
       },
       "auth": {
         "register": "Registered Hub user"
-      },
-      "acl": {
-        "denied": "ACL denied"
-      },
-      "model": {
-        "switch_denied": "Out-of-catalog switch"
-      },
-      "approval": {
-        "resolved": "Approval resolved"
-      },
-      "policy": {
-        "updated": "Policy baseline updated"
       }
     },
     "auditOutcomes": {
@@ -4238,60 +4215,6 @@
       "environmentName": "Environment name",
       "secretValue": "Secret value",
       "submit": "Encrypt and store"
-    },
-    "usage": {
-      "eyebrow": "Operations",
-      "title": "Model usage",
-      "description": "Token usage by user / model / date, collected from running runtimes every minute",
-      "startDate": "Start date",
-      "endDate": "End date",
-      "apply": "Apply",
-      "refresh": "Collect now",
-      "promptTokens": "Prompt tokens",
-      "completionTokens": "Completion tokens",
-      "calls": "Calls",
-      "byUser": "User (tenant)",
-      "byModel": "Model",
-      "byAgent": "By Agent (incl. subagents)",
-      "byDate": "Date",
-      "empty": "No usage data in this range"
-    },
-    "agents": {
-      "eyebrow": "Template market",
-      "title": "Agents from templates",
-      "description": "Pick an admin-published template and instantiate it into your personal runtime in one click",
-      "instantiated": "Template instantiated — chat is ready"
-    },
-    "prompts": {
-      "eyebrow": "Governance",
-      "title": "Prompt library",
-      "description": "Propose, approve, publish — members read approved versions only",
-      "assetId": "Asset ID",
-      "name": "Name",
-      "content": "Content",
-      "propose": "Propose",
-      "proposed": "Proposed — pending review",
-      "version": "version",
-      "pending": "pending review",
-      "review": "Review",
-      "approve": "Approve",
-      "reject": "Reject",
-      "approved": "Approved and published",
-      "by": "by"
-    },
-    "keys": {
-      "eyebrow": "Governance",
-      "title": "Key pool",
-      "description": "Round-robin per provider; disabling takes effect immediately",
-      "provider": "Provider",
-      "keyValue": "Key value",
-      "add": "Add",
-      "added": "Key added",
-      "uses": "uses",
-      "disable": "Disable",
-      "enable": "Enable",
-      "lease": "Lease",
-      "leasedId": "leased"
     }
   },
   "login": {

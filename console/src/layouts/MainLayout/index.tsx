@@ -1,6 +1,6 @@
-import { Suspense, useEffect, useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import { Layout, Spin } from "antd";
-import { Routes, Route, useLocation, Navigate } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import Sidebar from "../Sidebar";
 import Header from "../Header";
@@ -8,15 +8,10 @@ import ConsolePollService from "../../components/ConsolePollService";
 import { AgentStatusPollingController } from "../../components/AgentStatusPollingController";
 import { ChunkErrorBoundary } from "../../components/ChunkErrorBoundary";
 import { useSyncCodingMode } from "../../stores/useSyncCodingMode";
-import {
-  useDeniedRouteIds,
-  useHubPermissionsStore,
-} from "../../stores/hubPermissionsStore";
 import styles from "../index.module.less";
 import { useRoutes } from "../../plugins/registry/hooks";
 import { Slot } from "../../plugins/registry/Slot";
 import { pickSelectedKey } from "./routeSelection";
-import { deniedPathsForRoutes, isPathDenied } from "../registry/permissions";
 
 const { Content } = Layout;
 
@@ -25,26 +20,6 @@ export default function MainLayout({ hubMode = false }: { hubMode?: boolean }) {
   const location = useLocation();
   const currentPath = location.pathname;
   const routes = useRoutes();
-  const loadPermissions = useHubPermissionsStore((state) => state.load);
-  const deniedRouteIds = useDeniedRouteIds();
-
-  // Hub deployments fetch the role deny-list once after auth settles.
-  useEffect(() => {
-    if (hubMode) void loadPermissions();
-  }, [hubMode, loadPermissions]);
-
-  // Route-level guard: deep links to denied pages bounce to chat. The
-  // sidebar filter hides the entry points; this closes direct URLs. UX
-  // only — the hub proxy ACL still rejects the underlying APIs.
-  const routeIdToPath = useMemo(
-    () => new Map(routes.map((route) => [route.id, route.path])),
-    [routes],
-  );
-  const deniedPaths = useMemo(
-    () => deniedPathsForRoutes(routeIdToPath, deniedRouteIds),
-    [deniedRouteIds, routeIdToPath],
-  );
-  const pathDenied = isPathDenied(currentPath, deniedPaths);
 
   // Backend is the source of truth for Coding Mode state — refill the
   // in-memory store every time the selected agent changes.
@@ -90,19 +65,11 @@ export default function MainLayout({ hubMode = false }: { hubMode?: boolean }) {
                   />
                 }
               >
-                {pathDenied ? (
-                  <Navigate to="/chat" replace />
-                ) : (
-                  <Routes>
-                    {renderableRoutes.map((r) => (
-                      <Route
-                        key={r.id}
-                        path={r.path}
-                        element={<r.Component />}
-                      />
-                    ))}
-                  </Routes>
-                )}
+                <Routes>
+                  {renderableRoutes.map((r) => (
+                    <Route key={r.id} path={r.path} element={<r.Component />} />
+                  ))}
+                </Routes>
               </Suspense>
             </ChunkErrorBoundary>
           </div>

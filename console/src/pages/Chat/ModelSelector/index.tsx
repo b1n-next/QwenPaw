@@ -25,7 +25,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { ActiveModelsInfo } from "../../../api/types";
 import { useAgentStore } from "../../../stores/agentStore";
-import { useModelReadonly } from "../../../stores/hubPermissionsStore";
 import { confirmFreeModelSwitch } from "@/utils/freeModelSwitchWarning";
 import { ProviderIcon } from "../../Settings/Models/components/ProviderIconComponent";
 import { useTurnUsageStore } from "../turnUsageStore";
@@ -85,7 +84,6 @@ export default function ModelSelector({
   showAdvancedModelControls = false,
 }: ModelSelectorProps) {
   const { t } = useTranslation();
-  const modelReadonly = useModelReadonly();
   const [saving, setSaving] = useState(false);
   const [addingKey, setAddingKey] = useState<string | null>(null);
   const [visibilityKey, setVisibilityKey] = useState<string | null>(null);
@@ -469,9 +467,6 @@ export default function ModelSelector({
   };
 
   const handleAddCandidate = async (candidate: CandidateModel) => {
-    // EP-1-3: adding models is configuration and stays admin-governed;
-    // switching between existing catalog models is allowed above.
-    if (modelReadonly) return;
     const key = modelKey(candidate.provider.id, candidate.model.id);
     if (addingKey) return;
 
@@ -794,12 +789,6 @@ export default function ModelSelector({
     const needsKeyProviders = filteredFree.filter(
       (p) => !p.supports_oauth && !p.has_api_key && p.require_api_key !== false,
     );
-    // EP-1-3: a read-only catalog user cannot configure providers —
-    // every OAuth/API-key entry is a dead link into an admin page.
-    if (modelReadonly) {
-      oauthOnlyProviders.length = 0;
-      needsKeyProviders.length = 0;
-    }
 
     const hasAny =
       readyProviders.length > 0 ||
@@ -1122,9 +1111,6 @@ export default function ModelSelector({
         onCancel={() => setConfigNavModal((prev) => ({ ...prev, open: false }))}
         onOk={() => {
           setConfigNavModal((prev) => ({ ...prev, open: false }));
-          // EP-1-3: never route a read-only user to the admin
-          // model-config page (unreachable — entries are hidden).
-          if (modelReadonly) return;
           navigate(`/models?provider=${configNavModal.providerId}`);
         }}
         okText={t("modelSelector.goToConfigure")}

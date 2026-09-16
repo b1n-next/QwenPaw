@@ -413,16 +413,6 @@ class LocalProcessRuntimeProvisioner(RuntimeProvisioner):
         runtime_token = credentials.get("QWENPAW_RUNTIME_INTERNAL_TOKEN")
         if runtime_token:
             environment["QWENPAW_RUNTIME_INTERNAL_TOKEN"] = runtime_token
-        # Hub-controlled model catalog bootstrap (EP-1-2): the generic
-        # credential filter drops QWENPAW_* names, so re-project this
-        # hub-originated payload explicitly, like the internal token.
-        model_bootstrap = credentials.get("QWENPAW_MODEL_BOOTSTRAP_JSON")
-        if model_bootstrap:
-            environment["QWENPAW_MODEL_BOOTSTRAP_JSON"] = model_bootstrap
-        # EP-2-13: organization policy baseline rides the same channel.
-        policy_baseline = credentials.get("QWENPAW_POLICY_BASELINE_JSON")
-        if policy_baseline:
-            environment["QWENPAW_POLICY_BASELINE_JSON"] = policy_baseline
         environment["PYTHONUNBUFFERED"] = "1"
         environment["PYTHONIOENCODING"] = "utf-8"
         return environment

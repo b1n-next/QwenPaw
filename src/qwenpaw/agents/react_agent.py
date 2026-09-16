@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import logging
 import re
-import time
 import uuid
 from functools import partial
 from pathlib import Path
@@ -836,48 +835,8 @@ class QwenPawAgent(CodingModeMixin, Agent):
         concurrent tool call.
         """
         self._coerce_tool_call_input(tool_call)
-
-        # EP-2-23: tool-level pre/post/failure hooks ride this funnel
-        # (both sequential and concurrent paths traverse it).
-        from ..toolhooks import get_registry
-        from ..toolhooks.adapt import (
-            arguments_as_dict,
-            tool_call_parts,
-            write_tool_call_arguments,
-        )
-        from ..toolhooks.base import ToolCallContext
-
-        registry = get_registry()
-        hook_name, hook_raw = tool_call_parts(tool_call)
-        hook_context = ToolCallContext.build(
-            hook_name,
-            arguments_as_dict(hook_raw),
-            agent_id=getattr(self, "name", ""),
-        )
-        decision = registry.dispatch_pre(hook_context)
-        if decision.blocked:
-            return  # tool never runs; block reason already logged
-        if decision.arguments is not None:
-            write_tool_call_arguments(tool_call, decision.arguments)
-
-        started_at = time.monotonic()
-        failure: Optional[BaseException] = None
-        try:
-            async for evt in super()._execute_tool_call(
-                tool_call,
-                kept_rules,
-            ):
-                yield evt
-        except GeneratorExit:
-            raise
-        except BaseException as exc:  # noqa: BLE001 - failure tier
-            failure = exc
-            raise
-        finally:
-            if failure is not None:
-                registry.dispatch_failure(hook_context, failure)
-            else:
-                registry.timed_post(hook_context, None, started_at)
+        async for evt in super()._execute_tool_call(tool_call, kept_rules):
+            yield evt
 
     # pylint: disable=too-many-branches,too-many-statements
     async def _reasoning(

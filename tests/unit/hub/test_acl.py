@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Tests for the hub proxy ACL engine (enterprise layer, Phase 0).
+"""Tests for the hub proxy ACL engine (hub control plane).
 
 Covers the EP-0-1 grouping decisions, fail-closed defaults, path
 normalization (traversal defense), and the acl.json overlay.

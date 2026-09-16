@@ -2,26 +2,11 @@ import type { HubRuntime } from "../../api/modules/hub";
 
 export type Section =
   | "overview"
-  | "agents"
   | "runtimes"
   | "users"
-  | "usage"
   | "credentials"
   | "audit"
-  | "prompts"
-  | "keys"
   | "settings";
-
-export interface PromptFormValues {
-  assetId: string;
-  name: string;
-  content: string;
-}
-
-export interface KeyFormValues {
-  provider: string;
-  keyValue: string;
-}
 
 export interface SettingsFormValues {
   publicBaseUrl?: string;

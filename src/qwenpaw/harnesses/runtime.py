@@ -27,6 +27,7 @@ from .events import (
     HarnessProvider,
 )
 from .registry import (
+    PROVIDER_CATALOG,
     adapter_config_key,
     create_adapter,
     get_provider,
@@ -66,9 +67,7 @@ class HarnessRuntime:
     ) -> list[HarnessProvider]:
         """Return the third-party agent catalog with live provider status."""
         result: list[HarnessProvider] = []
-        from .registry import list_provider_items
-
-        for item in list_provider_items():
+        for item in PROVIDER_CATALOG:
             provider_id = item.id
             if item.coming_soon:
                 result.append(

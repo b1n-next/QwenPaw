@@ -438,60 +438,6 @@ class PluginApi:  # pylint: disable=too-many-public-methods
                 f"'{provider_id}'",
             )
 
-    def register_harness_provider(
-        self,
-        provider_id: str,
-        adapter_class: Type,
-        *,
-        name: str = "",
-        capabilities: Optional[Any] = None,
-        config_fields: tuple = ("binary", "env", "args"),
-    ):
-        """Register a custom third-party agent harness (EP-2-16).
-
-        The adapter class must subclass
-        ``qwenpaw.harnesses.base.HarnessAdapter`` and accept
-        ``(state_dir: Path, settings: dict)``. The provider appears in
-        the harness provider list and its adapters are created through
-        the normal workspace runtime — no QwenPaw fork needed.
-
-        Args:
-            provider_id: Unique harness id (builtin ids are reserved).
-            adapter_class: HarnessAdapter subclass.
-            name: Display name (defaults to provider_id).
-            capabilities: HarnessCapabilities instance (defaults to
-                all-off; declare what the backend supports).
-            config_fields: Setting keys that require adapter
-                recreation when changed.
-        """
-        from ..harnesses.events import HarnessCapabilities
-        from ..harnesses.registry import (
-            ProviderCatalogItem,
-            register_plugin_provider,
-        )
-
-        if capabilities is None:
-            capabilities = HarnessCapabilities()
-
-        def _factory(state_dir, settings):
-            return adapter_class(state_dir=state_dir, settings=settings)
-
-        register_plugin_provider(
-            ProviderCatalogItem(
-                id=provider_id,
-                name=name or provider_id,
-                coming_soon=False,
-                capabilities=capabilities,
-            ),
-            _factory,
-            config_fields=tuple(config_fields),
-        )
-        if self._registry:
-            logger.info(
-                f"Plugin '{self.plugin_id}' registered harness provider "
-                f"'{provider_id}'",
-            )
-
     def register_startup_hook(
         self,
         hook_name: str,

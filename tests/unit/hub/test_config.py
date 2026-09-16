@@ -124,7 +124,7 @@ runtime:
         ),
         (
             "version: 1\nruntime:\n  provisioner: unsupported",
-            "Input should be 'local', 'docker' or 'k8s'",
+            "Input should be 'local' or 'docker'",
         ),
         (
             "version: 1\nruntime:\n  docker:\n"

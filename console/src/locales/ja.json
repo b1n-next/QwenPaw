@@ -2352,12 +2352,7 @@
       "safeTemplate": "安全な実行",
       "researchTemplate": "予算付き調査",
       "qualityTemplate": "品質優先",
-      "blankTemplate": "空のパイプライン",
-      "humanGateTitle": "ヒューマンゲート",
-      "humanGateDescription": "指定ラウンドでループを一時停止し承認を待機。拒否またはタイムアウトで終了",
-      "everyNRounds": "N ラウンドごとに確認",
-      "gateTimeout": "待機タイムアウト（秒）",
-      "gateMessage": "承認カードに表示する質問"
+      "blankTemplate": "空のパイプライン"
     },
     "doomLoopEnabled": "繰り返し行動保護",
     "doomLoopEnabledTooltip": "エージェントが同じ操作を繰り返している場合に自動的に介入します",
@@ -2767,10 +2762,7 @@
       "global": "グローバル設定",
       "extensions": "拡張機能"
     },
-    "pages": {
-      "general": "一般",
-      "navigation": "サイドバー"
-    },
+    "pages": { "general": "一般", "navigation": "サイドバー" },
     "descriptions": {
       "general": "言語、テーマ、アプリの動作",
       "navigation": "サイドバーの表示項目",
@@ -3187,11 +3179,7 @@
       "users": "ユーザー",
       "credentials": "認証情報",
       "audit": "監査ログ",
-      "settings": "システム設定",
-      "usage": "使用量",
-      "agents": "エージェントホール",
-      "prompts": "プロンプト資産庫",
-      "keys": "キープール"
+      "settings": "システム設定"
     },
     "actions": {
       "backToQwenPaw": "QwenPawに戻る",
@@ -3350,9 +3338,7 @@
       "resource": "リソース",
       "result": "結果",
       "time": "時間",
-      "total": "{{total}} 件",
-      "trace": "トレース",
-      "filterTrace": "トレースIDで絞り込み（32文字）"
+      "total": "{{total}} 件"
     },
     "audit": {
       "eyebrow": "セキュリティとガバナンス",
@@ -3471,18 +3457,6 @@
       },
       "auth": {
         "register": "登録済みの Hub ユーザー"
-      },
-      "acl": {
-        "denied": "ACL 拒否"
-      },
-      "model": {
-        "switch_denied": "カタログ外スイッチ"
-      },
-      "approval": {
-        "resolved": "承認裁定"
-      },
-      "policy": {
-        "updated": "ポリシー基線更新"
       }
     },
     "auditOutcomes": {
@@ -3512,60 +3486,6 @@
       "environmentName": "環境名",
       "secretValue": "秘密の値",
       "submit": "暗号化して保存する"
-    },
-    "usage": {
-      "eyebrow": "運用",
-      "title": "モデル使用量",
-      "description": "ユーザー / モデル / 日別のトークン使用量（ランタイムから毎分収集）",
-      "startDate": "開始日",
-      "endDate": "終了日",
-      "apply": "適用",
-      "refresh": "今すぐ収集",
-      "promptTokens": "入力トークン",
-      "completionTokens": "出力トークン",
-      "calls": "呼び出し回数",
-      "byUser": "ユーザー（テナント）",
-      "byModel": "モデル",
-      "byAgent": "エージェント別（サブエージェント含む）",
-      "byDate": "日付",
-      "empty": "この期間の使用量データはありません"
-    },
-    "agents": {
-      "eyebrow": "テンプレート市場",
-      "title": "テンプレートから作るエージェント",
-      "description": "管理者が公開したテンプレートを選び、ワンクリックで個人ランタイムに実体化",
-      "instantiated": "テンプレートを実体化しました — チャット可能です"
-    },
-    "prompts": {
-      "eyebrow": "ガバナンス",
-      "title": "プロンプト資産庫",
-      "description": "提案・承認・公開。メンバーは承認済み版のみ閲覧",
-      "assetId": "アセット ID",
-      "name": "名前",
-      "content": "内容",
-      "propose": "提案",
-      "proposed": "提案済み — 承認待ち",
-      "version": "バージョン",
-      "pending": "承認待ち",
-      "review": "確認",
-      "approve": "承認",
-      "reject": "却下",
-      "approved": "承認して公開しました",
-      "by": "提案者"
-    },
-    "keys": {
-      "eyebrow": "ガバナンス",
-      "title": "キープール",
-      "description": "プロバイダーごとにラウンドロビン。無効化は即時反映",
-      "provider": "プロバイダー",
-      "keyValue": "キー値",
-      "add": "追加",
-      "added": "キーを追加しました",
-      "uses": "回数",
-      "disable": "無効化",
-      "enable": "有効化",
-      "lease": "リース",
-      "leasedId": "リース済み"
     }
   },
   "login": {

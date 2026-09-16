@@ -49,36 +49,6 @@ CREATE INDEX IF NOT EXISTS idx_audit_tool ON audit_events(tool_name);
 """
 
 
-def _audit_agent_id(agent_id: str) -> str:
-    """EP-2-14: attribute subagent tool audits to the sub-principal."""
-    try:
-        from ..app.agent_context import get_subagent_principal
-
-        return get_subagent_principal() or agent_id
-    except Exception:  # pragma: no cover - defensive import guard
-        return agent_id
-
-
-def _trace_extra() -> str:
-    """Serialize the request-scoped trace id into the audit ``extra``.
-
-    EP-2-11: when the runtime is reached through the Hub proxy the
-    governance decision row carries the same trace id the Hub audit
-    logged, so one id replays across both stores. Imported lazily to
-    keep governance free of app-layer import cycles; absent module or
-    missing trace yields the historical ``"{}"``.
-    """
-    try:
-        from ..app.trace_context import current_trace_id  # noqa: PLC0415
-
-        trace_id = current_trace_id()
-    except Exception:  # pragma: no cover - defensive import guard
-        trace_id = None
-    if not trace_id:
-        return "{}"
-    return json.dumps({"trace_id": trace_id})
-
-
 def _now_unix_ms() -> int:
     """Return current UTC timestamp in milliseconds since epoch."""
     return int(datetime.now(timezone.utc).timestamp() * 1000)
@@ -250,7 +220,6 @@ class AuditLog:
         ``"write_only"``), apply it at the INSERT boundary.
         """
         try:
-            extra_payload = _trace_extra()
             with self._lock:
                 conn = self._conn
                 if conn is None:
@@ -263,13 +232,13 @@ class AuditLog:
                     (
                         _now_unix_ms(),
                         workspace_dir,
-                        _audit_agent_id(tc_spec.agent_id),
+                        tc_spec.agent_id,
                         tc_spec.session_id,
                         tc_spec.tool_name,
                         tc_spec.target,
                         str(decision.action.value),
                         decision.reason,
-                        extra_payload,
+                        "{}",
                     ),
                 )
                 conn.commit()

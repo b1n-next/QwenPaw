@@ -48,7 +48,6 @@ import { Slot } from "../plugins/registry/Slot";
 import { flattenMenu } from "./registry/adapter";
 import type { FlatMenuEntry } from "./registry/adapter";
 import { filterMenuForAgentCapabilities } from "./registry/capabilities";
-import { filterMenuForPermissions } from "./registry/permissions";
 import {
   filterSidebarMenuItems,
   orderSidebarEntries,
@@ -59,7 +58,6 @@ import AppBrand from "./AppBrand";
 import { AgentStatusIndicator } from "../components/AgentStatusIndicator";
 import { getAgentDisplayName } from "../utils/agentDisplayName";
 import { isAgentAvailableInChat } from "../utils/agentVisibility";
-import { useDeniedRouteIds } from "../stores/hubPermissionsStore";
 
 // ── Layout ────────────────────────────────────────────────────────────────
 
@@ -147,15 +145,10 @@ export default function Sidebar({
   const rawAgentMenu = useMenuItems("primary.agentScoped");
   const rawSettingsMenu = useMenuItems("primary.settings");
   const routes = useRoutes();
-  const deniedRouteIds = useDeniedRouteIds();
 
   const visibleAgentMenu = useMemo(
-    () =>
-      filterMenuForPermissions(
-        filterMenuForAgentCapabilities(rawAgentMenu, backendCapabilities),
-        deniedRouteIds,
-      ),
-    [backendCapabilities, deniedRouteIds, rawAgentMenu],
+    () => filterMenuForAgentCapabilities(rawAgentMenu, backendCapabilities),
+    [backendCapabilities, rawAgentMenu],
   );
   const focusItemIdSet = useMemo(() => new Set(focusItemIds), [focusItemIds]);
   const hiddenPluginItemIdSet = useMemo(
@@ -176,11 +169,11 @@ export default function Sidebar({
   const selectedSettingsMenu = useMemo(
     () =>
       filterSidebarMenuItems(
-        filterMenuForPermissions(rawSettingsMenu, deniedRouteIds),
+        rawSettingsMenu,
         focusItemIdSet,
         hiddenPluginItemIdSet,
       ),
-    [deniedRouteIds, focusItemIdSet, hiddenPluginItemIdSet, rawSettingsMenu],
+    [focusItemIdSet, hiddenPluginItemIdSet, rawSettingsMenu],
   );
 
   const selectedFlatNav = useMemo(() => {

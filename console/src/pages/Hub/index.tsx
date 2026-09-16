@@ -18,16 +18,12 @@ import {
 import type { FormInstance } from "antd";
 import {
   Activity,
-  BarChart3,
   BellRing,
   Box,
   Boxes,
   ChartNoAxesCombined,
   CircleStop,
-  BookOpen,
   Gauge,
-  KeySquare,
-  LayoutGrid,
   HardDrive,
   House,
   KeyRound,
@@ -61,12 +57,6 @@ import {
   type HubDockerImagePull,
   type HubHealth,
   type HubOverview,
-  type HubAgentTemplate,
-  type HubPoolKey,
-  type HubPromptAsset,
-  type HubPromptDetail,
-  type HubUsageSummary,
-  type InstantiateResult,
   type HubRuntime,
   type HubSettings,
   type HubUser,
@@ -79,8 +69,6 @@ import {
   formatImageSize,
   PAGE_SIZE,
   type PageData,
-  type KeyFormValues,
-  type PromptFormValues,
   type Section,
   type SettingsFormValues,
   STATE_COLORS,
@@ -99,10 +87,6 @@ export default function HubPage() {
   const [credentials, setCredentials] =
     useState<PageData<HubCredential>>(emptyPage);
   const [audit, setAudit] = useState<PageData<HubAuditEvent>>(emptyPage);
-  const [usage, setUsage] = useState<HubUsageSummary | null>(null);
-  const [usageLoading, setUsageLoading] = useState(false);
-  const [usageStartDate, setUsageStartDate] = useState("");
-  const [usageEndDate, setUsageEndDate] = useState("");
   const [settings, setSettings] = useState<HubSettings | null>(null);
   const [dockerImages, setDockerImages] =
     useState<HubDockerImageCatalog | null>(null);
@@ -120,7 +104,6 @@ export default function HubPage() {
   const [credentialScope, setCredentialScope] = useState<string>();
   const [auditQuery, setAuditQuery] = useState("");
   const [auditAction, setAuditAction] = useState<string>();
-  const [auditTrace, setAuditTrace] = useState("");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -136,78 +119,6 @@ export default function HubPage() {
   const loadOverview = useCallback(async () => {
     setOverview(await hubApi.getOverview());
   }, []);
-
-  const [agentTemplates, setAgentTemplates] = useState<HubAgentTemplate[]>([]);
-  const [agentsLoading, setAgentsLoading] = useState(false);
-  const [instantiating, setInstantiating] = useState<string | null>(null);
-  const [lastInstantiation, setLastInstantiation] =
-    useState<InstantiateResult | null>(null);
-
-  const loadAgentTemplates = useCallback(async () => {
-    setAgentsLoading(true);
-    try {
-      const response = await hubApi.listAgentTemplates();
-      setAgentTemplates(response.templates || []);
-    } finally {
-      setAgentsLoading(false);
-    }
-  }, []);
-
-  const [promptAssets, setPromptAssets] = useState<HubPromptAsset[]>([]);
-  const [promptDetail, setPromptDetail] = useState<HubPromptDetail | null>(
-    null,
-  );
-  const [poolKeys, setPoolKeys] = useState<HubPoolKey[]>([]);
-  const [leaseResult, setLeaseResult] = useState<string | null>(null);
-  const [promptSaving, setPromptSaving] = useState(false);
-
-  const loadPrompts = useCallback(async () => {
-    const response = await hubApi.adminListPrompts();
-    setPromptAssets(response.prompts || []);
-  }, []);
-
-  const loadKeys = useCallback(async () => {
-    const response = await hubApi.adminListKeys();
-    setPoolKeys(response.keys || []);
-  }, []);
-
-  const loadUsage = useCallback(async () => {
-    const toIso = (offsetDays: number) => {
-      const d = new Date();
-      d.setDate(d.getDate() + offsetDays);
-      return d.toISOString().slice(0, 10);
-    };
-    const start = usageStartDate || toIso(-6);
-    const end = usageEndDate || toIso(0);
-    setUsageLoading(true);
-    try {
-      setUsage(
-        await hubApi.getUsageSummary({ start_date: start, end_date: end }),
-      );
-    } finally {
-      setUsageLoading(false);
-    }
-  }, [usageStartDate, usageEndDate]);
-
-  const refreshUsageNow = useCallback(async () => {
-    setUsageLoading(true);
-    try {
-      await hubApi.collectUsage();
-      const toIso = (offsetDays: number) => {
-        const d = new Date();
-        d.setDate(d.getDate() + offsetDays);
-        return d.toISOString().slice(0, 10);
-      };
-      setUsage(
-        await hubApi.getUsageSummary({
-          start_date: usageStartDate || toIso(-6),
-          end_date: usageEndDate || toIso(0),
-        }),
-      );
-    } finally {
-      setUsageLoading(false);
-    }
-  }, [usageStartDate, usageEndDate]);
 
   const loadRuntimes = useCallback(
     async (page = 1) => {
@@ -352,7 +263,6 @@ export default function HubPage() {
         pageSize: PAGE_SIZE,
         query: auditQuery,
         action: auditAction,
-        traceId: auditTrace || undefined,
       });
       setAudit({
         items: result.items,
@@ -361,7 +271,7 @@ export default function HubPage() {
         total: result.total,
       });
     },
-    [auditAction, auditQuery, auditTrace],
+    [auditAction, auditQuery],
   );
 
   useEffect(() => {
@@ -389,22 +299,14 @@ export default function HubPage() {
       const request =
         section === "overview" && me?.role === "admin"
           ? loadOverview()
-          : section === "agents"
-          ? loadAgentTemplates()
           : section === "runtimes"
           ? loadRuntimes(1)
           : section === "users" && me?.role === "admin"
           ? loadUsers(1)
           : section === "credentials"
           ? loadCredentials(1)
-          : section === "usage" && me?.role === "admin"
-          ? loadUsage()
           : section === "audit" && me?.role === "admin"
           ? loadAudit(1)
-          : section === "prompts" && me?.role === "admin"
-          ? loadPrompts()
-          : section === "keys" && me?.role === "admin"
-          ? loadKeys()
           : section === "settings" && me?.role === "admin"
           ? loadSettings()
           : Promise.resolve();
@@ -415,10 +317,7 @@ export default function HubPage() {
     credentialQuery,
     credentialScope,
     auditAction,
-    loadAgentTemplates,
     loadAudit,
-    loadKeys,
-    loadPrompts,
     loadCredentials,
     loadRuntimes,
     loadSettings,
@@ -446,106 +345,11 @@ export default function HubPage() {
 
   const refreshSection = async () => {
     if (section === "overview") await loadOverview();
-    if (section === "agents") await loadAgentTemplates();
     if (section === "runtimes") await loadRuntimes(runtimes.page);
     if (section === "users") await loadUsers(users.page);
     if (section === "credentials") await loadCredentials(credentials.page);
-    if (section === "usage") await loadUsage();
     if (section === "audit") await loadAudit(audit.page);
-    if (section === "prompts") await loadPrompts();
-    if (section === "keys") await loadKeys();
     if (section === "settings") await loadSettings();
-  };
-
-  const submitPrompt = async (values: PromptFormValues) => {
-    setPromptSaving(true);
-    try {
-      await hubApi.proposePrompt(
-        values.assetId.trim(),
-        values.name.trim(),
-        values.content,
-      );
-      void message.success(t("hub.prompts.proposed", "Proposed"));
-      await loadPrompts();
-    } catch (error) {
-      void message.error((error as Error).message);
-    } finally {
-      setPromptSaving(false);
-    }
-  };
-
-  const reviewPrompt = async (assetId: string, version: number) => {
-    try {
-      await hubApi.reviewPrompt(assetId, version, "approved");
-      void message.success(t("hub.prompts.approved", "Approved"));
-      await loadPrompts();
-      if (promptDetail?.asset_id === assetId) {
-        setPromptDetail(null);
-      }
-    } catch (error) {
-      void message.error((error as Error).message);
-    }
-  };
-
-  const rejectPrompt = async (assetId: string, version: number) => {
-    try {
-      await hubApi.reviewPrompt(assetId, version, "rejected");
-      await loadPrompts();
-      if (promptDetail?.asset_id === assetId) {
-        setPromptDetail(null);
-      }
-    } catch (error) {
-      void message.error((error as Error).message);
-    }
-  };
-
-  const openPrompt = async (assetId: string) => {
-    const response = await hubApi.adminGetPrompt(assetId);
-    setPromptDetail(response.prompt);
-  };
-
-  const addKey = async (values: KeyFormValues) => {
-    try {
-      await hubApi.adminAddKey(values.provider.trim(), values.keyValue);
-      void message.success(t("hub.keys.added", "Key added"));
-      await loadKeys();
-    } catch (error) {
-      void message.error((error as Error).message);
-    }
-  };
-
-  const toggleKey = async (keyId: string, status: string) => {
-    const next = status === "active" ? "disabled" : "active";
-    try {
-      await hubApi.adminSetKeyStatus(keyId, next as "active" | "disabled");
-      await loadKeys();
-    } catch (error) {
-      void message.error((error as Error).message);
-    }
-  };
-
-  const testLease = async (provider: string) => {
-    try {
-      const response = await hubApi.leaseKey(provider);
-      setLeaseResult(response.lease?.key_id ?? null);
-    } catch (error) {
-      void message.error((error as Error).message);
-    }
-  };
-
-  const instantiate = async (templateId: string) => {
-    setInstantiating(templateId);
-    try {
-      const result = await hubApi.instantiateTemplate(templateId);
-      setLastInstantiation(result);
-      void message.success(
-        t("hub.agents.instantiated", "Template instantiated — chat is ready"),
-      );
-    } catch (error) {
-      void message.error((error as Error).message);
-    } finally {
-      setInstantiating(null);
-    }
   };
 
   const saveSettings = async (values: SettingsFormValues) => {
@@ -738,11 +542,6 @@ export default function HubPage() {
         ]
       : []),
     {
-      id: "agents" as const,
-      label: t("hub.navigation.agents"),
-      icon: LayoutGrid,
-    },
-    {
       id: "runtimes" as const,
       label: t("hub.navigation.runtimes"),
       icon: Boxes,
@@ -764,24 +563,9 @@ export default function HubPage() {
     ...(me?.role === "admin"
       ? [
           {
-            id: "usage" as const,
-            label: t("hub.navigation.usage"),
-            icon: BarChart3,
-          },
-          {
             id: "audit" as const,
             label: t("hub.navigation.audit"),
             icon: ScrollText,
-          },
-          {
-            id: "prompts" as const,
-            label: t("hub.navigation.prompts"),
-            icon: BookOpen,
-          },
-          {
-            id: "keys" as const,
-            label: t("hub.navigation.keys"),
-            icon: KeySquare,
           },
           {
             id: "settings" as const,
@@ -914,74 +698,6 @@ export default function HubPage() {
               )}
               {section === "overview" && overview && (
                 <OverviewPanel overview={overview} t={t} />
-              )}
-              {section === "agents" && (
-                <section>
-                  <PageHeader
-                    eyebrow={t("hub.agents.eyebrow")}
-                    title={t("hub.agents.title")}
-                    description={t("hub.agents.description")}
-                  />
-                  {agentsLoading && (
-                    <p>{t("hub.agents.loading", "Loading templates…")}</p>
-                  )}
-                  {!agentsLoading && !agentTemplates.length && (
-                    <p>{t("hub.agents.empty", "No published templates yet")}</p>
-                  )}
-                  {agentTemplates.map((template) => (
-                    <div
-                      key={template.template_id}
-                      className={styles.templateCard}
-                    >
-                      <div className={styles.templateHeader}>
-                        <strong>{template.name}</strong>
-                        <span className={styles.templateMeta}>
-                          {template.template_id} · rev {template.revision} ·{" "}
-                          {template.graph_node_count}{" "}
-                          {t("hub.agents.nodes", "graph nodes")}
-                        </span>
-                      </div>
-                      {template.description && (
-                        <p className={styles.templateDesc}>
-                          {template.description}
-                        </p>
-                      )}
-                      {!!template.skills.length && (
-                        <p className={styles.templateMeta}>
-                          {t("hub.agents.skills", "Skills")}:{" "}
-                          {template.skills.join(", ")}
-                        </p>
-                      )}
-                      <Button
-                        type="primary"
-                        size="small"
-                        loading={instantiating === template.template_id}
-                        onClick={() => void instantiate(template.template_id)}
-                      >
-                        {t("hub.agents.instantiate", "Instantiate")}
-                      </Button>
-                    </div>
-                  ))}
-                  {lastInstantiation && (
-                    <div className={styles.templateCard}>
-                      <strong>
-                        {t("hub.agents.seedTitle", "Conversation seed")}
-                      </strong>
-                      <p className={styles.templateMeta}>
-                        {lastInstantiation.name}
-                        {lastInstantiation.graph_pushed
-                          ? ` · ${t(
-                              "hub.agents.graphPushed",
-                              "graph published to your runtime",
-                            )}`
-                          : ""}
-                      </p>
-                      <pre className={styles.templatePrompt}>
-                        {lastInstantiation.prompt}
-                      </pre>
-                    </div>
-                  )}
-                </section>
               )}
               {section === "runtimes" && (
                 <section>
@@ -1509,178 +1225,6 @@ export default function HubPage() {
                   </DataPanel>
                 </section>
               )}
-              {section === "usage" && me?.role === "admin" && (
-                <section>
-                  <PageHeader
-                    eyebrow={t("hub.usage.eyebrow")}
-                    title={t("hub.usage.title")}
-                    description={t("hub.usage.description")}
-                  />
-                  <DataPanel
-                    search=""
-                    onSearch={() => {}}
-                    searchPlaceholder=""
-                    filter={
-                      <div className={styles.usageFilters}>
-                        <Input
-                          type="date"
-                          aria-label={t("hub.usage.startDate")}
-                          value={usageStartDate}
-                          className={styles.filterSelect}
-                          onChange={(e) => setUsageStartDate(e.target.value)}
-                        />
-                        <Input
-                          type="date"
-                          aria-label={t("hub.usage.endDate")}
-                          value={usageEndDate}
-                          className={styles.filterSelect}
-                          onChange={(e) => setUsageEndDate(e.target.value)}
-                        />
-                        <Button onClick={() => void loadUsage()}>
-                          {t("hub.usage.apply")}
-                        </Button>
-                        <Button
-                          icon={<RefreshCw size={14} />}
-                          loading={usageLoading}
-                          onClick={() => void refreshUsageNow()}
-                        >
-                          {t("hub.usage.refresh")}
-                        </Button>
-                      </div>
-                    }
-                  >
-                    <div className={styles.usageTotals}>
-                      <Tag color="blue">
-                        {t("hub.usage.promptTokens")}:{" "}
-                        {usage?.total.prompt_tokens ?? 0}
-                      </Tag>
-                      <Tag color="green">
-                        {t("hub.usage.completionTokens")}:{" "}
-                        {usage?.total.completion_tokens ?? 0}
-                      </Tag>
-                      <Tag color="purple">
-                        {t("hub.usage.calls")}: {usage?.total.call_count ?? 0}
-                      </Tag>
-                    </div>
-                    <div className={styles.tableWrap}>
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>{t("hub.usage.byUser")}</th>
-                            <th>{t("hub.usage.promptTokens")}</th>
-                            <th>{t("hub.usage.completionTokens")}</th>
-                            <th>{t("hub.usage.calls")}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {Object.entries(usage?.by_user ?? {}).map(
-                            ([tenant, totals]) => (
-                              <tr key={tenant}>
-                                <td>{tenant}</td>
-                                <td>{totals.prompt_tokens}</td>
-                                <td>{totals.completion_tokens}</td>
-                                <td>{totals.call_count}</td>
-                              </tr>
-                            ),
-                          )}
-                          {Object.keys(usage?.by_user ?? {}).length === 0 && (
-                            <EmptyRow
-                              colSpan={4}
-                              message={t("hub.usage.empty")}
-                            />
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className={styles.tableWrap}>
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>{t("hub.usage.byModel")}</th>
-                            <th>{t("hub.usage.promptTokens")}</th>
-                            <th>{t("hub.usage.completionTokens")}</th>
-                            <th>{t("hub.usage.calls")}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(usage?.by_model ?? []).map((row) => (
-                            <tr key={row.model}>
-                              <td>{row.model}</td>
-                              <td>{row.prompt_tokens}</td>
-                              <td>{row.completion_tokens}</td>
-                              <td>{row.call_count}</td>
-                            </tr>
-                          ))}
-                          {(usage?.by_model ?? []).length === 0 && (
-                            <EmptyRow
-                              colSpan={4}
-                              message={t("hub.usage.empty")}
-                            />
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className={styles.tableWrap}>
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>{t("hub.usage.byAgent")}</th>
-                            <th>{t("hub.usage.promptTokens")}</th>
-                            <th>{t("hub.usage.completionTokens")}</th>
-                            <th>{t("hub.usage.calls")}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(usage?.by_agent ?? []).map((row) => (
-                            <tr key={row.agent_id}>
-                              <td className={styles.monoCell}>
-                                {row.agent_id}
-                              </td>
-                              <td>{row.prompt_tokens}</td>
-                              <td>{row.completion_tokens}</td>
-                              <td>{row.call_count}</td>
-                            </tr>
-                          ))}
-                          {(usage?.by_agent ?? []).length === 0 && (
-                            <EmptyRow
-                              colSpan={4}
-                              message={t("hub.usage.empty")}
-                            />
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className={styles.tableWrap}>
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>{t("hub.usage.byDate")}</th>
-                            <th>{t("hub.usage.promptTokens")}</th>
-                            <th>{t("hub.usage.completionTokens")}</th>
-                            <th>{t("hub.usage.calls")}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(usage?.by_date ?? []).map((row) => (
-                            <tr key={row.date}>
-                              <td>{row.date}</td>
-                              <td>{row.prompt_tokens}</td>
-                              <td>{row.completion_tokens}</td>
-                              <td>{row.call_count}</td>
-                            </tr>
-                          ))}
-                          {(usage?.by_date ?? []).length === 0 && (
-                            <EmptyRow
-                              colSpan={4}
-                              message={t("hub.usage.empty")}
-                            />
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </DataPanel>
-                </section>
-              )}
               {section === "audit" && me?.role === "admin" && (
                 <section>
                   <PageHeader
@@ -1693,223 +1237,36 @@ export default function HubPage() {
                     onSearch={setAuditQuery}
                     searchPlaceholder={t("hub.table.searchAudit")}
                     filter={
-                      <>
-                        <Select
-                          allowClear
-                          value={auditAction}
-                          placeholder={t("hub.table.allActions")}
-                          className={styles.filterSelect}
-                          onChange={setAuditAction}
-                          options={[
-                            "runtime.create",
-                            "runtime.start",
-                            "runtime.stop",
-                            "runtime.delete",
-                            "user.create",
-                            "user.update",
-                            "credential.store",
-                            "credential.delete",
-                            "auth.register",
-                            "acl.denied",
-                            "model.switch_denied",
-                            "approval.resolved",
-                            "policy.updated",
-                          ].map((action) => ({
-                            value: action,
-                            label: t(`hub.auditActions.${action}`),
-                          }))}
-                        />
-                        <Input
-                          allowClear
-                          value={auditTrace}
-                          placeholder={t("hub.table.filterTrace")}
-                          className={styles.filterSelect}
-                          onChange={(e) => setAuditTrace(e.target.value)}
-                          maxLength={32}
-                        />
-                      </>
+                      <Select
+                        allowClear
+                        value={auditAction}
+                        placeholder={t("hub.table.allActions")}
+                        className={styles.filterSelect}
+                        onChange={setAuditAction}
+                        options={[
+                          "runtime.create",
+                          "runtime.start",
+                          "runtime.stop",
+                          "runtime.delete",
+                          "user.create",
+                          "user.update",
+                          "credential.store",
+                          "credential.delete",
+                          "auth.register",
+                        ].map((action) => ({
+                          value: action,
+                          label: t(`hub.auditActions.${action}`),
+                        }))}
+                      />
                     }
                   >
                     <AuditTable
                       events={audit.items}
                       language={i18n.language}
                       t={t}
-                      onTraceClick={setAuditTrace}
                     />
                     <PageFooter page={audit} onChange={loadAudit} />
                   </DataPanel>
-                </section>
-              )}
-              {section === "prompts" && me?.role === "admin" && (
-                <section>
-                  <PageHeader
-                    eyebrow={t("hub.prompts.eyebrow")}
-                    title={t("hub.prompts.title")}
-                    description={t("hub.prompts.description")}
-                  />
-                  <Form
-                    layout="vertical"
-                    onFinish={(values) => void submitPrompt(values)}
-                  >
-                    <div className={styles.templateCard}>
-                      <Form.Item
-                        name="assetId"
-                        label={t("hub.prompts.assetId")}
-                        rules={[{ required: true }]}
-                      >
-                        <Input placeholder="greeter" />
-                      </Form.Item>
-                      <Form.Item
-                        name="name"
-                        label={t("hub.prompts.name")}
-                        rules={[{ required: true }]}
-                      >
-                        <Input />
-                      </Form.Item>
-                      <Form.Item
-                        name="content"
-                        label={t("hub.prompts.content")}
-                        rules={[{ required: true }]}
-                      >
-                        <Input.TextArea rows={4} />
-                      </Form.Item>
-                      <Button
-                        type="primary"
-                        htmlType="submit"
-                        loading={promptSaving}
-                      >
-                        {t("hub.prompts.propose", "Propose")}
-                      </Button>
-                    </div>
-                  </Form>
-                  {promptAssets.map((asset) => (
-                    <div key={asset.asset_id} className={styles.templateCard}>
-                      <div className={styles.templateHeader}>
-                        <strong>{asset.name}</strong>
-                        <span className={styles.templateMeta}>
-                          {asset.asset_id} ·{" "}
-                          {t("hub.prompts.version", "version")}{" "}
-                          {asset.current_version}
-                          {asset.has_pending
-                            ? ` · ${t("hub.prompts.pending", "pending review")}`
-                            : ""}
-                        </span>
-                      </div>
-                      <Button
-                        size="small"
-                        onClick={() => void openPrompt(asset.asset_id)}
-                      >
-                        {t("hub.prompts.review", "Review")}
-                      </Button>
-                    </div>
-                  ))}
-                  {promptDetail && (
-                    <div className={styles.templateCard}>
-                      <strong>{promptDetail.name}</strong>
-                      {promptDetail.versions
-                        .filter((item) => item.status === "pending")
-                        .map((item) => (
-                          <div
-                            key={item.version}
-                            className={styles.templateMeta}
-                          >
-                            v{item.version} — {t("hub.prompts.by", "by")}{" "}
-                            {item.proposed_by}
-                            <Button
-                              size="small"
-                              type="primary"
-                              onClick={() =>
-                                void reviewPrompt(
-                                  promptDetail.asset_id,
-                                  item.version,
-                                )
-                              }
-                            >
-                              {t("hub.prompts.approve", "Approve")}
-                            </Button>{" "}
-                            <Button
-                              size="small"
-                              danger
-                              onClick={() =>
-                                void rejectPrompt(
-                                  promptDetail.asset_id,
-                                  item.version,
-                                )
-                              }
-                            >
-                              {t("hub.prompts.reject", "Reject")}
-                            </Button>
-                          </div>
-                        ))}
-                      <pre className={styles.templatePrompt}>
-                        {promptDetail.content}
-                      </pre>
-                    </div>
-                  )}
-                </section>
-              )}
-              {section === "keys" && me?.role === "admin" && (
-                <section>
-                  <PageHeader
-                    eyebrow={t("hub.keys.eyebrow")}
-                    title={t("hub.keys.title")}
-                    description={t("hub.keys.description")}
-                  />
-                  <Form
-                    layout="vertical"
-                    onFinish={(values) => void addKey(values)}
-                  >
-                    <div className={styles.templateCard}>
-                      <Form.Item
-                        name="provider"
-                        label={t("hub.keys.provider")}
-                        rules={[{ required: true }]}
-                      >
-                        <Input placeholder="openai" />
-                      </Form.Item>
-                      <Form.Item
-                        name="keyValue"
-                        label={t("hub.keys.keyValue")}
-                        rules={[{ required: true }]}
-                      >
-                        <Input.Password />
-                      </Form.Item>
-                      <Button type="primary" htmlType="submit">
-                        {t("hub.keys.add", "Add")}
-                      </Button>
-                    </div>
-                  </Form>
-                  {poolKeys.map((key) => (
-                    <div key={key.key_id} className={styles.templateCard}>
-                      <div className={styles.templateHeader}>
-                        <strong>{key.provider}</strong>
-                        <span className={styles.templateMeta}>
-                          {key.key_id} · {key.status} ·{" "}
-                          {t("hub.keys.uses", "uses")} {key.use_count}
-                        </span>
-                      </div>
-                      <Button
-                        size="small"
-                        danger={key.status === "active"}
-                        onClick={() => void toggleKey(key.key_id, key.status)}
-                      >
-                        {key.status === "active"
-                          ? t("hub.keys.disable", "Disable")
-                          : t("hub.keys.enable", "Enable")}
-                      </Button>{" "}
-                      <Button
-                        size="small"
-                        onClick={() => void testLease(key.provider)}
-                      >
-                        {t("hub.keys.lease", "Lease")}
-                      </Button>
-                    </div>
-                  ))}
-                  {leaseResult && (
-                    <p className={styles.templateMeta}>
-                      {t("hub.keys.leasedId", "leased")}: {leaseResult}
-                    </p>
-                  )}
                 </section>
               )}
               {section === "settings" &&
@@ -3024,12 +2381,10 @@ function AuditTable({
   events,
   language,
   t,
-  onTraceClick,
 }: {
   events: HubAuditEvent[];
   language: string;
   t: (key: string) => string;
-  onTraceClick: (traceId: string) => void;
 }) {
   return (
     <div className={styles.tableWrap}>
@@ -3040,7 +2395,6 @@ function AuditTable({
             <th>{t("hub.table.actor")}</th>
             <th>{t("hub.table.resource")}</th>
             <th>{t("hub.table.result")}</th>
-            <th>{t("hub.table.trace")}</th>
             <th>{t("hub.table.time")}</th>
           </tr>
         </thead>
@@ -3064,30 +2418,11 @@ function AuditTable({
                   {t(`hub.auditOutcomes.${event.outcome}`)}
                 </Tag>
               </td>
-              <td>
-                {event.trace_id ? (
-                  <a
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onTraceClick(event.trace_id as string)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter")
-                        onTraceClick(event.trace_id as string);
-                    }}
-                    className={styles.traceLink}
-                    title={event.trace_id}
-                  >
-                    {event.trace_id.slice(0, 8)}…
-                  </a>
-                ) : (
-                  <span className={styles.traceNone}>—</span>
-                )}
-              </td>
               <td>{formatDate(event.created_at, language)}</td>
             </tr>
           ))}
           {events.length === 0 && (
-            <EmptyRow colSpan={6} message={t("hub.audit.empty")} />
+            <EmptyRow colSpan={5} message={t("hub.audit.empty")} />
           )}
         </tbody>
       </table>

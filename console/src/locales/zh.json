@@ -2822,12 +2822,7 @@
       "safeTemplate": "安全运行",
       "researchTemplate": "预算研究",
       "qualityTemplate": "质量优先",
-      "blankTemplate": "空白流程",
-      "humanGateTitle": "人工闸门",
-      "humanGateDescription": "在指定轮次挂起循环等待人工审批；驳回或超时则终止循环",
-      "everyNRounds": "每 N 轮询问",
-      "gateTimeout": "等待超时（秒）",
-      "gateMessage": "审批卡上展示的问题"
+      "blankTemplate": "空白流程"
     },
     "doomLoopEnabled": "重复行为保护",
     "doomLoopEnabledTooltip": "当 Agent 陷入重复相同操作时自动介入",
@@ -3770,11 +3765,7 @@
       "users": "用户",
       "credentials": "凭据",
       "audit": "审计日志",
-      "settings": "系统设置",
-      "usage": "用量统计",
-      "agents": "智能体大厅",
-      "prompts": "Prompt 资产库",
-      "keys": "Key 池"
+      "settings": "系统设置"
     },
     "actions": {
       "backToQwenPaw": "返回 QwenPaw",
@@ -3933,9 +3924,7 @@
       "resource": "目标资源",
       "result": "结果",
       "time": "时间",
-      "total": "共 {{total}} 条",
-      "trace": "链路",
-      "filterTrace": "按 Trace ID 过滤（32 位）"
+      "total": "共 {{total}} 条"
     },
     "audit": {
       "eyebrow": "安全与治理",
@@ -4054,18 +4043,6 @@
       },
       "auth": {
         "register": "注册 Hub 用户"
-      },
-      "acl": {
-        "denied": "ACL 拒绝"
-      },
-      "model": {
-        "switch_denied": "越目录切换模型"
-      },
-      "approval": {
-        "resolved": "审批裁决"
-      },
-      "policy": {
-        "updated": "策略基线更新"
       }
     },
     "auditOutcomes": {
@@ -4095,60 +4072,6 @@
       "environmentName": "环境变量名称",
       "secretValue": "密钥值",
       "submit": "加密并保存"
-    },
-    "usage": {
-      "eyebrow": "运营",
-      "title": "模型用量统计",
-      "description": "按用户 / 模型 / 日期汇总各运行环境的 Token 用量（运行环境每分钟自动上报）",
-      "startDate": "开始日期",
-      "endDate": "结束日期",
-      "apply": "应用",
-      "refresh": "立即采集",
-      "promptTokens": "输入 Token",
-      "completionTokens": "输出 Token",
-      "calls": "调用次数",
-      "byUser": "用户（租户）",
-      "byModel": "模型",
-      "byAgent": "按 Agent（含子 agent）",
-      "byDate": "日期",
-      "empty": "该时间范围内暂无用量数据"
-    },
-    "agents": {
-      "eyebrow": "模板市场",
-      "title": "从模板开始的智能体",
-      "description": "选择管理员发布的模板，一键实例化到你的个人运行时",
-      "instantiated": "模板已实例化——可以开始对话"
-    },
-    "prompts": {
-      "eyebrow": "治理",
-      "title": "Prompt 资产库",
-      "description": "提案—审批—发布；成员只读已批准版本",
-      "assetId": "资产 ID",
-      "name": "名称",
-      "content": "内容",
-      "propose": "提交提案",
-      "proposed": "已提交提案，待审批",
-      "version": "版本",
-      "pending": "待审批",
-      "review": "查看",
-      "approve": "批准",
-      "reject": "驳回",
-      "approved": "已批准发布",
-      "by": "提案人"
-    },
-    "keys": {
-      "eyebrow": "治理",
-      "title": "Key 池",
-      "description": "按 provider 轮询分发，禁用即时生效",
-      "provider": "Provider",
-      "keyValue": "Key 值",
-      "add": "添加",
-      "added": "Key 已添加",
-      "uses": "次数",
-      "disable": "禁用",
-      "enable": "启用",
-      "lease": "试租",
-      "leasedId": "租得"
     }
   },
   "login": {

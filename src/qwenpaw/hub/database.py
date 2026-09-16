@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-_SCHEMA_GENERATION = "hub-v2"
+_SCHEMA_GENERATION = "hub-v1"
 _JSON_DEFAULT = '{"schema_version":1}'
 
 
@@ -34,7 +34,10 @@ def initialize_hub_database(database_path: Path) -> None:
         connection.execute("PRAGMA journal_mode = WAL")
         existing = _existing_hub_tables(connection)
         if existing and not _is_current_generation(connection):
-            _migrate_v1_audit_trace(connection)
+            raise RuntimeError(
+                "Unsupported pre-release Hub database schema. Back up and "
+                "recreate control.db for this PR build.",
+            )
         _validate_existing_columns(connection)
         connection.executescript(_SCHEMA_SQL)
         connection.execute(
@@ -100,38 +103,6 @@ def _is_current_generation(connection: sqlite3.Connection) -> bool:
         "SELECT value FROM hub_schema WHERE key = 'schema_generation'",
     ).fetchone()
     return row is not None and str(row["value"]) == _SCHEMA_GENERATION
-
-
-def _migrate_v1_audit_trace(connection: sqlite3.Connection) -> None:
-    """Migrate hub-v1 audit stores to the trace-capable v2 generation.
-
-    Older pre-release databases gain the nullable ``trace_id`` column via
-    ``ALTER TABLE`` (SQLite cannot add it to ``CREATE TABLE IF NOT EXISTS``
-    for an existing table). Unknown older generations still raise.
-    """
-    tables = _existing_hub_tables(connection)
-    if "hub_schema" not in tables or "hub_audit_events" not in tables:
-        raise RuntimeError(
-            "Unsupported pre-release Hub database schema. Back up and "
-            "recreate control.db for this PR build.",
-        )
-    row = connection.execute(
-        "SELECT value FROM hub_schema WHERE key = 'schema_generation'",
-    ).fetchone()
-    if row is None or str(row["value"]) != "hub-v1":
-        raise RuntimeError(
-            "Unsupported pre-release Hub database schema. Back up and "
-            "recreate control.db for this PR build.",
-        )
-    columns = _table_columns(connection, "hub_audit_events")
-    if "trace_id" not in columns:
-        connection.execute(
-            "ALTER TABLE hub_audit_events ADD COLUMN trace_id TEXT",
-        )
-    connection.execute(
-        "UPDATE hub_schema SET value = 'hub-v2' "
-        "WHERE key = 'schema_generation'",
-    )
 
 
 def _validate_existing_columns(connection: sqlite3.Connection) -> None:
@@ -348,7 +319,6 @@ CREATE TABLE IF NOT EXISTS hub_audit_events (
     outcome TEXT NOT NULL,
     request_id TEXT,
     correlation_id TEXT,
-    trace_id TEXT,
     remote_address TEXT,
     detail_json TEXT NOT NULL CHECK(json_valid(detail_json)),
     created_at TEXT NOT NULL
@@ -392,8 +362,6 @@ CREATE INDEX IF NOT EXISTS idx_audit_actor_created
 ON hub_audit_events(actor_user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_resource_created
 ON hub_audit_events(resource_type, resource_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_hub_audit_trace
-ON hub_audit_events(trace_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_extensions_namespace
 ON hub_resource_extensions(namespace, updated_at DESC);
 """
@@ -448,7 +416,6 @@ _REQUIRED_COLUMNS = {
         "event_id",
         "request_id",
         "correlation_id",
-        "trace_id",
         "remote_address",
         "detail_json",
     },
