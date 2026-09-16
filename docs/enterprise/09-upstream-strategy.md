@@ -144,6 +144,7 @@ git push -u origin feature/enterprise
 
 - Phase 0 的"控制台能力权限 + 代理 ACL"上游为空白点（已核查）→ **干净 PR 已备（09-16）**：分支 `upstream/acl`（基于 main `7f945a46`，commit `c9964883`）：`hub/acl/` 纯增量 + `control_app.py` +37 接线（engine 挂载 / `GET /api/hub/me/permissions` / personal_runtime_proxy decide 门，拒绝事件走 #7683 发射器 `outcome=denied`）+ 72 测试；enterprise 耦合已剥（3 个依赖 model_catalog/websocket 扩展的集成测试移出、docstring 中性化、探针路径移到 member 允许面）。PR 正文：`pr-2026-09-16-acl.md`。开 PR 动作留待人工（跨仓权限）；被合并即从白名单移除该 patch；
 - 第二票 **工具 hook 回馈 PR 已备（09-16）**：分支 `upstream/tool-hooks`（基于 main `7f945a46`，commit `588a5a59`）：`toolhooks/` 纯增量（491 行）+ `react_agent._execute_tool_call` 漏斗化（未注册 hook 纯透传）+ demo + 16 测试；解耦步骤：EP-2-23 字样中性化、`trace_context` 降级可选注入（pylint no-name-in-module 豁免）、上游无 `import time` 处补齐。PR 正文：`pr-2026-09-16-tool-hooks.md`。分支 agents 回归 3152 绿；
+- 第三票 **知识库回馈 PR 已备（09-16）**：分支 `upstream/knowledge`（基于 main `7f945a46`，commit `b9ef4c66`）：`knowledge/` 纯增量（464 行，stdlib+SQLite 零新依赖，embedding hash 兜底）+ `/api/knowledge` 5 端点（`_app.py` 5 行接线）+ `knowledge_search` 工具（`tools/__init__.py` 1 行）+ 12 测试；EP-2-22 字样中性化。PR 正文：`pr-2026-09-16-knowledge.md`。分支回归 knowledge+app 2383、agents/tools 736 绿。**回馈池三票集齐，可一并人工提交**；
 - 需求对齐：在 #7318 按官方模板回帖（内网可信、控制台权限、集中模型目录三点），
   争取官方方向覆盖 → 自研退役。
 
