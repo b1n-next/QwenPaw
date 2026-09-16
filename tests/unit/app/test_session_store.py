@@ -58,7 +58,10 @@ def test_channel_isolation(store: SqliteSession) -> None:
     )
     asyncio.run(
         store.save_session_state(
-            "s", user_id="u", channel="sip", agent=second
+            "s",
+            user_id="u",
+            channel="sip",
+            agent=second,
         ),
     )
 
