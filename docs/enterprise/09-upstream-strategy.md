@@ -148,22 +148,32 @@ git push -u origin feature/enterprise
 - 需求对齐：在 #7318 按官方模板回帖（内网可信、控制台权限、集中模型目录三点），
   争取官方方向覆盖 → 自研退役。
 
-### 5.1 撞车 PR 跟踪（月检，最近一次 2026-09-16）
+### 5.1 撞车 PR 跟踪（月检，最近一次 2026-09-17）
+
+**例程步骤**（每月执行，约 0.5d）：
+1. `git fetch origin main` + GitHub API 列 `commits?per_page=5` 与 `pulls?state=closed&merged` 增量（按上次月检日期过滤）；
+2. 新合并逐条对白名单/自研模块扫撞面（ACP/console/agents/mcp 修复域 vs 我方首创目录 graph/a2a/mcp_server/knowledge/toolhooks/hub 子包）；
+3. 双侧重叠文件 = `comm -12 <(git diff --name-only <旧基线>..origin/main) <(git diff --name-only <旧基线>..feature/enterprise)`，重叠且上游实质改动的白名单文件 → 登记为"rebase 人工复核点"；
+4. 语义撞车 → 按 #7696/#7683 先例立处置预案（替换票或融合点）；
+5. 推进 `enterprise/baseline-<新HEAD>` tag，§6 基线数字重算；
+6. 决定本轮是否执行合并（撞面 ≥ 3 个白名单文件或含高危重构 → 立即合并消化；否则留下月）。
 
 | PR | 状态 | 我方撞面 | 处置 |
 |---|---|---|---|
 | #7696 local admin bootstrap | **merged 09-15**（`hub/bootstrap.py` + `auth.py` + `cli/hub_cmd.py`） | `hub/bootstrap_admin.py` | **已替换（09-17）**：核心逻辑 100% 走官方 API（`ensure_admin_initialization_available` + `initialize_hub_admin`，root 解析 `QWENPAW_HUB_DIR`）；我方只剩非交互 + 幂等容器壳（~30 行，官方交互式 CLI 无法服务 initContainer 的两个约束）。helm initContainer 已切 env 注入形态。白名单条目从「平行自研」降级为「官方实现的容器壳」 |
 | #7683 hub 审计（login attempts + denied runtime creation） | **merged 09-15**（`control_app.py` +121 + 测试） | `control_app.py` 我方 +472 主接线（白名单最重行） | **已执行融合（09-16 merge `ac6759c5`）**：`record_audit` 签名合并 `trace_id + outcome + remote_address` 双族参数，两套发射器并存；上游 `record_auth_event` 一并并入；`WORKING_DIR` import 因上游重构移除 |
 | 2026-09-15/16 批量扫描（7763/7741/7636/7759/7758/7756/7787/7750/7704/7682/7681/7782） | 全部 merged | 无 | console/agents/memory/skill/mcp-**客户端**修复，不触我方首创模块（graph/a2a/mcp_server/knowledge/toolhooks/hub 子包），无新撞面 |
+| 2026-09-17 例行扫描（7783 ACP 委托 / 6569 console EIO/EPIPE / 7805 字重 / 7732 ACP 权限选项 / 7789 多文件夹项目目录） | 全部 merged（09-16） | 无语义撞车（ACP/console/proj-dir 域不交我方自研模块）；但 3 个白名单文件上游再动：`config/config.py`（上+6/我-106）、`app/agent_context.py`（上±29）、`hooks/request_setup/contextvars_hook.py`（上+18/我-18，互删改） | **登记 rebase 人工复核点 ×3**；未达"立即合并"阈值（无高危重构），留下次例行合并窗口（见步骤 6） |
 | #7318 需求对齐帖 | open（09-11 更新后无新决策） | — | 继续观望；官方覆盖任一自研点即提替换票 |
 
-- 上游 09-16 HEAD：`7f945a46`——**已 merge 进 feature/enterprise（`ac6759c5`，唯一冲突 `control_app.py` 按 §5.1 预案融合）**。`enterprise/baseline` 对表基线推进纳入 EP-1-10 例程。
+- 上游 09-17 HEAD：`d12bcd6c`（09-16 合并 `7f945a46` **已 merge 进 feature/enterprise，`ac6759c5`**）。基线 tag 已推进：`enterprise/baseline-7f945a46`（fork diff 口径 204 文件 +34016/-119，含 Phase 3 全部自研；§6 白名单表以此为准）。`d12bcd6c..HEAD` 5 合并留下次窗口。
 
 ## 6. 实现状态与白名单维护（2026-09-14 追溯审计建立）
 
-- **基线**：`enterprise/baseline-983b3ceb`（tag 常驻）。当前 diff：53 文件、
-  +5386/-51（上游 merge 83325387 自带的 website/docs 3 文件除外，fork 实改
-  上游文件 18 个 + 新增文件若干；v2 白名单表即以 tag diff 为准逐文件登记）。
+- **基线**：`enterprise/baseline-7f945a46`（2026-09-17 推进；上一基线
+  `enterprise/baseline-983b3ceb` 仍保留供追溯）。当前 diff：204 文件、
+  +34016/-119（= Phase 0-3 全部自研 + 白名单登记的上游文件修改；v2 白名单
+  表以本 tag diff 为准逐文件登记，例程步骤 5 每月重算）。
 - **维护规则**：① 动上游文件前先查本表，不在表内则先加表再动手；② 每次对表
   例程（EP-1-10/后续月度）重跑 `git diff --name-only enterprise/baseline-<x>..HEAD`
   与本表核对，漂移即修；③ rebase 前置检查：白名单文件的冲突逐行人工复核，
