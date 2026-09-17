@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import secrets
 import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -29,6 +30,7 @@ from fastapi import (
 from fastapi.responses import (
     FileResponse,
     JSONResponse,
+    RedirectResponse,
     Response,
     StreamingResponse,
 )
@@ -60,6 +62,7 @@ from .model_catalog import ModelCatalogStore
 from .provisioner import RuntimeProvisionerUnavailableError
 from .provisioners.k8s import K8sRuntimeProvisioner
 from .metrics import HubMetrics
+from .oidc import OidcClient, OidcError, OidcSettings
 from .quota import QuotaEngine, UsageSnapshot
 
 
@@ -287,6 +290,31 @@ def _k8s_provisioner_config() -> dict[str, object]:
     return config
 
 
+def _oidc_redirect_uri(request: Request) -> str:
+    """Callback URL advertised to the IdP for this request."""
+    base = str(request.base_url).rstrip("/")
+    return f"{base}/api/hub/auth/oidc/callback"
+
+
+def _build_oidc_client(hub_config: Any) -> OidcClient | None:
+    """Construct the OIDC client from current settings (or None)."""
+    if hub_config is None:
+        return None
+    oidc_config = getattr(hub_config.control_plane, "oidc", None)
+    if oidc_config is None or not oidc_config.enabled:
+        return None
+    return OidcClient(
+        OidcSettings(
+            issuer=oidc_config.issuer,
+            client_id=oidc_config.client_id,
+            client_secret=oidc_config.client_secret,
+            username_claim=oidc_config.username_claim,
+            groups_claim=oidc_config.groups_claim,
+            display_name_claim=oidc_config.display_name_claim,
+        ),
+    )
+
+
 def create_hub_app(  # pylint: disable=too-many-statements
     service: RuntimeService | None = None,
     auth_service: HubAuthService | None = None,
@@ -394,6 +422,8 @@ def create_hub_app(  # pylint: disable=too-many-statements
     )
     # EP-2-4: hand-rolled Prometheus registry (07 §4)
     app.state.metrics = HubMetrics()
+    # EP-2-2: OIDC SSO client (rebuilt when admin updates settings)
+    app.state.oidc_client = _build_oidc_client(hub_config)
     # EP-1-1: central model provider catalog (shares control.db + its
     # own secrets key under <hub root>/secrets/).
     app.state.model_catalog = ModelCatalogStore(
@@ -817,6 +847,121 @@ def create_hub_app(  # pylint: disable=too-many-statements
     async def auth_status() -> dict[str, object]:
         return await run_in_threadpool(hub_auth.status)
 
+    def _provision_oidc_user(identity: Any) -> HubUser | None:
+        """JIT login: create or find the user, sync oidc groups.
+
+        Returns None when the account is disabled (local or by absence
+        of an IdP identity previously mapped).
+        """
+        auth_service = app.state.auth_service
+        group_store: GroupPolicyStore = app.state.group_store
+        existing = auth_service.find_by_username(identity.username)
+        if existing is None:
+            user = auth_service.create_user(
+                username=identity.username,
+                password=secrets.token_urlsafe(32),
+                role="user",
+            )
+        else:
+            user = existing
+            if user.disabled:
+                return None
+        # full-reset group sync for source='oidc' groups
+        known = group_store.list_groups()
+        oidc_groups = {
+            row["name"]: row["group_id"]
+            for row in known
+            if row["source"] == "oidc"
+        }
+        for name in identity.groups:
+            if name not in oidc_groups:
+                group_id = group_store.create_group(name, source="oidc")
+                oidc_groups[name] = group_id
+            group_store.add_member(oidc_groups[name], user.user_id)
+        for name, group_id in oidc_groups.items():
+            if name not in identity.groups:
+                group_store.remove_member(group_id, user.user_id)
+        return user
+
+    @app.get("/api/hub/auth/oidc/login")
+    async def oidc_login(
+        request: Request,
+        next_path: str = Query(
+            default="/",
+            alias="next",
+            max_length=512,
+        ),
+    ) -> RedirectResponse:
+        """Start the OIDC authorization-code flow (EP-2-2)."""
+        client: OidcClient | None = app.state.oidc_client
+        if client is None:
+            raise HTTPException(
+                status_code=503,
+                detail={"code": "OIDC_DISABLED"},
+            )
+        redirect_uri = _oidc_redirect_uri(request)
+        try:
+            authorization_url = client.authorization_url(
+                redirect_uri,
+                next_path,
+            )
+        except OidcError as exc:
+            raise HTTPException(502, {"code": str(exc)}) from exc
+        return RedirectResponse(authorization_url, status_code=302)
+
+    @app.get("/api/hub/auth/oidc/callback")
+    async def oidc_callback(
+        request: Request,
+        code: str = Query(default="", max_length=1024),
+        state: str = Query(default="", max_length=256),
+    ) -> RedirectResponse:
+        """Exchange the code, JIT-provision, sync groups, mint a hub token."""
+        client: OidcClient | None = app.state.oidc_client
+        if client is None:
+            raise HTTPException(
+                status_code=503,
+                detail={"code": "OIDC_DISABLED"},
+            )
+        next_path = client.consume_state(state)
+        if next_path is None or not code:
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "OIDC_BAD_STATE"},
+            )
+        try:
+            identity = await client.exchange_and_resolve(
+                code,
+                _oidc_redirect_uri(request),
+            )
+        except OidcError as exc:
+            raise HTTPException(502, {"code": str(exc)}) from exc
+        user = await run_in_threadpool(
+            _provision_oidc_user,
+            identity,
+        )
+        if user is None:
+            raise HTTPException(
+                status_code=403,
+                detail={"code": "OIDC_ACCOUNT_DISABLED"},
+            )
+        token = await run_in_threadpool(
+            app.state.auth_service.create_token,
+            user,
+        )
+        await record_audit(
+            user,
+            "auth.oidc.login",
+            "user",
+            user.user_id,
+            {"username": identity.username, "groups": list(identity.groups)},
+        )
+        # fragment (not query) keeps the token out of server logs
+        separator = "#" if "#" not in next_path else "&"
+        return RedirectResponse(
+            f"{next_path}{separator}qwenpaw_token={token}",
+            status_code=302,
+        )
+
     @app.post("/api/auth/register")
     async def register(
         body: CredentialsBody,
@@ -1095,6 +1240,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc)) from exc
         app.state.hub_config = config
+        app.state.oidc_client = _build_oidc_client(config)
         await record_audit(
             admin,
             "settings.update",

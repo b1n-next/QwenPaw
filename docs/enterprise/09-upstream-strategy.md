@@ -100,6 +100,9 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/hub/database.py`（追加） | EP-2-1 三表迁移（groups/group_members/policies + subject 索引） | Ph2 | EP-2-1 |
 | `src/qwenpaw/hub/acl/engine.py`（追加） | EP-2-1 `decide(policies=)` 前置求值（user>group>role · 同路径 deny 优先 · apigroup 资源映射） | Ph2 | EP-2-1 |
 | `src/qwenpaw/hub/control_app.py`（追加） | EP-2-1 admin groups/policies CRUD 端点 + 代理 decide 升级（组+策略实时求值） | Ph2 | EP-2-1 |
+| `src/qwenpaw/hub/oidc.py`（新文件） | EP-2-2 OIDC 客户端（discovery 缓存/CSRF state 注册表/授权码换取/userinfo 身份解析） | Ph2 | EP-2-2 |
+| `src/qwenpaw/hub/config.py`（追加） | EP-2-2 `OidcConfig` 挂 ControlPlaneConfig（admin settings 可管） | Ph2 | EP-2-2 |
+| `src/qwenpaw/hub/auth.py`（追加） | EP-2-2 `find_by_username`（JIT 查找） | Ph2 | EP-2-2 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/mobile/approvals`（1 行 import + include，根路径非 /api） | Ph3 | G-P14 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/mcp-server`（1 行 import + include；`/api/mcp/*` 既有客户端面不动） | Ph2 | EP-2-20 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 A2A 面（root `/.well-known/agent-card.json` + `/api/a2a`，2 行 include） | Ph2 | EP-2-21 |

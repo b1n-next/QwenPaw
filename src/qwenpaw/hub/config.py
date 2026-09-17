@@ -140,6 +140,24 @@ class RuntimeProxyConfig(BaseModel):
         return self.websocket_max_message_size_mb * 1024 * 1024
 
 
+class OidcConfig(BaseModel):
+    """OIDC SSO settings (EP-2-2); issuer+client_id enable it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    issuer: str = ""
+    client_id: str = ""
+    client_secret: str = ""
+    username_claim: str = "preferred_username"
+    groups_claim: str = "groups"
+    display_name_claim: str = "name"
+
+    @property
+    def enabled(self) -> bool:
+        """OIDC is live only with both issuer and client id."""
+        return bool(self.issuer.strip() and self.client_id.strip())
+
+
 class ControlPlaneConfig(BaseModel):
     """Configuration-managed control-plane settings."""
 
@@ -153,6 +171,7 @@ class ControlPlaneConfig(BaseModel):
         default_factory=AccessSecurityConfig,
     )
     proxy: RuntimeProxyConfig = Field(default_factory=RuntimeProxyConfig)
+    oidc: "OidcConfig" = Field(default_factory=OidcConfig)
 
     @field_validator("public_base_url")
     @classmethod

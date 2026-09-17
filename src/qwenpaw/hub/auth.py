@@ -427,6 +427,16 @@ class HubAuthService:
             ).fetchone()
         return self._user_from_row(row) if row is not None else None
 
+    def find_by_username(self, username: str) -> HubUser | None:
+        """Fetch one live user by exact username (OIDC JIT lookup)."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM hub_users WHERE username = ? "
+                "AND deleted_at IS NULL",
+                (username,),
+            ).fetchone()
+        return self._user_from_row(row) if row is not None else None
+
     def get_usernames(self, user_ids: set[str]) -> dict[str, str]:
         """Return active usernames for a batch of user identifiers."""
         if not user_ids:

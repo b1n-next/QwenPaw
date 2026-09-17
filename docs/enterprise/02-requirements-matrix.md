@@ -40,7 +40,7 @@
 |---|---|---|---|---|---|---|
 | C1 | 多用户账号（注册/禁用/改密/登录限速） | USR/HUB | ✅（`hub/auth.py`：sqlite 用户表、角色、token 版本、锁定） | — | — | — |
 | C2 | C2 | 用户组（group + member 表，组级策略挂载点） | ✅（EP-2-1：`groups`+`group_members`+`policies` 三表迁移；`GroupPolicyStore` CRUD；admin API `/api/hub/admin/groups*` 与 `/policies*` 全套） | ✅ | Ph2（已落） | — |
-| C3 | OIDC SSO（企业 IdP：Keycloak/AD/Authing；JIT 建号；组映射） | GLM | 🟡（`oauth_routes.py` 有 OAuth 中转骨架，非 OIDC RP） | P1 | Ph2 | 高 |
+| C3 | C3 | OIDC SSO（企业 IdP：Keycloak/AD/Authing；JIT 建号；组映射） | ✅（EP-2-2：授权码流 + userinfo 后信道（免 JWT 验签依赖）；JIT 建号 + `source='oidc'` 组全量同步（IdP 移除即生效）；本地 disabled 拒登录；admin settings 配 issuer/client/claims；本地账密登录保留降级） | ✅ | Ph2（已落） | — |
 | C4 | LDAP 直连 | GLM | ❌ | P2 | backlog | 中 |
 | C5 | SCIM 自动回收（离职联动） | GLM | ❌ | P3 | backlog | 中 |
 | C6 | 组织层级（租户→部门→团队四级） | GLM | ❌（扁平 group 起步） | P3 | backlog | 中 |
