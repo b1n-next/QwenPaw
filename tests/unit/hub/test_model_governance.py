@@ -88,7 +88,13 @@ def _setup(tmp_path: Path, limits: dict) -> TestClient:
         json.dumps({"default": limits}),
         encoding="utf-8",
     )
-    return TestClient(create_hub_app(root_dir=tmp_path, public_bind=False))
+    # raise_server_exceptions=False: without a live runtime the proxy
+    # may surface upstream connection errors — the rate slot is
+    # consumed either way (the gate runs before forwarding)
+    return TestClient(
+        create_hub_app(root_dir=tmp_path, public_bind=False),
+        raise_server_exceptions=False,
+    )
 
 
 def test_proxy_429_with_retry_after(tmp_path: Path) -> None:
@@ -99,7 +105,7 @@ def test_proxy_429_with_retry_after(tmp_path: Path) -> None:
         ).json()["token"]
         headers = {"Authorization": f"Bearer {token}"}
         first = client.get("/api/config", headers=headers)
-        assert first.status_code in (200, 404, 502)  # runtime-dependent
+        assert first.status_code in (200, 404, 500, 502)
         second = client.get("/api/config", headers=headers)
         assert second.status_code == 429
         assert second.json()["detail"]["code"] == "RATE_LIMITED"
