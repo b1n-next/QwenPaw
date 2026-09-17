@@ -43,6 +43,11 @@ from ..utils.oauth_callback import HUB_OAUTH_CALLBACK_URL_HEADER
 from .access_security import HubAccessSecurity
 from .acl import AclEngine
 from .acl.console_map import effective_permissions
+from .capability import (
+    CapabilityRequirement,
+    RuntimeCapability,
+    negotiate,
+)
 from .acl.groups import GroupPolicyStore
 from .api_models import (
     AdminUserCreateBody,
@@ -53,6 +58,7 @@ from .api_models import (
     HubSettingsBody,
     PasswordChangeBody,
     RuntimeCreateBody,
+    RuntimeRequirementsBody,
 )
 from .auth import HubAuthService, HubDatabaseBusyError, HubUser
 from .bootstrap import get_hub_root
@@ -484,6 +490,10 @@ def create_hub_app(  # pylint: disable=too-many-statements
     # E5: model fallback chains as resource extensions
     app.state.model_extensions = HubExtensionStore(
         operations.database_path,
+    )
+    # G2: runtime scheduling requirements live as a hub extension
+    app.state.capability_requirement = (
+        lambda: CapabilityRequirement.from_document(None)
     )
     # EP-1-1: central model provider catalog (shares control.db + its
     # own secrets key under <hub root>/secrets/).
@@ -1628,8 +1638,41 @@ def create_hub_app(  # pylint: disable=too-many-statements
         user: HubUser = Depends(require_admin),
     ) -> dict[str, Any]:
         await require_runtime_access(runtime_id, user)
+        # G2: requirement ⊆ capability before scheduling
+        record = await run_in_threadpool(
+            runtime_service.registry.get,
+            runtime_id,
+        )
+        if record is None:
+            raise HTTPException(status_code=404, detail="Runtime not found")
+        capability = RuntimeCapability.from_metadata(record.metadata)
+        requirement = await run_in_threadpool(_current_requirement)
+        verdict = negotiate(capability, requirement)
+        if not verdict.ok:
+            await record_audit(
+                user,
+                "runtime.start",
+                "runtime",
+                runtime_id,
+                {
+                    "reason": "capability-mismatch",
+                    "missing": list(verdict.missing),
+                },
+                outcome="failure",
+            )
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "CAPABILITY_MISMATCH",
+                    "message": (
+                        "Runtime capabilities do not satisfy the "
+                        "hub requirements."
+                    ),
+                    "missing": list(verdict.missing),
+                },
+            )
         try:
-            record = await runtime_service.execute(
+            started = await runtime_service.execute(
                 "start",
                 runtime_id,
             )
@@ -1652,7 +1695,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
             "runtime",
             runtime_id,
         )
-        return await runtime_payload(record)
+        return await runtime_payload(started)
 
     @app.post("/api/hub/runtimes/{runtime_id}/rebuild")
     async def rebuild_runtime(
@@ -2429,6 +2472,54 @@ def create_hub_app(  # pylint: disable=too-many-statements
             "fallbacks": document["value"]["fallbacks"],
             "revision": document["revision"],
         }
+
+    def _current_requirement() -> CapabilityRequirement:
+        document = app.state.model_extensions.get(
+            resource_type="hub",
+            resource_id="global",
+            namespace="governance",
+            key="runtime_requirements",
+        )
+        return CapabilityRequirement.from_document(document)
+
+    @app.get("/api/hub/admin/runtime-requirements")
+    async def admin_get_runtime_requirements(
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """Current scheduling requirements (G2)."""
+        requirement = await run_in_threadpool(_current_requirement)
+        return {
+            "min_version": requirement.min_version,
+            "sandbox_required": requirement.sandbox_required,
+            "tools_required": list(requirement.tools_required),
+        }
+
+    @app.put("/api/hub/admin/runtime-requirements")
+    async def admin_put_runtime_requirements(
+        body: RuntimeRequirementsBody,
+        user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """Set scheduling requirements; negotiated at runtime start (G2)."""
+        revision = await run_in_threadpool(
+            app.state.model_extensions.put,
+            resource_type="hub",
+            resource_id="global",
+            namespace="governance",
+            key="runtime_requirements",
+            value={
+                "min_version": body.min_version,
+                "sandbox_required": body.sandbox_required,
+                "tools_required": body.tools_required,
+            },
+        )
+        await record_audit(
+            user,
+            "runtime.requirements.update",
+            "hub",
+            "runtime_requirements",
+            {"revision": revision, **body.model_dump()},
+        )
+        return {"revision": revision, **body.model_dump()}
 
     @app.get("/api/hub/admin/audit/verify")
     async def admin_audit_verify(
@@ -3480,6 +3571,9 @@ def _runtime_payload(
     payload["owner_username"] = owner_username
     payload["endpoint"] = f"http://{record.host}:{record.port}"
     payload["security_level"] = service.security_level(record.provisioner)
+    # G2: capability projection for operators/consumers
+    capability = RuntimeCapability.from_metadata(record.metadata)
+    payload["capabilities"] = capability.to_metadata()["capabilities"]
     return payload
 
 

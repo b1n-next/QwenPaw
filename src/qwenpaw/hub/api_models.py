@@ -20,6 +20,16 @@ class RuntimeCreateBody(BaseModel):
     auto_start: bool = False
 
 
+class RuntimeRequirementsBody(BaseModel):
+    """Admin-managed scheduling requirements (G2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    min_version: str = Field(default="0.0.0", max_length=16)
+    sandbox_required: bool = False
+    tools_required: list[str] = Field(default_factory=list)
+
+
 class DockerImagePullBody(BaseModel):
     """Request an asynchronous Docker image pull."""
 
