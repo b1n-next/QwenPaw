@@ -65,10 +65,10 @@
 | E1 | 管理员集中配置 Provider/Endpoint/Key | HUB | ✅（`hub/model_catalog/store.py` Fernet + admin CRUD + test-connection；04 §7） | **P0** | Ph1 | **高**（官方"Central model governance"在列） |
 | E2 | 用户只见批准的模型目录/别名，不见凭据与 Endpoint | HUB/USR | ✅（服务端强制：代理 GET /api/models 目录过滤 + 密钥永不回显 `api_key_set`；@c0f5174a） | P0 | Ph1 | 高 |
 | E3 | 首启 bootstrap：新租户 runtime 自动拿到可用默认模型 | HUB | ✅（`QWENPAW_MODEL_BOOTSTRAP_JSON` env + re-sync 钩子，04 §7；真机 E2E 过） | P0 | Ph1 | 高 |
-| E4 | 默认模型与按用途路由（编码→强模型，闲聊→轻模型） | HUB/GLM | ❌ | P2 | Ph2 | 高 |
+| E4 | E4 | 默认模型与按用途路由（编码→强模型，闲聊→轻模型） | ✅（模型路由策略：`model:<id>`/`model:*` 策略在成员激活 `PUT /api/models/active` 时代理内生效——catalog 门之后二次收口；deny 优先（对齐引擎/B5）；无策略沿用 catalog 判定；403 `MODEL_FORBIDDEN_BY_POLICY` 带目标模型） | ✅ | Ph2（已落） | — |
 | E5 | 故障切换/fallback 链 | HUB | ❌ | P2 | Ph2 | 高 |
 | E6 | 限流与并发控制 | HUB | ❌ | P2 | Ph2 | 高 |
-| E7 | 额度与成本控制（预算/熔断，与 F 区配额联动） | HUB | ❌ | P2 | Ph2 | 高 |
+| E7 | E7 | 额度与成本控制（预算/熔断，与 F 区配额联动） | ✅（成本核算：单价表存模型扩展（`input/output_per_mtok`+currency，admin PUT 入审计）；`GET /admin/usage/costs` 按模型计价（MTok 单价 × usage 汇总）+ 按组汇总（tenant→组映射，无组落 `(ungrouped)`）+ 多币种合计 + `unpriced_models` 明示；读取入审计） | ✅ | Ph2（已落） | — |
 | E8 | Key 轮换机制 | GLM | 🟡（vault 有 secret 管理，轮换流程缺） | P2 | Ph2 | 中 |
 | E9 | 模型→RBAC 交叉（不同组可见不同模型子集） | GLM | ❌ | P2 | Ph2 | 高 |
 | E10 | 计费精度到对话/Agent 级 | GLM | ❌ | P3 | backlog | 中 |

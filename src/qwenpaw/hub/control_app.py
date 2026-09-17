@@ -259,7 +259,58 @@ async def _enforce_model_activation_catalog(
     )
     if not allowed_target:
         raise ModelNotInCatalogError()
+    # E4: per-user/group model routing policies refine the catalog.
+    # Deny beats allow at equal target (same as AclEngine/B5).
+    target_model = _activation_target_model(raw_body)
+    if target_model:
+        user_groups = await run_in_threadpool(
+            app.state.group_store.group_names_for,
+            user.user_id,
+        )
+        user_policies = await run_in_threadpool(
+            app.state.group_store.policies_for,
+            user_id=user.user_id,
+            groups=user_groups,
+            role=user.role,
+        )
+        if not _model_policies_allow(user_policies, target_model):
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "MODEL_FORBIDDEN_BY_POLICY",
+                    "message": (
+                        "Model is not routable for your account " "or groups."
+                    ),
+                    "model": target_model,
+                },
+            )
     return raw_body
+
+
+def _activation_target_model(raw_body: bytes) -> str:
+    """Best-effort model id from an activation payload (E4)."""
+    try:
+        payload = json.loads(raw_body or b"{}")
+    except json.JSONDecodeError:
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("model") or payload.get("model_id") or "")
+
+
+def _model_policies_allow(policies: Any, model_id: str) -> bool:
+    """Evaluate ``model:<id>`` policies: deny beats allow (E4)."""
+    allowed: bool | None = None
+    for policy in policies:
+        kind, _, value = policy.resource.partition(":")
+        if kind != "model" or not value:
+            continue
+        if value not in ("*", model_id):
+            continue
+        if policy.effect == "deny":
+            return False
+        allowed = True
+    return allowed is not False  # no policy -> catalog decision stands
 
 
 def _k8s_provisioner_config() -> dict[str, object]:
@@ -2177,6 +2228,143 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 },
             )
         return {"lease": key}
+
+    @app.put("/api/hub/admin/models/{model_id}/pricing")
+    async def admin_put_model_pricing(
+        model_id: str,
+        payload: dict[str, Any],
+        user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """Set unit prices for one model (E7)."""
+        try:
+            input_price = float(payload.get("input_per_mtok", 0))
+            output_price = float(payload.get("output_per_mtok", 0))
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(422, "prices must be numbers") from exc
+        if input_price < 0 or output_price < 0:
+            raise HTTPException(422, "prices must be non-negative")
+        currency = str(payload.get("currency") or "CNY")[:8]
+        revision = await run_in_threadpool(
+            app.state.model_extensions.put,
+            resource_type="model",
+            resource_id=model_id,
+            namespace="governance",
+            key="pricing",
+            value={
+                "input_per_mtok": input_price,
+                "output_per_mtok": output_price,
+                "currency": currency,
+            },
+        )
+        await record_audit(
+            user,
+            "model.pricing.update",
+            "model",
+            model_id,
+            {"revision": revision, "currency": currency},
+        )
+        return {"model_id": model_id, "revision": revision}
+
+    @app.get("/api/hub/admin/usage/costs")
+    async def admin_usage_costs(
+        user: HubUser = Depends(require_admin),
+        start: str | None = Query(default=None, max_length=10),
+        end: str | None = Query(default=None, max_length=10),
+    ) -> dict[str, Any]:
+        """Token usage priced per model, user and group (E7)."""
+        pricing = await run_in_threadpool(
+            app.state.model_extensions.list_by_type,
+            resource_type="model",
+            namespace="governance",
+            key="pricing",
+        )
+        summary = await run_in_threadpool(
+            app.state.usage_store.summary,
+            start_date=start,
+            end_date=end,
+        )
+        currencies: dict[str, float] = {}
+        unpriced: dict[str, dict[str, int]] = {}
+        by_model: list[dict[str, Any]] = []
+        for row in summary.get("by_model", []):
+            model = str(row.get("model") or "(unknown)")
+            prompt = int(row.get("prompt_tokens", 0))
+            completion = int(row.get("completion_tokens", 0))
+            entry = {
+                "model": model,
+                "prompt_tokens": prompt,
+                "completion_tokens": completion,
+                "requests": int(row.get("call_count", 0)),
+            }
+            price = pricing.get(model)
+            if price is None:
+                unpriced[model] = {
+                    "prompt_tokens": prompt,
+                    "completion_tokens": completion,
+                }
+            else:
+                currency = str(price.get("currency", "CNY"))
+                cost = prompt / 1_000_000 * float(
+                    price["input_per_mtok"],
+                ) + completion / 1_000_000 * float(price["output_per_mtok"])
+                entry["cost"] = round(cost, 4)
+                entry["currency"] = currency
+                currencies[currency] = currencies.get(currency, 0.0) + cost
+            by_model.append(entry)
+        # group view: tenant personal-<user> -> group names
+        tenant_to_groups: dict[str, list[str]] = {}
+        for tenant in summary.get("by_user", {}):
+            user_id = (
+                tenant[len("personal-") :]
+                if tenant.startswith("personal-")
+                else ""
+            )
+            if not user_id:
+                continue
+            names = await run_in_threadpool(
+                app.state.group_store.group_names_for,
+                user_id,
+            )
+            if names:
+                tenant_to_groups[tenant] = list(names)
+        group_costs: dict[str, dict[str, Any]] = {}
+        for tenant, totals in summary.get("by_user", {}).items():
+            for group in tenant_to_groups.get(tenant, ["(ungrouped)"]):
+                bucket = group_costs.setdefault(
+                    group,
+                    {
+                        "prompt_tokens": 0,
+                        "completion_tokens": 0,
+                        "requests": 0,
+                    },
+                )
+                bucket["prompt_tokens"] += int(
+                    totals.get("prompt_tokens", 0),
+                )
+                bucket["completion_tokens"] += int(
+                    totals.get("completion_tokens", 0),
+                )
+                bucket["requests"] += int(totals.get("call_count", 0))
+        await record_audit(
+            user,
+            "usage.costs.read",
+            "usage",
+            "costs",
+            {"start": start, "end": end},
+        )
+        return {
+            "by_model": by_model,
+            "by_group": [
+                dict(group, group=name)
+                for name, group in sorted(group_costs.items())
+            ],
+            "totals": {
+                currency: round(cost, 4)
+                for currency, cost in currencies.items()
+            },
+            "unpriced_models": sorted(unpriced),
+            "range": {"start": start, "end": end},
+        }
 
     @app.get("/api/hub/models/fallbacks")
     async def models_fallbacks(
