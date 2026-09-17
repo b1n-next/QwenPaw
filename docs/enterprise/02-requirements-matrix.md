@@ -31,7 +31,7 @@
 | B3 | WS 代理同步 ACL | AUD | ✅（websocket_proxy decide→close 1008） | P0 | Ph0 | 低 |
 | B4 | permissions 下发（**端点实现定名 `/api/hub/me/permissions`**，公开 version 端点不承载角色数据；四键 payload 含 model_readonly） | AUD | ✅（control_app.py + console_map.py） | P0 | Ph0 | 低 |
 | B5 | 按租户/组定制菜单白名单（而非全局两档） | USR 扩展 | ❌ | P2 | Ph2 | 低 |
-| B6 | 直连 runtime 场景的受限 profile（`QWENPAW_CONSOLE_PROFILE`） | AUD | ❌ | P2 | Ph2 | 中 |
+| B6 | B6 | 直连 runtime 场景的受限 profile（`QWENPAW_CONSOLE_PROFILE`） | ✅（EP-2-9：runtime 环境变量 `QWENPAW_CONSOLE_PROFILE=restricted` 启用 `/api/console/profile`（复用 hub user 档 payload，shape 同 `/hub/me/permissions`）；console 降级链升级为 permissions 404 → 探测 profile → 才全量；未设置/`full` 行为与上游完全一致） | ✅ | Ph2（已落） | — |
 | B7 | 移动端/瘦客户端仅对话视图 | #7318 社区 | ❌ | P3 | backlog | 中 |
 
 ## C. 身份与组织

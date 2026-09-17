@@ -103,6 +103,8 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/hub/oidc.py`（新文件） | EP-2-2 OIDC 客户端（discovery 缓存/CSRF state 注册表/授权码换取/userinfo 身份解析） | Ph2 | EP-2-2 |
 | `src/qwenpaw/hub/config.py`（追加） | EP-2-2 `OidcConfig` 挂 ControlPlaneConfig（admin settings 可管） | Ph2 | EP-2-2 |
 | `src/qwenpaw/hub/auth.py`（追加） | EP-2-2 `find_by_username`（JIT 查找） | Ph2 | EP-2-2 |
+| `src/qwenpaw/app/routers/console_profile.py`（新文件） | EP-2-9 直连 runtime 受限 profile 端点（B6） | Ph2 | EP-2-9 |
+| `src/qwenpaw/app/_app.py`（追加 2 行） | EP-2-9 profile router 挂载（import + include） | Ph2 | EP-2-9 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/mobile/approvals`（1 行 import + include，根路径非 /api） | Ph3 | G-P14 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/mcp-server`（1 行 import + include；`/api/mcp/*` 既有客户端面不动） | Ph2 | EP-2-20 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 A2A 面（root `/.well-known/agent-card.json` + `/api/a2a`，2 行 include） | Ph2 | EP-2-21 |

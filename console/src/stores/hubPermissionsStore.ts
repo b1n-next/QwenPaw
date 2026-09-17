@@ -48,11 +48,30 @@ export const useHubPermissionsStore = create<HubPermissionsStore>((set) => ({
           modelReadonly: payload?.model_readonly === true,
         });
       })
-      .catch(() => {
-        // Standard deployment, old backend, or transient failure: keep
-        // the full menu. The hub proxy still enforces the real ACL.
-        set({ status: "error", deniedRouteIds: null });
-      })
+      .catch(() =>
+        // Direct-runtime deployment (B6/EP-2-9): the runtime may pin
+        // a restricted profile via QWENPAW_CONSOLE_PROFILE=restricted.
+        // Probe it before degrading to the full menu.
+        request<HubPermissions>("/console/profile")
+          .then((payload) => {
+            set({
+              status: "ready",
+              role: payload?.role ?? "user",
+              deniedGroups: Array.isArray(payload?.denied_groups)
+                ? payload.denied_groups
+                : [],
+              deniedRouteIds: Array.isArray(payload?.denied_routes)
+                ? payload.denied_routes
+                : [],
+              modelReadonly: payload?.model_readonly !== false,
+            });
+          })
+          .catch(() => {
+            // Standard deployment, old backend, or transient failure:
+            // keep the full menu. The hub proxy still enforces ACL.
+            set({ status: "error", deniedRouteIds: null });
+          }),
+      )
       .finally(() => {
         loadPromise = null;
       });

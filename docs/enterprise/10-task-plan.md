@@ -49,7 +49,7 @@ tag 补记：`enterprise/v0.1`（Phase 0 收口 @717c85ff）、`enterprise/v0.2`
 | EP-2-7 ⬜ | 问数 M2（多源+语义标注+admin 联动） | 5d |
 | EP-2-8 ⬜ | 问数 M3（指标/向量检索 + 金集 30 题） | 5d |
 | EP-2-8b ⬜ | 问数 M4（08 号里程碑四，收尾切片——占位票，M3 后细化） | 3d |
-| EP-2-9 ⬜ | runtime 受限 profile（B6，直连场景） | 2d |
+| EP-2-9 ☑ | runtime 受限 profile（B6，直连场景） | 2d |
 | EP-2-10 ⬜ | 升级金丝雀流程 + 环境分层 values（I2） | 2d |
 | EP-2-11..2-14 ☑ | **平台线 P0 · 治理贯通**：trace_id 贯穿 / 审批持久化回流 / 策略 hub 下发 / 子 agent 降权（票面与 DoD 见 [11 §5](11-platform-assessment.md)；`7433d5b3`/`f16c1c67`/`885257ca`/`46dbb0d5`） | 13d |
 | EP-2-15..2-19 ☑ | **平台线 P1 · 编排原语**：loop human_gate / harness registry 插件化 / 图执行引擎 / DAG 画布 / 模板市场+大厅（见 11 §5；`357c11b7`/`3063b8be`/`129c8b66`/`343e51e1`/`50894b98`） | 22d |

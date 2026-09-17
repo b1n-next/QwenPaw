@@ -64,6 +64,7 @@ from .routers.approval import router as approval_router
 from .routers.coding_mode import router as coding_mode_router
 from .routers.healthz import router as healthz_router
 from .routers.knowledge import router as knowledge_router
+from .routers.console_profile import router as console_profile_router
 from .routers.mobile import router as mobile_router
 from .routers.graph import router as graph_router
 from .routers.loops import router as loops_router
@@ -955,6 +956,9 @@ app.include_router(a2a_api_router, prefix="/api")
 
 # Knowledge base API (EP-2-22): /api/knowledge
 app.include_router(knowledge_router, prefix="/api")
+
+# B6/EP-2-9: restricted console profile for direct-runtime deployments
+app.include_router(console_profile_router)
 
 # Mobile H5 approval page (Phase 3, G-P14): /mobile/approvals
 app.include_router(mobile_router)
