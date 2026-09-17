@@ -94,6 +94,8 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/hub/metrics.py`（新文件） | EP-2-4 无依赖 Prometheus collector（计数器/gauge + 文本格式渲染） | Ph2 | EP-2-4 |
 | `deploy/prometheus/qwenpaw-alerts.yaml`（新文件） | EP-2-4 PrometheusRule 三条基线告警（runtime 缺失/采集滞后/ACL 拒绝速率）+ scrape 配置样例 | Ph2 | EP-2-4 |
 | `src/qwenpaw/hub/usage/collector.py`（追加） | EP-2-4 `last_pass_epoch` 时间戳（采集新鲜度 gauge 数据源） | Ph2 | EP-2-4 |
+| `deploy/scripts/backup-hub-sqlite.sh`（新文件） | EP-2-5 SQLite 在线备份脚本（`.backup` 一致快照 + secrets 复制 + SHA256SUMS + 轮转） | Ph2 | EP-2-5 |
+| `docs/enterprise/runbook-backup-restore.md`（新文件） | EP-2-5 备份恢复双层手册（SQLite 层实测演练记录 + Velero 层步骤） | Ph2 | EP-2-5 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/mobile/approvals`（1 行 import + include，根路径非 /api） | Ph3 | G-P14 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/mcp-server`（1 行 import + include；`/api/mcp/*` 既有客户端面不动） | Ph2 | EP-2-20 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 A2A 面（root `/.well-known/agent-card.json` + `/api/a2a`，2 行 include） | Ph2 | EP-2-21 |
