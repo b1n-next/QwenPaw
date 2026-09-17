@@ -63,6 +63,62 @@ def permissions_payload(role: str) -> Dict[str, Any]:
     """Build the ``/api/hub/me/permissions`` response for *role*."""
     groups = _DENIED_GROUPS.get(role, frozenset())
     routes = _DENIED_ROUTES.get(role, frozenset())
+    return _payload(role, groups, routes)
+
+
+def effective_permissions(
+    role: str,
+    policies: Any = (),
+) -> Dict[str, Any]:
+    """Policy-aware payload (B5): ``menu:<group>`` and
+    ``route:<route-id>`` policies override the static role table.
+
+    Evaluation per resource follows 05 §2: user > group > role
+    (the store pre-orders subjects), deny beats allow at equal
+    target, and anything without a policy hit falls back to the
+    static table. Menu visibility is UX only — the proxy ACL
+    stays the boundary.
+    """
+    groups = set(_DENIED_GROUPS.get(role, frozenset()))
+    routes = set(_DENIED_ROUTES.get(role, frozenset()))
+
+    menu_decisions: Dict[str, str] = {}
+    route_decisions: Dict[str, str] = {}
+    for policy in policies:
+        kind, _, value = policy.resource.partition(":")
+        if kind == "menu" and value:
+            _record_deny_wins(menu_decisions, value, policy.effect)
+        elif kind == "route" and value:
+            _record_deny_wins(route_decisions, value, policy.effect)
+
+    for target, effect in menu_decisions.items():
+        if effect == "deny":
+            groups.add(target)
+        else:
+            groups.discard(target)
+    for target, effect in route_decisions.items():
+        if effect == "deny":
+            routes.add(target)
+        else:
+            routes.discard(target)
+    return _payload(role, frozenset(groups), frozenset(routes))
+
+
+def _record_deny_wins(
+    decisions: Dict[str, str],
+    target: str,
+    effect: str,
+) -> None:
+    """Deny beats allow at equal target (mirrors AclEngine, EP-2-1)."""
+    if effect == "deny" or target not in decisions:
+        decisions[target] = effect
+
+
+def _payload(
+    role: str,
+    groups: FrozenSet[str],
+    routes: FrozenSet[str],
+) -> Dict[str, Any]:
     return {
         "role": role,
         "denied_groups": sorted(groups),
@@ -74,4 +130,4 @@ def permissions_payload(role: str) -> Dict[str, Any]:
     }
 
 
-__all__ = ["permissions_payload"]
+__all__ = ["effective_permissions", "permissions_payload"]

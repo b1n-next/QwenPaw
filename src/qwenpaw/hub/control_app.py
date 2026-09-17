@@ -42,7 +42,7 @@ from ..utils.http import is_loopback_host, runtime_host_allowed
 from ..utils.oauth_callback import HUB_OAUTH_CALLBACK_URL_HEADER
 from .access_security import HubAccessSecurity
 from .acl import AclEngine
-from .acl.console_map import permissions_payload
+from .acl.console_map import effective_permissions
 from .acl.groups import GroupPolicyStore
 from .api_models import (
     AdminUserCreateBody,
@@ -1069,8 +1069,18 @@ def create_hub_app(  # pylint: disable=too-many-statements
     async def current_identity_permissions(
         user: HubUser = Depends(require_user),
     ) -> dict[str, object]:
-        """Console menu deny-list for the current role (UX only)."""
-        return permissions_payload(user.role)
+        """Console menu deny-list, policy-aware (B5, UX only)."""
+        user_groups = await run_in_threadpool(
+            app.state.group_store.group_names_for,
+            user.user_id,
+        )
+        user_policies = await run_in_threadpool(
+            app.state.group_store.policies_for,
+            user_id=user.user_id,
+            groups=user_groups,
+            role=user.role,
+        )
+        return effective_permissions(user.role, user_policies)
 
     @app.post("/api/hub/me/password")
     async def change_password(
