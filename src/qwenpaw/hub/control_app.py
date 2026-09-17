@@ -2158,6 +2158,24 @@ def create_hub_app(  # pylint: disable=too-many-statements
             )
         return {"lease": key}
 
+    @app.get("/api/hub/admin/audit/verify")
+    async def admin_audit_verify(
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """Walk the audit hash chain; report the first break (H2)."""
+        return await run_in_threadpool(
+            app.state.operations.verify_chain,
+        )
+
+    @app.get("/api/hub/admin/audit/chain-head")
+    async def admin_audit_chain_head(
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """Latest chain digest — anchor this externally (runbook)."""
+        return await run_in_threadpool(
+            app.state.operations.chain_head,
+        )
+
     @app.get("/api/hub/admin/groups")
     async def admin_list_groups(
         _user: HubUser = Depends(require_admin),

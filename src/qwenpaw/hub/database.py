@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from datetime import datetime, timezone
@@ -35,6 +36,7 @@ def initialize_hub_database(database_path: Path) -> None:
         existing = _existing_hub_tables(connection)
         if existing and not _is_current_generation(connection):
             _migrate_v1_audit_trace(connection)
+        _ensure_audit_chain_columns(connection)
         _validate_existing_columns(connection)
         connection.executescript(_SCHEMA_SQL)
         connection.execute(
@@ -132,6 +134,83 @@ def _migrate_v1_audit_trace(connection: sqlite3.Connection) -> None:
         "UPDATE hub_schema SET value = 'hub-v2' "
         "WHERE key = 'schema_generation'",
     )
+
+
+def audit_chain_hash(
+    prev_hash: str | None,
+    row: sqlite3.Row | dict[str, Any],
+) -> str:
+    """Canonical SHA-256 over one audit row chained to its predecessor.
+
+    Every stored field participates (nullable ones as empty strings),
+    so tampering with anything — not just the payload — breaks the
+    chain at the next verification walk.
+    """
+    payload = json.dumps(
+        {
+            "event_id": row["event_id"],
+            "actor_user_id": row["actor_user_id"],
+            "actor_username": row["actor_username"],
+            "action": row["action"],
+            "resource_type": row["resource_type"],
+            "resource_id": row["resource_id"],
+            "outcome": row["outcome"],
+            "request_id": row["request_id"] or "",
+            "correlation_id": row["correlation_id"] or "",
+            "trace_id": row["trace_id"] or "",
+            "remote_address": row["remote_address"] or "",
+            "detail_json": row["detail_json"],
+            "created_at": row["created_at"],
+        },
+        sort_keys=True,
+        ensure_ascii=False,
+    )
+    digest = hashlib.sha256()
+    digest.update((prev_hash or "").encode("utf-8"))
+    digest.update(payload.encode("utf-8"))
+    return digest.hexdigest()
+
+
+def _ensure_audit_chain_columns(
+    connection: sqlite3.Connection,
+) -> None:
+    """Add hash-chain columns to older v2 stores and backfill the chain.
+
+    Idempotent: rows already carrying a row_hash are left untouched;
+    NULL-hashed rows (legacy or interrupted backfill) chain on from
+    their predecessor in rowid order.
+    """
+    tables = _existing_hub_tables(connection)
+    if "hub_audit_events" not in tables:
+        return
+    columns = _table_columns(connection, "hub_audit_events")
+    if "prev_hash" not in columns:
+        connection.execute(
+            "ALTER TABLE hub_audit_events ADD COLUMN prev_hash TEXT",
+        )
+    if "row_hash" not in columns:
+        connection.execute(
+            "ALTER TABLE hub_audit_events ADD COLUMN row_hash TEXT",
+        )
+    rows = connection.execute(
+        "SELECT rowid AS ordinal, * FROM hub_audit_events ORDER BY rowid",
+    ).fetchall()
+    previous: str | None = None
+    updates: list[tuple[str, str | None, int]] = []
+    for row in rows:
+        existing_hash = row["row_hash"]
+        if not existing_hash:
+            computed = audit_chain_hash(previous, row)
+            updates.append((computed, previous, row["ordinal"]))
+            previous = computed
+        else:
+            previous = existing_hash
+    for computed, parent, ordinal in updates:
+        connection.execute(
+            "UPDATE hub_audit_events SET prev_hash = ?, row_hash = ? "
+            "WHERE rowid = ?",
+            (parent, computed, ordinal),
+        )
 
 
 def _validate_existing_columns(connection: sqlite3.Connection) -> None:
@@ -351,7 +430,9 @@ CREATE TABLE IF NOT EXISTS hub_audit_events (
     trace_id TEXT,
     remote_address TEXT,
     detail_json TEXT NOT NULL CHECK(json_valid(detail_json)),
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    prev_hash TEXT,
+    row_hash TEXT
 );
 
 CREATE TABLE IF NOT EXISTS groups (

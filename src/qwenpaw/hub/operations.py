@@ -12,6 +12,7 @@ from typing import Any
 import psutil
 
 from .database import (
+    audit_chain_hash,
     connect_hub_database,
     initialize_hub_database,
     utc_now,
@@ -44,19 +45,50 @@ class HubOperationsStore:
         trace_id: str | None = None,
         remote_address: str | None = None,
     ) -> None:
-        """Append one sanitized Hub management event."""
+        """Append one sanitized, hash-chained Hub management event."""
+        event_id = uuid.uuid4().hex
+        detail_json = json.dumps(
+            detail or {},
+            ensure_ascii=False,
+            sort_keys=True,
+        )
+        created_at = utc_now()
         with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            head = connection.execute(
+                "SELECT row_hash FROM hub_audit_events "
+                "ORDER BY rowid DESC LIMIT 1",
+            ).fetchone()
+            prev_hash = head["row_hash"] if head is not None else None
+            row_hash = audit_chain_hash(
+                prev_hash,
+                {
+                    "event_id": event_id,
+                    "actor_user_id": actor_user_id,
+                    "actor_username": actor_username,
+                    "action": action,
+                    "resource_type": resource_type,
+                    "resource_id": resource_id,
+                    "outcome": outcome,
+                    "request_id": request_id,
+                    "correlation_id": correlation_id,
+                    "trace_id": trace_id,
+                    "remote_address": remote_address,
+                    "detail_json": detail_json,
+                    "created_at": created_at,
+                },
+            )
             connection.execute(
                 """
                 INSERT INTO hub_audit_events(
                     event_id, actor_user_id, actor_username, action,
                     resource_type, resource_id, outcome, request_id,
                     correlation_id, trace_id, remote_address,
-                    detail_json, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    detail_json, created_at, prev_hash, row_hash
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    uuid.uuid4().hex,
+                    event_id,
                     actor_user_id,
                     actor_username,
                     action,
@@ -67,14 +99,69 @@ class HubOperationsStore:
                     correlation_id,
                     trace_id,
                     remote_address,
-                    json.dumps(
-                        detail or {},
-                        ensure_ascii=False,
-                        sort_keys=True,
-                    ),
-                    utc_now(),
+                    detail_json,
+                    created_at,
+                    prev_hash,
+                    row_hash,
                 ),
             )
+
+    def verify_chain(self) -> dict[str, Any]:
+        """Walk the whole audit chain and report integrity (H2).
+
+        Recomputes every row hash and checks predecessor linkage;
+        returns the first break when anything was tampered with,
+        deleted, or reordered.
+        """
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT rowid AS ordinal, * FROM hub_audit_events "
+                "ORDER BY rowid",
+            ).fetchall()
+        previous: str | None = None
+        checked = 0
+        for row in rows:
+            if row["prev_hash"] != previous:
+                return {
+                    "valid": False,
+                    "checked": checked,
+                    "reason": "broken-link",
+                    "at_event_id": row["event_id"],
+                }
+            expected = audit_chain_hash(previous, row)
+            if expected != row["row_hash"]:
+                return {
+                    "valid": False,
+                    "checked": checked,
+                    "reason": "row-hash-mismatch",
+                    "at_event_id": row["event_id"],
+                }
+            previous = row["row_hash"]
+            checked += 1
+        head = rows[-1] if rows else None
+        return {
+            "valid": True,
+            "checked": checked,
+            "head_hash": head["row_hash"] if head is not None else None,
+        }
+
+    def chain_head(self) -> dict[str, Any]:
+        """Latest chain digest for external anchoring (H2)."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT event_id, created_at, row_hash FROM "
+                "hub_audit_events ORDER BY rowid DESC LIMIT 1",
+            ).fetchone()
+        if row is None:
+            return {"rows": 0, "head_hash": None}
+        return {
+            "rows": connection.execute(  # type: ignore[union-attr]
+                "SELECT COUNT(*) FROM hub_audit_events",
+            ).fetchone()[0],
+            "head_hash": row["row_hash"],
+            "head_event_id": row["event_id"],
+            "head_created_at": row["created_at"],
+        }
 
     def list_events(
         self,

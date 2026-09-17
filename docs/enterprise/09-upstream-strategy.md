@@ -108,6 +108,9 @@ git push -u origin feature/enterprise
 | `deploy/helm/qwenpaw-hub/values-{dev,staging,prod}.yaml`（新文件 ×3） | EP-2-10 环境分层三档（模板真实消费项 + 策略档案 key 注明） | Ph2 | EP-2-10 |
 | `deploy/scripts/hub-smoke.sh`（新文件） | EP-2-10 金丝雀冒烟门（五关：鉴权/登录/健康/权限契约/registry） | Ph2 | EP-2-10 |
 | `docs/enterprise/runbook-canary-upgrade.md`（新文件） | EP-2-10 金丝雀五步手册 + kind 全链路演练记录（含 merge-patch 踩坑警示） | Ph2 | EP-2-10 |
+| `src/qwenpaw/hub/database.py`（追加） | H2 审计链：`audit_chain_hash` canonical 哈希 + `_ensure_audit_chain_columns` 幂等迁移补链 | Ph2 | 底座缺口 H2 |
+| `src/qwenpaw/hub/operations.py`（追加） | H2 `record` 升级链式插入（BEGIN IMMEDIATE 原子）+ `verify_chain`/`chain_head` | Ph2 | 底座缺口 H2 |
+| `src/qwenpaw/hub/control_app.py`（追加） | H2 admin 端点 `/api/hub/admin/audit/{verify,chain-head}` | Ph2 | 底座缺口 H2 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/mobile/approvals`（1 行 import + include，根路径非 /api） | Ph3 | G-P14 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/mcp-server`（1 行 import + include；`/api/mcp/*` 既有客户端面不动） | Ph2 | EP-2-20 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 A2A 面（root `/.well-known/agent-card.json` + `/api/a2a`，2 行 include） | Ph2 | EP-2-21 |
