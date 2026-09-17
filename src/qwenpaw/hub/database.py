@@ -305,6 +305,26 @@ class HubExtensionStore:
             ).fetchone()
         return int(row["revision"])
 
+    def list_by_type(
+        self,
+        *,
+        resource_type: str,
+        namespace: str,
+        key: str,
+    ) -> dict[str, Any]:
+        """All extension documents for one resource type (E5)."""
+        with connect_hub_database(self.database_path) as connection:
+            rows = connection.execute(
+                "SELECT resource_id, value_json FROM "
+                "hub_resource_extensions WHERE resource_type = ? "
+                "AND namespace = ? AND extension_key = ?",
+                (resource_type, namespace, key),
+            ).fetchall()
+        return {
+            str(row["resource_id"]): json.loads(str(row["value_json"]))
+            for row in rows
+        }
+
     def get(
         self,
         *,

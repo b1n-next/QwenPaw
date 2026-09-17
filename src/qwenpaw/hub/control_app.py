@@ -63,6 +63,8 @@ from .provisioner import RuntimeProvisionerUnavailableError
 from .provisioners.k8s import K8sRuntimeProvisioner
 from .metrics import HubMetrics
 from .oidc import OidcClient, OidcError, OidcSettings
+from .database import HubExtensionStore
+from .ratelimit import RateLimiter
 from .quota import QuotaEngine, UsageSnapshot
 
 
@@ -424,6 +426,14 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.state.metrics = HubMetrics()
     # EP-2-2: OIDC SSO client (rebuilt when admin updates settings)
     app.state.oidc_client = _build_oidc_client(hub_config)
+    # E6: per-user rate/concurrency caps (hot-reloadable overlay)
+    app.state.rate_limiter = RateLimiter(
+        runtime_service.root_dir / "ratelimit.json",
+    )
+    # E5: model fallback chains as resource extensions
+    app.state.model_extensions = HubExtensionStore(
+        operations.database_path,
+    )
     # EP-1-1: central model provider catalog (shares control.db + its
     # own secrets key under <hub root>/secrets/).
     app.state.model_catalog = ModelCatalogStore(
@@ -2168,6 +2178,70 @@ def create_hub_app(  # pylint: disable=too-many-statements
             )
         return {"lease": key}
 
+    @app.get("/api/hub/models/fallbacks")
+    async def models_fallbacks(
+        _user: HubUser = Depends(require_user),
+    ) -> dict[str, Any]:
+        """Fallback chains for all governed models (E5)."""
+        return await run_in_threadpool(
+            app.state.model_extensions.list_by_type,
+            resource_type="model",
+            namespace="governance",
+            key="fallbacks",
+        )
+
+    @app.put("/api/hub/admin/models/{model_id}/fallbacks")
+    async def admin_put_model_fallbacks(
+        model_id: str,
+        payload: dict[str, Any],
+        user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """Define the fallback chain for one model (E5)."""
+        raw = payload.get("fallbacks")
+        if not isinstance(raw, list) or not all(
+            isinstance(item, str) and item for item in raw
+        ):
+            raise HTTPException(422, "fallbacks must be a list of ids")
+        if model_id in raw:
+            raise HTTPException(422, "fallback chain must not self-loop")
+        revision = await run_in_threadpool(
+            app.state.model_extensions.put,
+            resource_type="model",
+            resource_id=model_id,
+            namespace="governance",
+            key="fallbacks",
+            value={"fallbacks": raw},
+        )
+        await record_audit(
+            user,
+            "model.fallbacks.update",
+            "model",
+            model_id,
+            {"fallbacks": raw, "revision": revision},
+        )
+        return {"model_id": model_id, "fallbacks": raw, "revision": revision}
+
+    @app.get("/api/hub/admin/models/{model_id}/fallbacks")
+    async def admin_get_model_fallbacks(
+        model_id: str,
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """Read one model's fallback chain (E5)."""
+        document = await run_in_threadpool(
+            app.state.model_extensions.get,
+            resource_type="model",
+            resource_id=model_id,
+            namespace="governance",
+            key="fallbacks",
+        )
+        if document is None:
+            return {"model_id": model_id, "fallbacks": []}
+        return {
+            "model_id": model_id,
+            "fallbacks": document["value"]["fallbacks"],
+            "revision": document["revision"],
+        }
+
     @app.get("/api/hub/admin/audit/verify")
     async def admin_audit_verify(
         _user: HubUser = Depends(require_admin),
@@ -2786,277 +2860,318 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 },
             )
 
-        # EP-2-12: approval resolutions are buffered so the hub can
-        # mirror them into its audit ledger after the upstream answers.
-        approval_body: bytes | None = None
-        if request.method == "POST" and re.match(
-            r"^/api/approval/(?:approve|deny)$",
-            request.url.path,
-        ):
-            approval_body = await request.body()
-        # EP-1-3 governance refinement: switching the active model is
-        # usage, not configuration (validated against the catalog).
-        try:
-            activation_body = await _enforce_model_activation_catalog(
-                app,
-                user,
-                request,
+        # E6: rate/concurrency gate; released on every exit path.
+        rate_decision = app.state.rate_limiter.check(user.user_id)
+        if not rate_decision.allowed:
+            app.state.metrics.inc(
+                "qwenpaw_hub_rate_limited_total",
+                reason=rate_decision.reason,
+                role=user.role,
             )
-        except ModelNotInCatalogError:
             await record_audit(
                 user,
-                "model.switch_denied",
-                "model",
+                "ratelimit.exceeded",
+                "api",
                 request.url.path,
-                {"role": user.role},
-                trace_id=trace_id,
-            )
-            raise HTTPException(
-                status_code=403,
-                detail={
-                    "code": "MODEL_NOT_IN_CATALOG",
-                    "message": (
-                        "Only models from the administrator "
-                        "catalog can be activated."
-                    ),
+                {
+                    "reason": rate_decision.reason,
+                    "method": request.method,
                 },
-            ) from None
-        record = await ensure_personal_runtime(user)
-        target = runtime_url(
-            record,
-            scheme="http",
-            path=f"/api/{path}",
-            query=request.url.query.encode("utf-8"),
-        )
-        proxy_config = app.state.hub_config.control_plane.proxy
-        content_length = request.headers.get("content-length")
-        if content_length is not None:
+                outcome="denied",
+                remote_address=(
+                    request.client.host if request.client else None
+                ),
+            )
+            headers = {}
+            if rate_decision.retry_after:
+                headers["Retry-After"] = str(rate_decision.retry_after)
+            raise HTTPException(
+                status_code=429,
+                detail={
+                    "code": "RATE_LIMITED",
+                    "message": "Too many requests; slow down.",
+                    "reason": rate_decision.reason,
+                },
+                headers=headers,
+            )
+        try:
+            # EP-2-12: approval resolutions are buffered so the hub can
+            # mirror them into its audit ledger after the upstream answers.
+            approval_body: bytes | None = None
+            if request.method == "POST" and re.match(
+                r"^/api/approval/(?:approve|deny)$",
+                request.url.path,
+            ):
+                approval_body = await request.body()
+            # EP-1-3 governance refinement: switching the active model is
+            # usage, not configuration (validated against the catalog).
             try:
-                declared_size = int(content_length)
-            except ValueError:
-                declared_size = 0
-            if declared_size > proxy_config.max_request_size_bytes:
+                activation_body = await _enforce_model_activation_catalog(
+                    app,
+                    user,
+                    request,
+                )
+            except ModelNotInCatalogError:
+                await record_audit(
+                    user,
+                    "model.switch_denied",
+                    "model",
+                    request.url.path,
+                    {"role": user.role},
+                    trace_id=trace_id,
+                )
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "code": "MODEL_NOT_IN_CATALOG",
+                        "message": (
+                            "Only models from the administrator "
+                            "catalog can be activated."
+                        ),
+                    },
+                ) from None
+            record = await ensure_personal_runtime(user)
+            target = runtime_url(
+                record,
+                scheme="http",
+                path=f"/api/{path}",
+                query=request.url.query.encode("utf-8"),
+            )
+            proxy_config = app.state.hub_config.control_plane.proxy
+            content_length = request.headers.get("content-length")
+            if content_length is not None:
+                try:
+                    declared_size = int(content_length)
+                except ValueError:
+                    declared_size = 0
+                if declared_size > proxy_config.max_request_size_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=(
+                            f"Request body exceeds the configured "
+                            f"{proxy_config.max_request_size_mb} MiB limit"
+                        ),
+                    )
+            internal_token = await run_in_threadpool(
+                credential_vault.get_runtime_secret,
+                tenant_id=record.tenant_id,
+                runtime_id=record.runtime_id,
+                name="QWENPAW_RUNTIME_INTERNAL_TOKEN",
+            )
+            if internal_token is None:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Personal runtime boundary token is unavailable",
+                )
+
+            excluded_request_headers = {
+                "authorization",
+                "connection",
+                "content-length",
+                "host",
+                HUB_OAUTH_CALLBACK_URL_HEADER.lower(),
+                # re-minted below in canonical casing; skipping the inbound
+                # copy avoids a duplicated comma-joined header value
+                TRACE_HEADER.lower(),
+            }
+            headers = {
+                name: value
+                for name, value in request.headers.items()
+                if name.lower() not in excluded_request_headers
+            }
+            headers["X-QwenPaw-Runtime-Token"] = internal_token
+            headers[TRACE_HEADER] = trace_id
+            callback_route = oauth_callback_route(request.method, path)
+            if callback_route:
+                public_base_url = (
+                    app.state.hub_config.control_plane.public_base_url
+                    or str(request.base_url).rstrip("/")
+                )
+                headers[HUB_OAUTH_CALLBACK_URL_HEADER] = (
+                    f"{public_base_url}/api/hub/oauth/callback/"
+                    f"{record.runtime_id}/{callback_route}"
+                )
+            timeout = httpx.Timeout(
+                connect=proxy_config.connect_timeout_seconds,
+                read=None,
+                write=proxy_config.request_idle_timeout_seconds,
+                pool=proxy_config.connect_timeout_seconds,
+            )
+            client = httpx.AsyncClient(
+                timeout=timeout,
+                transport=proxy_transport,
+            )
+            request_complete = asyncio.Event()
+            try:
+                request_content = (
+                    activation_body
+                    if activation_body is not None
+                    else approval_body
+                    if approval_body is not None
+                    else limited_request_stream(
+                        request.stream(),
+                        max_bytes=proxy_config.max_request_size_bytes,
+                        idle_timeout_seconds=(
+                            proxy_config.request_idle_timeout_seconds
+                        ),
+                        completion_event=request_complete,
+                    )
+                )
+                upstream_request = client.build_request(
+                    request.method,
+                    target,
+                    headers=headers,
+                    content=request_content,
+                )
+                upstream = await send_with_response_header_timeout(
+                    client,
+                    upstream_request,
+                    request_complete=request_complete,
+                    timeout_seconds=(
+                        proxy_config.response_header_timeout_seconds
+                    ),
+                )
+            except ProxyRequestTooLargeError as exc:
+                await client.aclose()
                 raise HTTPException(
                     status_code=413,
                     detail=(
                         f"Request body exceeds the configured "
                         f"{proxy_config.max_request_size_mb} MiB limit"
                     ),
+                ) from exc
+            except ProxyRequestIdleTimeoutError as exc:
+                await client.aclose()
+                raise HTTPException(
+                    status_code=408,
+                    detail="Request body upload timed out",
+                ) from exc
+            except TimeoutError as exc:
+                await client.aclose()
+                raise HTTPException(
+                    status_code=504,
+                    detail="Personal runtime response headers timed out",
+                ) from exc
+            except httpx.TimeoutException as exc:
+                await client.aclose()
+                raise HTTPException(
+                    status_code=504,
+                    detail="Personal runtime proxy request timed out",
+                ) from exc
+            except httpx.HTTPError as exc:
+                await client.aclose()
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Personal QwenPaw is unavailable: {exc}",
+                ) from exc
+            except BaseException:
+                await client.aclose()
+                raise
+
+            # EP-2-12: mirror the approval resolution into the hub audit
+            # ledger (who answered which request, with which outcome).
+            if approval_body is not None:
+                decision_action = (
+                    "approve"
+                    if request.url.path.endswith(
+                        "/approve",
+                    )
+                    else "deny"
                 )
-        internal_token = await run_in_threadpool(
-            credential_vault.get_runtime_secret,
-            tenant_id=record.tenant_id,
-            runtime_id=record.runtime_id,
-            name="QWENPAW_RUNTIME_INTERNAL_TOKEN",
-        )
-        if internal_token is None:
-            raise HTTPException(
-                status_code=503,
-                detail="Personal runtime boundary token is unavailable",
-            )
-
-        excluded_request_headers = {
-            "authorization",
-            "connection",
-            "content-length",
-            "host",
-            HUB_OAUTH_CALLBACK_URL_HEADER.lower(),
-            # re-minted below in canonical casing; skipping the inbound
-            # copy avoids a duplicated comma-joined header value
-            TRACE_HEADER.lower(),
-        }
-        headers = {
-            name: value
-            for name, value in request.headers.items()
-            if name.lower() not in excluded_request_headers
-        }
-        headers["X-QwenPaw-Runtime-Token"] = internal_token
-        headers[TRACE_HEADER] = trace_id
-        callback_route = oauth_callback_route(request.method, path)
-        if callback_route:
-            public_base_url = (
-                app.state.hub_config.control_plane.public_base_url
-                or str(request.base_url).rstrip("/")
-            )
-            headers[HUB_OAUTH_CALLBACK_URL_HEADER] = (
-                f"{public_base_url}/api/hub/oauth/callback/"
-                f"{record.runtime_id}/{callback_route}"
-            )
-        timeout = httpx.Timeout(
-            connect=proxy_config.connect_timeout_seconds,
-            read=None,
-            write=proxy_config.request_idle_timeout_seconds,
-            pool=proxy_config.connect_timeout_seconds,
-        )
-        client = httpx.AsyncClient(
-            timeout=timeout,
-            transport=proxy_transport,
-        )
-        request_complete = asyncio.Event()
-        try:
-            request_content = (
-                activation_body
-                if activation_body is not None
-                else approval_body
-                if approval_body is not None
-                else limited_request_stream(
-                    request.stream(),
-                    max_bytes=proxy_config.max_request_size_bytes,
-                    idle_timeout_seconds=(
-                        proxy_config.request_idle_timeout_seconds
-                    ),
-                    completion_event=request_complete,
+                try:
+                    parsed_body = json.loads(approval_body)
+                except ValueError:
+                    parsed_body = {}
+                await record_audit(
+                    user,
+                    "approval.resolved",
+                    "approval",
+                    str(parsed_body.get("request_id") or request.url.path),
+                    {
+                        "action": decision_action,
+                        "session_id": parsed_body.get("session_id"),
+                        "reason": parsed_body.get("reason"),
+                        "upstream_status": upstream.status_code,
+                    },
+                    trace_id=trace_id,
                 )
-            )
-            upstream_request = client.build_request(
-                request.method,
-                target,
-                headers=headers,
-                content=request_content,
-            )
-            upstream = await send_with_response_header_timeout(
-                client,
-                upstream_request,
-                request_complete=request_complete,
-                timeout_seconds=(proxy_config.response_header_timeout_seconds),
-            )
-        except ProxyRequestTooLargeError as exc:
-            await client.aclose()
-            raise HTTPException(
-                status_code=413,
-                detail=(
-                    f"Request body exceeds the configured "
-                    f"{proxy_config.max_request_size_mb} MiB limit"
-                ),
-            ) from exc
-        except ProxyRequestIdleTimeoutError as exc:
-            await client.aclose()
-            raise HTTPException(
-                status_code=408,
-                detail="Request body upload timed out",
-            ) from exc
-        except TimeoutError as exc:
-            await client.aclose()
-            raise HTTPException(
-                status_code=504,
-                detail="Personal runtime response headers timed out",
-            ) from exc
-        except httpx.TimeoutException as exc:
-            await client.aclose()
-            raise HTTPException(
-                status_code=504,
-                detail="Personal runtime proxy request timed out",
-            ) from exc
-        except httpx.HTTPError as exc:
-            await client.aclose()
-            raise HTTPException(
-                status_code=502,
-                detail=f"Personal QwenPaw is unavailable: {exc}",
-            ) from exc
-        except BaseException:
-            await client.aclose()
-            raise
 
-        # EP-2-12: mirror the approval resolution into the hub audit
-        # ledger (who answered which request, with which outcome).
-        if approval_body is not None:
-            decision_action = (
-                "approve"
-                if request.url.path.endswith(
-                    "/approve",
+            # EP-1-3 visibility governance: non-admins only ever see the
+            # admin-opened catalog — built-in cloud providers (free tiers
+            # included) are hidden server-side, not just in the UI.
+            if (
+                request.method == "GET"
+                and request.url.path == "/api/models"
+                and user.role != "admin"
+                and upstream.status_code == 200
+            ):
+                allowed_ids = await run_in_threadpool(
+                    _catalog_provider_ids,
+                    app.state.model_catalog,
                 )
-                else "deny"
-            )
-            try:
-                parsed_body = json.loads(approval_body)
-            except ValueError:
-                parsed_body = {}
-            await record_audit(
-                user,
-                "approval.resolved",
-                "approval",
-                str(parsed_body.get("request_id") or request.url.path),
-                {
-                    "action": decision_action,
-                    "session_id": parsed_body.get("session_id"),
-                    "reason": parsed_body.get("reason"),
-                    "upstream_status": upstream.status_code,
-                },
-                trace_id=trace_id,
-            )
-
-        # EP-1-3 visibility governance: non-admins only ever see the
-        # admin-opened catalog — built-in cloud providers (free tiers
-        # included) are hidden server-side, not just in the UI.
-        if (
-            request.method == "GET"
-            and request.url.path == "/api/models"
-            and user.role != "admin"
-            and upstream.status_code == 200
-        ):
-            allowed_ids = await run_in_threadpool(
-                _catalog_provider_ids,
-                app.state.model_catalog,
-            )
-            if upstream.is_stream_consumed:
-                # pre-loaded body (e.g. test transports built with
-                # json=/content=); real network responses stream lazily
-                raw_body = upstream.content
-            else:
-                raw_body = await upstream.aread()
-            await upstream.aclose()
-            await client.aclose()
-            return Response(
-                content=_filter_models_payload(raw_body, allowed_ids),
-                status_code=200,
-                media_type="application/json",
-                headers={TRACE_HEADER: trace_id},
-            )
-        excluded_response_headers = {
-            "connection",
-            "keep-alive",
-            "proxy-authenticate",
-            "proxy-authorization",
-            "te",
-            "trailers",
-            "transfer-encoding",
-            "upgrade",
-        }
-        response_headers = {
-            name: value
-            for name, value in upstream.headers.items()
-            if name.lower() not in excluded_response_headers
-        }
-        response_headers[TRACE_HEADER] = trace_id
-        app.state.metrics.inc(
-            "qwenpaw_hub_requests_total",
-            role=user.role,
-            decision="allowed",
-        )
-        if quota_decision.soft_hit:
-            # EP-2-3: console banner reads this header (UI copy ticket)
-            response_headers["X-QwenPaw-Quota-Warning"] = (
-                f"{quota_decision.dimension} "
-                f"{int(quota_decision.ratio * 100)}%"
-            )
-            app.state.metrics.inc(
-                "qwenpaw_hub_quota_soft_total",
-                dimension=quota_decision.dimension,
-            )
-
-        async def stream_upstream() -> AsyncIterator[bytes]:
-            try:
-                async for chunk in upstream.aiter_raw():
-                    yield chunk
-            finally:
+                if upstream.is_stream_consumed:
+                    # pre-loaded body (e.g. test transports built with
+                    # json=/content=); real network responses stream lazily
+                    raw_body = upstream.content
+                else:
+                    raw_body = await upstream.aread()
                 await upstream.aclose()
                 await client.aclose()
+                return Response(
+                    content=_filter_models_payload(raw_body, allowed_ids),
+                    status_code=200,
+                    media_type="application/json",
+                    headers={TRACE_HEADER: trace_id},
+                )
+            excluded_response_headers = {
+                "connection",
+                "keep-alive",
+                "proxy-authenticate",
+                "proxy-authorization",
+                "te",
+                "trailers",
+                "transfer-encoding",
+                "upgrade",
+            }
+            response_headers = {
+                name: value
+                for name, value in upstream.headers.items()
+                if name.lower() not in excluded_response_headers
+            }
+            response_headers[TRACE_HEADER] = trace_id
+            app.state.metrics.inc(
+                "qwenpaw_hub_requests_total",
+                role=user.role,
+                decision="allowed",
+            )
+            if quota_decision.soft_hit:
+                # EP-2-3: console banner reads this header (UI copy ticket)
+                response_headers["X-QwenPaw-Quota-Warning"] = (
+                    f"{quota_decision.dimension} "
+                    f"{int(quota_decision.ratio * 100)}%"
+                )
+                app.state.metrics.inc(
+                    "qwenpaw_hub_quota_soft_total",
+                    dimension=quota_decision.dimension,
+                )
 
-        return StreamingResponse(
-            stream_upstream(),
-            status_code=upstream.status_code,
-            headers=response_headers,
-        )
+            async def stream_upstream() -> AsyncIterator[bytes]:
+                try:
+                    async for chunk in upstream.aiter_raw():
+                        yield chunk
+                finally:
+                    await upstream.aclose()
+                    await client.aclose()
+
+            return StreamingResponse(
+                stream_upstream(),
+                status_code=upstream.status_code,
+                headers=response_headers,
+            )
+
+        finally:
+            # E6: release the in-flight slot on every exit path.
+            app.state.rate_limiter.release(user.user_id)
 
     @app.websocket("/api/{path:path}")
     async def personal_runtime_websocket_proxy(
