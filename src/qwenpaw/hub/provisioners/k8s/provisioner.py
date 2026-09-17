@@ -194,9 +194,10 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
             timeout_seconds=timeout_seconds,
             environment=environment or {},
         )
+        client = self._make_client()
         job = _run(
-            self._make_client().create(
-                "/apis/batch/v1/namespaces/" f"{self._namespace}/jobs",
+            client.create_at(
+                f"/apis/batch/v1/namespaces/{self._namespace}/jobs",
                 manifest,
             ),
         )

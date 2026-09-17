@@ -218,6 +218,15 @@ class K8sClient:
         base = f"/api/v1/namespaces/{quote(namespace)}/{plural}"
         return f"{base}/{quote(name)}" if name else base
 
+    async def create_at(
+        self,
+        path: str,
+        body: dict[str, Any],
+    ) -> dict[str, Any]:
+        """POST to an explicit non-core API path (e.g. batch jobs)."""
+        result = await self._request("POST", path, json_body=body)
+        return result if isinstance(result, dict) else {}
+
     async def get(
         self,
         namespace: str,
