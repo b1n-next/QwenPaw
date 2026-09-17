@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 import json
 import logging
 import os
@@ -55,6 +56,7 @@ from .credentials import TenantCredentialVault
 from .model_catalog import ModelCatalogStore
 from .provisioner import RuntimeProvisionerUnavailableError
 from .provisioners.k8s import K8sRuntimeProvisioner
+from .quota import QuotaEngine, UsageSnapshot
 
 
 from .local_provisioner import LocalProcessRuntimeProvisioner
@@ -377,6 +379,11 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.state.docker_pulls = docker_pulls
     # Enterprise ACL: optional overlay at <hub root>/acl.json (hot reload).
     app.state.acl = AclEngine.from_env(config_dir=runtime_service.root_dir)
+    # EP-2-3: hot-reloadable quota overlay at <hub root>/quota.json
+    # (evaluated at the proxy AFTER the ACL gate, BEFORE forwarding).
+    app.state.quota = QuotaEngine(
+        runtime_service.root_dir / "quota.json",
+    )
     # EP-1-1: central model provider catalog (shares control.db + its
     # own secrets key under <hub root>/secrets/).
     app.state.model_catalog = ModelCatalogStore(
@@ -505,6 +512,30 @@ def create_hub_app(  # pylint: disable=too-many-statements
 
     def personal_tenant_id(user: HubUser) -> str:
         return f"personal-{user.user_id}"
+
+    def _usage_snapshot_for(user_id: str) -> UsageSnapshot:
+        """Today's usage counters for one user from the usage store.
+
+        Synchronous on purpose: the engine's 30s snapshot cache calls
+        this fetcher inline, so the SQLite aggregation runs at most
+        once per user per cache window.
+        """
+        today = datetime.datetime.now(datetime.timezone.utc).date().isoformat()
+        summary = usage_store.summary(
+            start_date=today,
+            end_date=today,
+            tenant_id=f"personal-{user_id}",
+        )
+        by_tenant = (
+            summary.get("by_tenant", {}) if isinstance(summary, dict) else {}
+        )
+        totals = next(iter(by_tenant.values()), None)
+        if totals is None:
+            return UsageSnapshot()
+        return UsageSnapshot(
+            tokens=totals.prompt_tokens + totals.completion_tokens,
+            requests=totals.call_count,
+        )
 
     async def record_audit(
         user: HubUser,
@@ -1924,6 +1955,20 @@ def create_hub_app(  # pylint: disable=too-many-statements
             )
         return {"lease": key}
 
+    @app.get("/api/hub/admin/quota")
+    async def admin_quota_status(
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """Quota configuration and per-known-user ratios (EP-2-3)."""
+        engine: QuotaEngine = app.state.quota
+        rows = []
+        for hub_user in await run_in_threadpool(
+            app.state.auth_service.list_users,
+        ):
+            snapshot = _usage_snapshot_for(hub_user.user_id)
+            rows.append(engine.status(hub_user.user_id, snapshot))
+        return {"quota": rows}
+
     @app.get("/api/hub/admin/policy/baseline")
     async def get_policy_baseline(
         _admin: HubUser = Depends(require_admin),
@@ -2259,6 +2304,45 @@ def create_hub_app(  # pylint: disable=too-many-statements
                     "reason": decision.reason,
                 },
             )
+        # EP-2-3: quota gate — soft threshold warns (audit + response
+        # header), hard threshold refuses before any forwarding.
+        quota_engine: QuotaEngine = app.state.quota
+        quota_snapshot = quota_engine.usage_snapshot(
+            user.user_id,
+            lambda: _usage_snapshot_for(user.user_id),
+        )
+        quota_decision = quota_engine.check(user.user_id, quota_snapshot)
+        if not quota_decision.allowed:
+            await record_audit(
+                user,
+                "quota.exceeded",
+                "api",
+                request.url.path,
+                {
+                    "dimension": quota_decision.dimension,
+                    "used": quota_decision.used,
+                    "limit": quota_decision.limit,
+                    "method": request.method,
+                },
+                outcome="denied",
+                remote_address=(
+                    request.client.host if request.client else None
+                ),
+            )
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "code": "QUOTA_EXCEEDED",
+                    "message": (
+                        "Daily usage quota exceeded; contact your "
+                        "administrator for an increase."
+                    ),
+                    "dimension": quota_decision.dimension,
+                    "used": quota_decision.used,
+                    "limit": quota_decision.limit,
+                },
+            )
+
         # EP-2-12: approval resolutions are buffered so the hub can
         # mirror them into its audit ledger after the upstream answers.
         approval_body: bytes | None = None
@@ -2501,6 +2585,12 @@ def create_hub_app(  # pylint: disable=too-many-statements
             if name.lower() not in excluded_response_headers
         }
         response_headers[TRACE_HEADER] = trace_id
+        if quota_decision.soft_hit:
+            # EP-2-3: console banner reads this header (UI copy ticket)
+            response_headers["X-QwenPaw-Quota-Warning"] = (
+                f"{quota_decision.dimension} "
+                f"{int(quota_decision.ratio * 100)}%"
+            )
 
         async def stream_upstream() -> AsyncIterator[bytes]:
             try:

@@ -89,6 +89,8 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/app/chats/session_store_redis.py`（新文件） | Ph3 G-P14 增强：Redis 会话后端（可选依赖 `qwenpaw[sessions]`，`QWENPAW_SESSION_STORE=redis` + `QWENPAW_SESSION_REDIS_URL`；lazy import，未启用零依赖） | Ph3 | G-P14 |
 | `src/qwenpaw/app/chats/session_store.py`（追加） | Ph3 工厂增 redis 分支（+7 行）；`pyproject.toml` 追加 `sessions` extra（redis>=5,<7） | Ph3 | G-P14 |
 | `tests/unit/sandbox/test_container_live.py`（新文件） | G-P14 容器沙箱 live 验收套（真 docker daemon：cgroup 限额/网络隔离/只读挂载/清理；无 daemon 自动 skip，5 例） | Ph3 | G-P14 |
+| `src/qwenpaw/hub/quota/`（新目录） | EP-2-3 配额引擎（热重载 overlay + 30s 用量缓存 + 软/硬阈值；零上游文件触碰） | Ph2 | EP-2-3 |
+| `src/qwenpaw/hub/control_app.py`（追加） | EP-2-3 代理配额门（ACL 后/转发前）+ `quota.exceeded` 审计 + `X-QwenPaw-Quota-Warning` 头 + `GET /api/hub/admin/quota` | Ph2 | EP-2-3 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/mobile/approvals`（1 行 import + include，根路径非 /api） | Ph3 | G-P14 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/mcp-server`（1 行 import + include；`/api/mcp/*` 既有客户端面不动） | Ph2 | EP-2-20 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 A2A 面（root `/.well-known/agent-card.json` + `/api/a2a`，2 行 include） | Ph2 | EP-2-21 |
