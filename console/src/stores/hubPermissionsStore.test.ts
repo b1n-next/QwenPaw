@@ -43,15 +43,13 @@ describe("hubPermissionsStore degradation chain", () => {
   });
 
   it("falls back to the runtime restricted profile (B6)", async () => {
-    requestMock
-      .mockRejectedValueOnce(new Error("404"))
-      .mockResolvedValueOnce({
-        profile: "restricted",
-        role: "user",
-        denied_groups: ["workspace"],
-        denied_routes: ["core.import"],
-        model_readonly: true,
-      });
+    requestMock.mockRejectedValueOnce(new Error("404")).mockResolvedValueOnce({
+      profile: "restricted",
+      role: "user",
+      denied_groups: ["workspace"],
+      denied_routes: ["core.import"],
+      model_readonly: true,
+    });
     const state = await loadStore();
     expect(requestMock).toHaveBeenCalledTimes(2);
     expect(requestMock).toHaveBeenNthCalledWith(2, "/console/profile");
@@ -72,14 +70,12 @@ describe("hubPermissionsStore degradation chain", () => {
   });
 
   it("treats a restricted profile without model flag as readonly", async () => {
-    requestMock
-      .mockRejectedValueOnce(new Error("404"))
-      .mockResolvedValueOnce({
-        profile: "restricted",
-        role: "user",
-        denied_groups: [],
-        denied_routes: [],
-      });
+    requestMock.mockRejectedValueOnce(new Error("404")).mockResolvedValueOnce({
+      profile: "restricted",
+      role: "user",
+      denied_groups: [],
+      denied_routes: [],
+    });
     const state = await loadStore();
     expect(state.modelReadonly).toBe(true);
   });
