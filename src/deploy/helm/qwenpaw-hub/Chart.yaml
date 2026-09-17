@@ -1,0 +1,12 @@
+apiVersion: v2
+name: qwenpaw-hub
+description: |
+  QwenPaw Hub (enterprise intranet deployment) with the per-tenant
+  Kubernetes runtime provisioner (EP-1-6..1-8).
+type: application
+version: 0.1.0
+appVersion: "2.2.0"
+keywords:
+  - qwenpaw
+  - agent-runtime
+  - intranet

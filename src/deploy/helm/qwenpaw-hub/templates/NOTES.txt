@@ -1,0 +1,15 @@
+QwenPaw Hub installed.
+
+1. Wait for the hub to become ready:
+   kubectl -n {{ .Release.Namespace }} rollout status deploy/qwenpaw-hub
+
+2. Open the console (ClusterIP: port-forward for first access):
+   kubectl -n {{ .Release.Namespace }} port-forward svc/qwenpaw-hub 8088:{{ .Values.hub.service.port }}
+   http://127.0.0.1:8088
+
+3. First login uses the bootstrap admin (hub.adminUsername and the
+   hub.adminPassword you supplied). Change it immediately.
+
+4. Runtime provisioner: k8s (namespace {{ .Values.runtimes.namespace }}).
+   Tenant runtimes appear there as Pods + PVCs + Services as users
+   register and start their runtime.

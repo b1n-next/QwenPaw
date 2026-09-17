@@ -1,0 +1,42 @@
+# Environment tier: dev (EP-2-10, I2).
+# Single node, tiny requests, debug logs, registration open so new
+# developers can self-onboard. NOT for any shared data.
+
+image:
+  tag: "2.2.0" # override freely per dev iteration
+
+hub:
+  replicas: 1
+  storage:
+    size: 1Gi
+  service:
+    type: NodePort # laptop/kind access
+  registrationEnabled: true
+
+runtimes:
+  storage:
+    size: 2Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+# Dev tier: no backup schedule, no canary — recreate on every deploy.
+# Deployment-strategy metadata: consumed by the GitOps layer and
+# runbook-canary-upgrade.md (the chart templates themselves do not
+# render these keys).
+backup:
+  enabled: false
+upgrade:
+  strategy: recreate

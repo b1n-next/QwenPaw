@@ -1,0 +1,102 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+// ---------------------------------------------------------------------------
+// i18n initial language — regression for #1604
+// (language setting was lost after restart: the app initialized back to
+// English instead of restoring the persisted language).
+// The write side (LanguageSwitcher → localStorage) is covered by
+// LanguageSwitcher.test.tsx; this covers the READ side at startup.
+//
+// i18n reads `localStorage("language") || navigator.language || "en"` at
+// module load, so each case re-imports the module fresh.
+// ---------------------------------------------------------------------------
+
+async function freshI18n() {
+  vi.resetModules();
+  const mod = await import("./i18n");
+  return mod.default;
+}
+
+describe("i18n initial language (#1604)", () => {
+  afterEach(() => {
+    localStorage.clear();
+    vi.resetModules();
+  });
+
+  it("restores the persisted language from localStorage on startup", async () => {
+    localStorage.setItem("language", "zh");
+
+    const i18n = await freshI18n();
+    if (!i18n.isInitialized) {
+      await new Promise((resolve) => i18n.on("initialized", resolve));
+    }
+
+    expect(i18n.language).toBe("zh");
+  });
+
+  it("falls back to navigator.language when nothing is persisted", async () => {
+    const spy = vi.spyOn(navigator, "language", "get").mockReturnValue("ja-JP");
+
+    const i18n = await freshI18n();
+    if (!i18n.isInitialized) {
+      await new Promise((resolve) => i18n.on("initialized", resolve));
+    }
+
+    // ja-JP resolves into the Japanese bundle (nonExplicitSupportedLngs)
+    expect(i18n.language).toBe("ja-JP");
+    expect(i18n.language.startsWith("ja")).toBe(true);
+    spy.mockRestore();
+  });
+
+  it("defaults to en when neither localStorage nor navigator gives a language", async () => {
+    const spy = vi.spyOn(navigator, "language", "get").mockReturnValue("xx-XX");
+
+    const i18n = await freshI18n();
+    if (!i18n.isInitialized) {
+      await new Promise((resolve) => i18n.on("initialized", resolve));
+    }
+
+    expect(i18n.language).toBe("en");
+    spy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// pt-BR bundle resolution — regression for the language list fix.
+// nonExplicitSupportedLngs reduces a region-qualified code to its
+// language part before matching supportedLngs, so "pt-BR" was looked
+// up as "pt", rejected, and the UI silently fell back to English.
+// Asserting only i18n.language cannot catch this: it stayed "pt-BR"
+// while resolvedLanguage degraded to "en".
+// ---------------------------------------------------------------------------
+
+describe("i18n pt-BR bundle resolution", () => {
+  afterEach(() => {
+    localStorage.clear();
+    vi.resetModules();
+  });
+
+  it("resolves a persisted pt-BR on startup", async () => {
+    localStorage.setItem("language", "pt-BR");
+
+    const i18n = await freshI18n();
+    if (!i18n.isInitialized) {
+      await new Promise((resolve) => i18n.on("initialized", resolve));
+    }
+
+    expect(i18n.resolvedLanguage).toBe("pt-BR");
+    expect(i18n.t("chat.newTask")).toBe("Nova tarefa");
+  });
+
+  it("resolves pt-BR after an explicit switch", async () => {
+    const i18n = await freshI18n();
+    if (!i18n.isInitialized) {
+      await new Promise((resolve) => i18n.on("initialized", resolve));
+    }
+
+    await i18n.changeLanguage("pt-BR");
+
+    expect(i18n.resolvedLanguage).toBe("pt-BR");
+    expect(i18n.t("chat.newTask")).toBe("Nova tarefa");
+  });
+});

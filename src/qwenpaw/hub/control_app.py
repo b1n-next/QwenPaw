@@ -277,7 +277,7 @@ async def _enforce_model_activation_catalog(
     raw_body = await request.body()
     allowed_target = await run_in_threadpool(
         _catalog_allows_activation,
-        app.state.model_catalog,
+        app.state.catalog_store,
         raw_body,
     )
     if not allowed_target:
@@ -420,11 +420,19 @@ def create_hub_app(  # pylint: disable=too-many-statements
         credential_vault,
     )
     governance = GovernanceStore(runtime_service.registry.database_path)
-    model_catalog = ModelCatalog(governance, credential_vault)
+    governance_catalog = ModelCatalog(governance, credential_vault)
     model_budgets = TokenBudgetService(governance)
-    model_gateway = ModelGateway(model_catalog, model_budgets, model_transport)
+    model_gateway = ModelGateway(
+        governance_catalog,
+        model_budgets,
+        model_transport,
+    )
     invitations = InvitationService(governance, hub_auth)
-    model_listener = ModelListener(governance, model_catalog, model_gateway)
+    model_listener = ModelListener(
+        governance,
+        governance_catalog,
+        model_gateway,
+    )
     model_networks: dict[str, RuntimeModelNetwork] = {}
     original_credentials = runtime_service.credential_provider
 
@@ -432,7 +440,9 @@ def create_hub_app(  # pylint: disable=too-many-statements
         values = dict(original_credentials(record))
         network = model_networks[record.provisioner]
         values["QWENPAW_HUB_MODEL_URL"] = network.url(model_listener.port)
-        values["QWENPAW_HUB_MODEL_TOKEN"] = model_catalog.issue_token(record)
+        values["QWENPAW_HUB_MODEL_TOKEN"] = (
+            governance_catalog.issue_token(record)
+        )
         return values
 
     runtime_service.credential_provider = managed_credentials
@@ -543,11 +553,11 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.state.siem_relay = SiemRelay()
     # EP-1-1: central model provider catalog (shares control.db + its
     # own secrets key under <hub root>/secrets/).
-    app.state.model_catalog = ModelCatalogStore(
+    app.state.catalog_store = ModelCatalogStore(
         runtime_service.registry.database_path,
         runtime_service.root_dir / "secrets" / ".model_catalog_key",
     )
-    model_catalog = app.state.model_catalog
+    model_catalog = app.state.catalog_store
     # EP-2-13: organization governance baseline (same control.db).
     app.state.policy_catalog = PolicyCatalogStore(
         runtime_service.registry.database_path,
@@ -866,7 +876,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.include_router(
         governance_router(
             governance,
-            model_catalog,
+            governance_catalog,
             model_budgets,
             model_gateway,
             invitations,
@@ -877,7 +887,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
         ),
     )
     app.state.model_listener = model_listener
-    app.state.model_catalog = model_catalog
+    app.state.model_catalog = governance_catalog
     app.state.model_budgets = model_budgets
     app.state.model_gateway = model_gateway
 
@@ -3660,7 +3670,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
             ):
                 allowed_ids = await run_in_threadpool(
                     _catalog_provider_ids,
-                    app.state.model_catalog,
+                    app.state.catalog_store,
                 )
                 if upstream.is_stream_consumed:
                     # pre-loaded body (e.g. test transports built with

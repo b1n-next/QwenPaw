@@ -1,0 +1,776 @@
+# -*- coding: utf-8 -*-
+"""Approval service for sensitive tool execution.
+
+The ``ApprovalService`` is the single central store for pending and completed
+approval records. Decisions can arrive from chat control commands, the
+authenticated Console API, or ACP permission prompts; identity policy is
+enforced here so every resolution surface shares the same boundary.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import time
+import uuid
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import TYPE_CHECKING, Any
+
+from ...constant import TOOL_GUARD_APPROVAL_TIMEOUT_SECONDS
+from ...security.tool_guard.approval import ApprovalDecision, ApprovalScope
+from .models import ApprovalRequestSummary
+from .store import ApprovalStore
+
+if TYPE_CHECKING:
+    from ...security.tool_guard.models import ToolGuardResult
+
+logger = logging.getLogger(__name__)
+
+_GC_MAX_AGE_SECONDS = 3600.0
+_GC_MAX_COMPLETED = 500
+_GC_PENDING_MAX_AGE_SECONDS = 1800.0
+_GC_MAX_PENDING = 200
+
+
+class ApprovalIdentityPolicy(str, Enum):
+    """Identity boundary applied when an approval is resolved.
+
+    ``AGENT`` preserves the established tool/subagent delegation model.
+    ``EXACT_REQUESTER`` is for user-triggered side effects: the resolver must
+    match every request identity field, unless it is explicitly an admin.
+    """
+
+    AGENT = "agent"
+    EXACT_REQUESTER = "exact_requester"
+
+
+@dataclass(frozen=True)
+class ApprovalActor:
+    """Identity of the caller attempting to resolve an approval."""
+
+    session_id: str
+    root_session_id: str
+    user_id: str
+    channel: str
+    agent_id: str
+    is_admin: bool = False
+
+
+class ApprovalIdentityMismatchError(PermissionError):
+    """Raised when a caller crosses an approval's identity boundary."""
+
+
+# ------------------------------------------------------------------
+# Data model
+# ------------------------------------------------------------------
+
+
+@dataclass
+class PendingApproval:
+    """In-memory record for one pending approval."""
+
+    request_id: str
+    session_id: str
+    root_session_id: str  # Root session for cross-session approval routing
+    owner_agent_id: str  # Conversation owner/root agent
+    user_id: str
+    channel: str
+    agent_id: str  # Which agent is requesting approval
+    tool_name: str
+    created_at: float
+    future: asyncio.Future[ApprovalDecision]
+    timeout_seconds: float = 300.0  # Approval timeout in seconds
+    status: str = "pending"
+    resolved_at: float | None = None
+    result_summary: str = ""
+    findings_count: int = 0
+    severity: str = "medium"  # For frontend display
+    extra: dict[str, Any] = field(default_factory=dict)
+    # Resolution authorization. Most existing tool approvals are agent-scoped;
+    # direct user-triggered side effects can opt into exact requester matching.
+    identity_policy: ApprovalIdentityPolicy = ApprovalIdentityPolicy.AGENT
+    # How widely the approved call should be remembered (EXACT vs SIMILAR).
+    # Set by ``resolve_request`` from the approve path; ``None`` means the
+    # caller didn't choose (IM channels, CLI, non-governance paths) and is
+    # treated as EXACT by the governance consumer. Only meaningful when the
+    # decision is APPROVED.
+    scope: ApprovalScope | None = None
+
+
+def _is_spawn_child_approval(pending: PendingApproval) -> bool:
+    """Return whether this approval belongs to a same-agent spawned child."""
+    return bool(
+        pending.extra.get("_spawn_subagent")
+        and pending.agent_id == pending.owner_agent_id
+        and pending.session_id != pending.root_session_id
+        and pending.root_session_id,
+    )
+
+
+# ------------------------------------------------------------------
+# Service
+# ------------------------------------------------------------------
+
+
+class ApprovalService:
+    """Global singleton approval service.
+
+    Manages approval requests across sessions and agents and applies their
+    identity policy atomically when any supported surface resolves them.
+    """
+
+    def __init__(self) -> None:
+        self._lock = asyncio.Lock()
+        self._pending: dict[str, PendingApproval] = {}
+        self._channel_managers: dict[str, Any] = {}
+        # EP-2-12: optional durable shadow (None = memory-only, the
+        # historical behavior, e.g. unit tests and CLI-only runs).
+        self._store: ApprovalStore | None = None
+
+    def set_channel_manager(
+        self,
+        channel_manager: Any,
+        agent_id: str = "default",
+    ) -> None:
+        """Register an agent's channel manager for spawned-child routing."""
+        self._channel_managers[agent_id] = channel_manager
+
+    def attach_store(self, store: ApprovalStore) -> None:
+        """Attach a durable shadow store for the approval lifecycle."""
+        self._store = store
+
+    async def restore_from_store(self) -> int:
+        """Re-hydrate pending approvals persisted before a restart.
+
+        EP-2-12: after a crash/restart the original waiters are gone,
+        but the requests stay visible and answerable (the resolution is
+        recorded as history either way). Rows whose remaining time
+        budget is exhausted are marked timeout instead of restored.
+        """
+        if self._store is None:
+            return 0
+        loop = asyncio.get_running_loop()
+        now = time.time()
+        restored = 0
+        for row in self._store.load_unresolved():
+            if now - row["created_at"] > row["timeout_seconds"]:
+                self._store.mark_resolved(
+                    row["request_id"],
+                    status="timeout",
+                    resolved_at=now,
+                )
+                continue
+            try:
+                extra = json.loads(row.get("extra_json") or "{}")
+            except ValueError:
+                extra = {}
+            # runtime-only wiring cannot be restored
+            extra.pop("_channel_instance", None)
+            pending = PendingApproval(
+                request_id=row["request_id"],
+                session_id=row["session_id"],
+                root_session_id=row["root_session_id"],
+                owner_agent_id=row["owner_agent_id"],
+                user_id=row["user_id"],
+                channel=row["channel"],
+                agent_id=row["agent_id"],
+                tool_name=row["tool_name"],
+                created_at=row["created_at"],
+                future=loop.create_future(),
+                timeout_seconds=row["timeout_seconds"],
+                result_summary=row.get("result_summary") or "",
+                findings_count=int(row.get("findings_count") or 0),
+                severity=row.get("severity") or "medium",
+                extra=extra,
+                identity_policy=ApprovalIdentityPolicy(
+                    row.get("identity_policy") or "AGENT",
+                ),
+            )
+            async with self._lock:
+                self._pending.setdefault(pending.request_id, pending)
+            restored += 1
+        if restored:
+            logger.info(
+                "ApprovalService: restored %d pending approval(s) "
+                "from the durable store",
+                restored,
+            )
+        return restored
+
+    async def _notify_channel(
+        self,
+        pending: PendingApproval,
+        channel_body: str,
+    ) -> None:
+        """Fire-and-forget: push approval notification to channel."""
+        if not pending.channel or pending.channel == "console":
+            return
+        is_spawn_child = _is_spawn_child_approval(pending)
+        try:
+            channel_instance = (pending.extra or {}).get("_channel_instance")
+            if is_spawn_child:
+                channel_manager = self._channel_managers.get(pending.agent_id)
+                if channel_manager is None:
+                    return
+                channel_instance = await channel_manager.get_channel(
+                    pending.channel,
+                )
+            if channel_instance is None:
+                return
+            channel_meta = (pending.extra or {}).get("channel_meta")
+            delivery_session_id = (
+                pending.root_session_id
+                if is_spawn_child
+                else pending.session_id
+            )
+            await channel_instance.send_approval_notification(
+                session_id=delivery_session_id,
+                user_id=pending.user_id,
+                request_id=pending.request_id,
+                tool_name=pending.tool_name,
+                severity=pending.severity,
+                result_summary=channel_body,
+                channel_meta=channel_meta,
+            )
+        except Exception:
+            logger.warning(
+                "Failed to push approval notification: request_id=%s",
+                pending.request_id[:8],
+                exc_info=True,
+            )
+
+    # ------------------------------------------------------------------
+    # Core approval lifecycle
+    # ------------------------------------------------------------------
+
+    async def create_pending(
+        self,
+        *,
+        session_id: str,
+        root_session_id: str,
+        owner_agent_id: str,
+        user_id: str,
+        channel: str,
+        agent_id: str,
+        tool_name: str,
+        result: "ToolGuardResult",
+        timeout_seconds: float = TOOL_GUARD_APPROVAL_TIMEOUT_SECONDS,
+        extra: dict[str, Any] | None = None,
+        identity_policy: ApprovalIdentityPolicy = ApprovalIdentityPolicy.AGENT,
+    ) -> PendingApproval:
+        """Create a pending approval record and return it."""
+        from ...security.tool_guard.approval import (
+            format_channel_approval_body,
+            format_findings_summary,
+        )
+
+        request_id = str(uuid.uuid4())
+        loop = asyncio.get_running_loop()
+
+        pending = PendingApproval(
+            request_id=request_id,
+            session_id=session_id,
+            root_session_id=root_session_id,
+            owner_agent_id=owner_agent_id,
+            user_id=user_id,
+            channel=channel,
+            agent_id=agent_id,
+            tool_name=tool_name,
+            created_at=time.time(),
+            future=loop.create_future(),
+            timeout_seconds=timeout_seconds,
+            result_summary=format_findings_summary(result),
+            findings_count=result.findings_count,
+            severity=result.max_severity.value,
+            extra=dict(extra or {}),
+            identity_policy=identity_policy,
+        )
+
+        async with self._lock:
+            self._pending[request_id] = pending
+            self._gc_pending_locked()
+        if self._store is not None:
+            self._store.save_pending(pending)
+
+        logger.info(
+            "Approval pending created: request_id=%s agent_id=%s tool=%s "
+            "severity=%s session=%s root=%s",
+            request_id[:8],
+            agent_id,
+            tool_name,
+            pending.severity,
+            session_id[:8],
+            root_session_id[:8],
+        )
+
+        if (
+            channel
+            and channel != "console"
+            and (
+                (extra or {}).get("_channel_instance")
+                or _is_spawn_child_approval(pending)
+            )
+        ):
+            channel_body = format_channel_approval_body(result)
+            asyncio.create_task(
+                self._notify_channel(pending, channel_body),
+                name=f"approval-notify-{request_id[:8]}",
+            )
+
+        return pending
+
+    async def create_pending_summary(
+        self,
+        *,
+        session_id: str,
+        root_session_id: str,
+        owner_agent_id: str,
+        user_id: str,
+        channel: str,
+        agent_id: str,
+        summary: ApprovalRequestSummary,
+        timeout_seconds: float = TOOL_GUARD_APPROVAL_TIMEOUT_SECONDS,
+        extra: dict[str, Any] | None = None,
+        identity_policy: ApprovalIdentityPolicy = ApprovalIdentityPolicy.AGENT,
+    ) -> PendingApproval:
+        """Create a pending approval from a generic summary."""
+        request_id = str(uuid.uuid4())
+        loop = asyncio.get_running_loop()
+        merged_extra = {
+            "source_type": summary.source_type,
+            **summary.payload,
+            **dict(extra or {}),
+        }
+        pending = PendingApproval(
+            request_id=request_id,
+            session_id=session_id,
+            root_session_id=root_session_id,
+            owner_agent_id=owner_agent_id,
+            user_id=user_id,
+            channel=channel,
+            agent_id=agent_id,
+            tool_name=summary.name,
+            created_at=time.time(),
+            future=loop.create_future(),
+            timeout_seconds=timeout_seconds,
+            result_summary=summary.result_summary,
+            findings_count=summary.findings_count,
+            severity=summary.severity,
+            extra=merged_extra,
+            identity_policy=identity_policy,
+        )
+        async with self._lock:
+            self._pending[request_id] = pending
+            self._gc_pending_locked()
+        if self._store is not None:
+            self._store.save_pending(pending, source="summary")
+
+        logger.info(
+            "Generic approval pending created: request_id=%s agent_id=%s "
+            "name=%s source=%s session=%s root=%s",
+            request_id[:8],
+            agent_id,
+            summary.name,
+            summary.source_type,
+            session_id[:8],
+            root_session_id[:8],
+        )
+
+        if (
+            channel
+            and channel != "console"
+            and (
+                (extra or {}).get("_channel_instance")
+                or _is_spawn_child_approval(pending)
+            )
+        ):
+            asyncio.create_task(
+                self._notify_channel(pending, pending.result_summary),
+                name=f"approval-notify-{request_id[:8]}",
+            )
+
+        return pending
+
+    async def resolve_request(
+        self,
+        request_id: str,
+        decision: ApprovalDecision,
+        scope: ApprovalScope | None = None,
+        *,
+        actor: ApprovalActor | None = None,
+    ) -> PendingApproval | None:
+        """Resolve pending approval by setting Future result.
+
+        Args:
+            scope: how widely an APPROVED call should be remembered
+                (EXACT vs SIMILAR). Stashed on ``pending.scope`` so the
+                governance consumer can pick the rule target. ``None`` is
+                treated as EXACT. Ignored for non-APPROVED decisions.
+            actor: caller identity used by policies stricter than ``AGENT``.
+                Exact-requester approvals reject missing or mismatched actors.
+                Automatic timeout resolution is the only actor-free exception.
+        """
+        async with self._lock:
+            pending = self._pending.get(request_id)
+            if pending is None:
+                logger.warning(
+                    "Approval request %s not found (already resolved?)",
+                    request_id[:8],
+                )
+                return None
+
+            if (
+                pending.identity_policy
+                == ApprovalIdentityPolicy.EXACT_REQUESTER
+                and decision != ApprovalDecision.TIMEOUT
+                and not self.actor_can_resolve(pending, actor)
+            ):
+                raise ApprovalIdentityMismatchError(
+                    "approval caller does not match the original requester",
+                )
+
+            self._pending.pop(request_id)
+            pending.status = decision.value
+            pending.resolved_at = time.time()
+            pending.scope = scope
+            if self._store is not None:
+                self._store.mark_resolved(
+                    request_id,
+                    status=decision.value,
+                    resolved_at=pending.resolved_at,
+                    scope=scope.value if scope else None,
+                )
+
+        # Set Future result outside lock
+        if not pending.future.done():
+            pending.future.set_result(decision)
+
+        logger.info(
+            "Approval request %s resolved: decision=%s scope=%s tool=%s",
+            request_id[:8],
+            decision.value,
+            scope.value if scope else "exact(default)",
+            pending.tool_name,
+        )
+
+        return pending
+
+    @staticmethod
+    def actor_can_resolve(
+        pending: PendingApproval,
+        actor: ApprovalActor | None,
+    ) -> bool:
+        """Return whether ``actor`` may resolve ``pending``.
+
+        Agent-scoped approvals retain their existing resolver behavior. Exact
+        approvals require the original request identity unless an admin is
+        represented explicitly.
+        """
+        if pending.identity_policy == ApprovalIdentityPolicy.AGENT:
+            return actor is None or actor.agent_id == pending.agent_id
+        if actor is None:
+            return False
+        if actor.is_admin:
+            return True
+        return (
+            actor.agent_id == pending.agent_id
+            and actor.user_id == pending.user_id
+            and actor.channel == pending.channel
+            and actor.session_id == pending.session_id
+            and actor.root_session_id == pending.root_session_id
+        )
+
+    async def get_request(self, request_id: str) -> PendingApproval | None:
+        """Get a pending request by id."""
+        async with self._lock:
+            return self._pending.get(request_id)
+
+    async def get_pending_by_session(
+        self,
+        session_id: str,
+    ) -> PendingApproval | None:
+        """Return the next pending approval for *session_id* (FIFO).
+
+        Pending approvals are consumed in creation order, so repeated
+        ``/approve`` inputs walk the queue from oldest to newest.
+        """
+        async with self._lock:
+            for pending in self._pending.values():
+                if (
+                    pending.session_id == session_id
+                    and pending.status == "pending"
+                ):
+                    return pending
+        return None
+
+    async def get_all_pending_by_session(
+        self,
+        session_id: str,
+    ) -> list[PendingApproval]:
+        """Return all pending approvals for *session_id* (FIFO order)."""
+        async with self._lock:
+            return [
+                p
+                for p in self._pending.values()
+                if p.session_id == session_id and p.status == "pending"
+            ]
+
+    async def list_pending_by_session(
+        self,
+        session_id: str,
+        include_subagents: bool = True,  # pylint: disable=unused-argument
+    ) -> list[PendingApproval]:
+        """List all pending approvals for a session (FIFO order).
+
+        Args:
+            session_id: Session ID to filter
+            include_subagents: If False, exclude sub-agent approvals (future)
+
+        Returns:
+            List of pending approvals sorted by creation time
+        """
+        async with self._lock:
+            result = [
+                p
+                for p in self._pending.values()
+                if p.session_id == session_id and p.status == "pending"
+            ]
+            return sorted(result, key=lambda p: p.created_at)
+
+    async def get_pending_by_root_session(
+        self,
+        root_session_id: str,
+    ) -> list[PendingApproval]:
+        """Get all pending approvals for root session and its children.
+
+        Args:
+            root_session_id: Root session ID
+
+        Returns:
+            List of pending approvals sorted by creation time (FIFO)
+        """
+        async with self._lock:
+            result = [
+                p
+                for p in self._pending.values()
+                if p.root_session_id == root_session_id
+                and p.status == "pending"
+            ]
+            return sorted(result, key=lambda p: p.created_at)
+
+    async def get_all_pending_by_agent(
+        self,
+        agent_id: str,
+    ) -> list[PendingApproval]:
+        """Get all pending approvals for an agent (across all sessions).
+
+        Used by /approval list --all command.
+
+        Args:
+            agent_id: Agent ID
+
+        Returns:
+            List of pending approvals sorted by creation time (FIFO)
+        """
+        async with self._lock:
+            result = [
+                p
+                for p in self._pending.values()
+                if p.agent_id == agent_id and p.status == "pending"
+            ]
+            return sorted(result, key=lambda p: p.created_at)
+
+    async def wait_for_approval(
+        self,
+        request_id: str,
+        timeout_seconds: float,
+    ) -> ApprovalDecision:
+        """Block and wait for approval decision with timeout.
+
+        Args:
+            request_id: Approval request ID
+            timeout_seconds: Maximum wait time in seconds
+
+        Returns:
+            ApprovalDecision (APPROVED/DENIED/TIMEOUT)
+
+        Raises:
+            ValueError: If request_id not found
+        """
+        async with self._lock:
+            pending = self._pending.get(request_id)
+
+        if pending is None:
+            raise ValueError(f"Approval request {request_id} not found")
+
+        try:
+            decision = await asyncio.wait_for(
+                pending.future,
+                timeout=timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            decision = ApprovalDecision.TIMEOUT
+            await self.resolve_request(request_id, decision)
+
+        return decision
+
+    async def cancel_stale_pending_for_tool_call(
+        self,
+        session_id: str,
+        tool_call_id: str,
+    ) -> int:
+        """Cancel pending approvals whose stored tool_call id matches.
+
+        When a tool call is replayed (e.g. after approval triggers
+        sibling replay), the guard may create a *new* pending for the
+        same logical tool call.  This method cancels the old pending
+        first so orphaned records don't accumulate.
+
+        Returns the number of records cancelled.
+        """
+        now = time.time()
+        cancelled = 0
+        async with self._lock:
+            to_cancel = [
+                k
+                for k, p in self._pending.items()
+                if p.session_id == session_id
+                and p.status == "pending"
+                and isinstance(p.extra.get("tool_call"), dict)
+                and p.extra["tool_call"].get("id") == tool_call_id
+            ]
+            for k in to_cancel:
+                pending = self._pending.pop(k)
+                if not pending.future.done():
+                    pending.future.set_result(ApprovalDecision.TIMEOUT)
+                pending.status = "superseded"
+                pending.resolved_at = now
+                if self._store is not None:
+                    self._store.mark_resolved(
+                        k,
+                        status="superseded",
+                        resolved_at=now,
+                    )
+                cancelled += 1
+        if cancelled:
+            logger.info(
+                "Tool guard: cancelled %d stale pending approval(s) "
+                "for tool_call %s (session %s)",
+                cancelled,
+                tool_call_id,
+                session_id[:8],
+            )
+        return cancelled
+
+    async def cancel_all_pending_by_root_session(
+        self,
+        root_session_id: str,
+    ) -> int:
+        """Cancel all pending approvals for root session and its children.
+
+        Called when user stops/cancels a task (e.g., /stop command or
+        SSE disconnect). Auto-denies all pending approvals to unblock
+        waiting tasks.
+
+        Args:
+            root_session_id: Root session ID
+
+        Returns:
+            Number of approvals cancelled
+        """
+        now = time.time()
+        cancelled = 0
+        async with self._lock:
+            to_cancel = [
+                k
+                for k, p in self._pending.items()
+                if p.root_session_id == root_session_id
+                and p.status == "pending"
+            ]
+            for k in to_cancel:
+                pending = self._pending.pop(k)
+                if not pending.future.done():
+                    pending.future.set_result(ApprovalDecision.DENIED)
+                pending.status = "cancelled"
+                pending.resolved_at = now
+                if self._store is not None:
+                    self._store.mark_resolved(
+                        k,
+                        status="cancelled",
+                        resolved_at=now,
+                    )
+                cancelled += 1
+        if cancelled:
+            logger.info(
+                "Cancelled %d pending approval(s) for root session %s",
+                cancelled,
+                root_session_id[:8]
+                if len(root_session_id) >= 8
+                else root_session_id,
+            )
+        return cancelled
+
+    # ------------------------------------------------------------------
+    # Garbage collection
+    # ------------------------------------------------------------------
+
+    def _gc_pending_locked(self) -> None:
+        """Evict stale pending records whose futures were never resolved.
+
+        Caller must hold ``_lock``.
+        """
+        now = time.time()
+        expired = [
+            k
+            for k, v in self._pending.items()
+            if now - v.created_at > _GC_PENDING_MAX_AGE_SECONDS
+        ]
+        for k in expired:
+            pending = self._pending.pop(k)
+            if not pending.future.done():
+                pending.future.set_result(ApprovalDecision.TIMEOUT)
+            pending.status = "timeout"
+            pending.resolved_at = now
+            if self._store is not None:
+                self._store.mark_resolved(
+                    k,
+                    status="timeout",
+                    resolved_at=now,
+                )
+
+        overflow = len(self._pending) - _GC_MAX_PENDING
+        if overflow <= 0:
+            return
+        ordered = sorted(
+            self._pending.items(),
+            key=lambda item: item[1].created_at,
+        )
+        for key, pending in ordered[:overflow]:
+            del self._pending[key]
+            if not pending.future.done():
+                pending.future.set_result(ApprovalDecision.TIMEOUT)
+            pending.status = "timeout"
+            pending.resolved_at = now
+            if self._store is not None:
+                self._store.mark_resolved(
+                    key,
+                    status="timeout",
+                    resolved_at=now,
+                )
+
+
+# ------------------------------------------------------------------
+# Singleton
+# ------------------------------------------------------------------
+
+_approval_service: ApprovalService | None = None
+
+
+def get_approval_service() -> ApprovalService:
+    """Return the process-wide approval service singleton."""
+    global _approval_service
+    if _approval_service is None:
+        _approval_service = ApprovalService()
+    return _approval_service

@@ -43,6 +43,7 @@ def initialize_hub_database(database_path: Path) -> None:
         if existing and not _is_current_generation(connection):
             _migrate_v1_audit_trace(connection)
         _ensure_audit_chain_columns(connection)
+        _ensure_settings_columns(connection)
         _validate_existing_columns(connection)
         connection.executescript(_SCHEMA_SQL)
         connection.execute("BEGIN IMMEDIATE")
@@ -223,6 +224,40 @@ def _ensure_audit_chain_columns(
             "WHERE rowid = ?",
             (parent, computed, ordinal),
         )
+
+
+def _ensure_settings_columns(
+    connection: sqlite3.Connection,
+) -> None:
+    """Add fork-required columns to pre-existing upstream tables.
+
+    Upstream's rewritten hub-v1 baseline drifted from our fork
+    schema (settings/users/tenants gained richer JSON sidecars).
+    Idempotent ALTERs for any existing table missing a required
+    column; fresh databases get the full schema from _SCHEMA_SQL.
+    """
+    # column-name -> DDL fragment for the ones we may backfill
+    backfills = {
+        "metadata_json": "TEXT NOT NULL DEFAULT '{}'",
+        "config_json": "TEXT NOT NULL DEFAULT '{}'",
+        "profile_json": "TEXT NOT NULL DEFAULT '{}'",
+        "preferences_json": "TEXT NOT NULL DEFAULT '{}'",
+        "deleted_at": "TEXT",
+    }
+    tables = _existing_hub_tables(connection)
+    for table, required in _REQUIRED_COLUMNS.items():
+        if table not in tables:
+            continue
+        actual = _table_columns(connection, table)
+        for column in sorted(required - actual):
+            definition = backfills.get(column)
+            if definition is None:
+                # unknown drift: let the strict validator speak up
+                continue
+            connection.execute(
+                f"ALTER TABLE {table} ADD COLUMN {column} "
+                f"{definition}",
+            )
 
 
 def _validate_existing_columns(connection: sqlite3.Connection) -> None:
