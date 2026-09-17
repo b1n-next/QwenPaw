@@ -2177,6 +2177,74 @@ def create_hub_app(  # pylint: disable=too-many-statements
             app.state.operations.verify_chain,
         )
 
+    @app.get("/api/hub/admin/audit/export")
+    async def admin_audit_export(
+        _user: HubUser = Depends(require_admin),
+        before: str | None = Query(default=None, max_length=32),
+        after: str | None = Query(default=None, max_length=32),
+    ) -> Response:
+        """Stream audit rows incl. hash columns as JSONL (H3)."""
+        rows = await run_in_threadpool(
+            lambda: list(
+                app.state.operations.iter_events(
+                    before=before,
+                    after=after,
+                ),
+            ),
+        )
+        payload = "".join(
+            json.dumps(row, ensure_ascii=False) + "\n" for row in rows
+        )
+        return Response(
+            content=payload,
+            media_type="application/x-ndjson",
+            headers={
+                "Content-Disposition": (
+                    'attachment; filename="audit-export.jsonl"'
+                ),
+            },
+        )
+
+    @app.post("/api/hub/admin/audit/prune")
+    async def admin_audit_prune(
+        payload: dict[str, Any],
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """Archive-then-delete rows older than ``before`` (H3).
+
+        The archive JSONL (hash columns included) lands in the hub
+        root before any deletion, and the pruned segment's head hash
+        is recorded as a chain anchoring point.
+        """
+        cutoff = str(payload.get("before") or "")
+        try:
+            datetime.datetime.fromisoformat(cutoff)
+        except ValueError as exc:
+            raise HTTPException(422, "before must be ISO date") from exc
+        result = await run_in_threadpool(
+            app.state.operations.prune_before,
+            cutoff,
+        )
+        await record_audit(
+            _user,
+            "audit.prune",
+            "audit",
+            cutoff,
+            result,
+        )
+        return result
+
+    @app.get("/api/hub/admin/audit/archives")
+    async def admin_audit_archives(
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """Pruned chain segments with anchoring hashes (H3)."""
+        return {
+            "archives": await run_in_threadpool(
+                app.state.operations.list_archives,
+            ),
+        }
+
     @app.get("/api/hub/admin/audit/chain-head")
     async def admin_audit_chain_head(
         _user: HubUser = Depends(require_admin),

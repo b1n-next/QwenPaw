@@ -435,6 +435,16 @@ CREATE TABLE IF NOT EXISTS hub_audit_events (
     row_hash TEXT
 );
 
+CREATE TABLE IF NOT EXISTS audit_chain_archives (
+    archive_id TEXT PRIMARY KEY,
+    first_event_id TEXT,
+    last_event_id TEXT,
+    row_count INTEGER NOT NULL,
+    head_hash TEXT NOT NULL,
+    archive_path TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS groups (
     group_id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,

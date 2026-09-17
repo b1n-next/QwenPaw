@@ -145,6 +145,116 @@ class HubOperationsStore:
             "head_hash": head["row_hash"] if head is not None else None,
         }
 
+    def iter_events(
+        self,
+        *,
+        before: str | None = None,
+        after: str | None = None,
+    ):
+        """Yield audit rows (hash columns included) for export (H3)."""
+        clauses: list[str] = []
+        params: list[object] = []
+        if before:
+            clauses.append("created_at < ?")
+            params.append(before)
+        if after:
+            clauses.append("created_at >= ?")
+            params.append(after)
+        where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+        with self._connect() as connection:
+            rows = connection.execute(
+                f"SELECT * FROM hub_audit_events {where} ORDER BY rowid",
+                tuple(params),
+            ).fetchall()
+        for row in rows:
+            yield dict(row)
+
+    def prune_before(
+        self,
+        cutoff: str,
+        *,
+        archive_dir: Path | None = None,
+    ) -> dict[str, Any]:
+        """Archive rows older than *cutoff* to JSONL, then delete them.
+
+        Chain-aware (H2/H3 contract): the archived segment keeps its
+        hashes so it can be verified offline; after deletion the
+        remaining chain restarts from a fresh genesis and the pruned
+        segment's head hash is recorded in audit_chain_archives as an
+        anchoring point.
+        """
+        target_dir = archive_dir or self.data_root
+        target_dir.mkdir(parents=True, exist_ok=True)
+        stamp = utc_now().replace(":", "").replace("-", "")[:15]
+        archive_path = target_dir / f"audit-archive-{stamp}.jsonl"
+        with self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            rows = connection.execute(
+                "SELECT rowid AS ordinal, * FROM hub_audit_events "
+                "WHERE created_at < ? ORDER BY rowid",
+                (cutoff,),
+            ).fetchall()
+            if not rows:
+                return {"pruned": 0, "archive_path": None}
+            with open(archive_path, "w", encoding="utf-8") as handle:
+                for row in rows:
+                    payload = {
+                        key: row[key] for key in row.keys() if key != "ordinal"
+                    }
+                    handle.write(
+                        json.dumps(payload, ensure_ascii=False) + "\n",
+                    )
+            first = rows[0]
+            last = rows[-1]
+            connection.execute(
+                "DELETE FROM hub_audit_events WHERE created_at < ?",
+                (cutoff,),
+            )
+            # remaining chain: fresh genesis (re-hash the new head —
+            # its old digest chained to a predecessor now archived)
+            survivor = connection.execute(
+                "SELECT rowid AS ordinal, * FROM hub_audit_events "
+                "ORDER BY rowid LIMIT 1",
+            ).fetchone()
+            if survivor is not None:
+                genesis_hash = audit_chain_hash(None, survivor)
+                connection.execute(
+                    "UPDATE hub_audit_events SET prev_hash = NULL, "
+                    "row_hash = ? WHERE rowid = ?",
+                    (genesis_hash, survivor["ordinal"]),
+                )
+            archive_id = uuid.uuid4().hex
+            connection.execute(
+                "INSERT INTO audit_chain_archives(archive_id, "
+                "first_event_id, last_event_id, row_count, head_hash, "
+                "archive_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    archive_id,
+                    first["event_id"],
+                    last["event_id"],
+                    len(rows),
+                    last["row_hash"],
+                    str(archive_path),
+                    utc_now(),
+                ),
+            )
+        return {
+            "pruned": len(rows),
+            "archive_path": str(archive_path),
+            "archive_id": archive_id,
+            "head_hash": last["row_hash"],
+        }
+
+    def list_archives(self) -> list[dict[str, Any]]:
+        """Pruned chain segments (anchoring points, H3)."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT archive_id, first_event_id, last_event_id, "
+                "row_count, head_hash, archive_path, created_at "
+                "FROM audit_chain_archives ORDER BY created_at",
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def chain_head(self) -> dict[str, Any]:
         """Latest chain digest for external anchoring (H2)."""
         with self._connect() as connection:

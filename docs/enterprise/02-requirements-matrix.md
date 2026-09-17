@@ -105,7 +105,7 @@
 |---|---|---|---|---|---|---|
 | H1 | 记忆/知识三档共享（个人私有 / 部门共享 / 租户公共） | #7318 社区(Marlin-Phone/ysf7762) | ❌（每 agent 记忆独立） | P2 | Ph2-3 | 中 |
 | H2 | H2 | 审计日志 append-only/防篡改 | ✅（无票据直落：`hub_audit_events` 加 `prev_hash/row_hash` 链式 SHA-256（全字段参与 canonical JSON）；`BEGIN IMMEDIATE` 内取头-算哈希-插入原子；存量行幂等补链；`verify_chain()` 全walk 报断链位置/原因；admin 端点 `/audit/verify` + `/audit/chain-head`（外部锚定用）。边界如实：链检测篡改/删行/重排，整库重算级攻击需配合 chain-head 外部锚定（备份手册已含离线副本建议）） | ✅ | Ph2（已落） | — |
-| H3 | 审计留存周期与导出接口 | GLM | ❌ | P2 | Ph2 | 低 |
+| H3 | H3 | 审计留存周期与导出接口 | ✅（无票据直落：`GET /audit/export` JSONL 流式导出（含 prev/row_hash 可离线校验）；`POST /audit/prune` **先归档后删**（JSONL 落 hub root + 被裁段尾哈希入 `audit_chain_archives` 锚点表 + 剩余链 fresh-genesis 重哈希续链）；`GET /audit/archives` 锚点清单；prune 自身入审计；留存节奏由运维 cron 驱动（默认不自动删）） | ✅ | Ph2（已落） | — |
 | H4 | 数据驻留（多地域不跨区） | GLM | ❌ | P3 | backlog | 低 |
 | H5 | 用户数据导出/删除（GDPR 式） | GLM | ❌ | P3 | backlog | 中 |
 
