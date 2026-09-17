@@ -44,7 +44,16 @@ jobs:
           pip install -e ".[test,hub]"
 
       - name: Run hub unit suite (ACL, proxy, provisioners)
-        run: pytest tests/unit/hub -v
+        run: |
+          set +e
+          pytest tests/unit/hub -v 2>&1 | tee /tmp/hub-suite.log
+          status=$?
+          if [ $status -ne 0 ]; then
+            grep -E "^(FAILED|ERROR)" /tmp/hub-suite.log | while read -r line; do
+              echo "::error title=hub suite::$line"
+            done
+          fi
+          exit $status
 
   console:
     name: Console (node 24)
