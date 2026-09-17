@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import re
+import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator
@@ -38,7 +39,9 @@ from ..app.exception_handlers import register_exception_handlers
 from ..utils.http import is_loopback_host, runtime_host_allowed
 from ..utils.oauth_callback import HUB_OAUTH_CALLBACK_URL_HEADER
 from .access_security import HubAccessSecurity
-from .acl import AclEngine, permissions_payload
+from .acl import AclEngine
+from .acl.console_map import permissions_payload
+from .acl.groups import GroupPolicyStore
 from .api_models import (
     AdminUserCreateBody,
     AdminUserPatchBody,
@@ -380,6 +383,10 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.state.docker_pulls = docker_pulls
     # Enterprise ACL: optional overlay at <hub root>/acl.json (hot reload).
     app.state.acl = AclEngine.from_env(config_dir=runtime_service.root_dir)
+    # EP-2-1: groups/policies storage on the hub database
+    app.state.group_store = GroupPolicyStore(
+        runtime_service.registry.database_path,
+    )
     # EP-2-3: hot-reloadable quota overlay at <hub root>/quota.json
     # (evaluated at the proxy AFTER the ACL gate, BEFORE forwarding).
     app.state.quota = QuotaEngine(
@@ -2005,6 +2012,129 @@ def create_hub_app(  # pylint: disable=too-many-statements
             )
         return {"lease": key}
 
+    @app.get("/api/hub/admin/groups")
+    async def admin_list_groups(
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """All groups with member counts (EP-2-1)."""
+        return {
+            "groups": await run_in_threadpool(
+                app.state.group_store.list_groups,
+            ),
+        }
+
+    @app.post("/api/hub/admin/groups")
+    async def admin_create_group(
+        payload: dict[str, Any],
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        store: GroupPolicyStore = app.state.group_store
+        name = str(payload.get("name") or "")
+        try:
+            group_id = await run_in_threadpool(
+                store.create_group,
+                name,
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"group_id": group_id, "name": name}
+
+    @app.delete("/api/hub/admin/groups/{group_id}")
+    async def admin_delete_group(
+        group_id: str,
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        deleted = await run_in_threadpool(
+            app.state.group_store.delete_group,
+            group_id,
+        )
+        if not deleted:
+            raise HTTPException(404, "group not found")
+        return {"deleted": True}
+
+    @app.post("/api/hub/admin/groups/{group_id}/members")
+    async def admin_add_member(
+        group_id: str,
+        payload: dict[str, Any],
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        user_id = str(payload.get("user_id") or "")
+        if not user_id:
+            raise HTTPException(400, "user_id required")
+        try:
+            await run_in_threadpool(
+                app.state.group_store.add_member,
+                group_id,
+                user_id,
+            )
+        except sqlite3.IntegrityError as exc:
+            raise HTTPException(404, "group not found") from exc
+        return {"added": True}
+
+    @app.delete(
+        "/api/hub/admin/groups/{group_id}/members/{user_id}",
+    )
+    async def admin_remove_member(
+        group_id: str,
+        user_id: str,
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        await run_in_threadpool(
+            app.state.group_store.remove_member,
+            group_id,
+            user_id,
+        )
+        return {"removed": True}
+
+    @app.get("/api/hub/admin/policies")
+    async def admin_list_policies(
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        return {
+            "policies": [
+                {
+                    "policy_id": policy.policy_id,
+                    "subject": policy.subject,
+                    "resource": policy.resource,
+                    "effect": policy.effect,
+                }
+                for policy in await run_in_threadpool(
+                    app.state.group_store.list_policies,
+                )
+            ],
+        }
+
+    @app.post("/api/hub/admin/policies")
+    async def admin_create_policy(
+        payload: dict[str, Any],
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        store: GroupPolicyStore = app.state.group_store
+        try:
+            policy_id = await run_in_threadpool(
+                store.create_policy,
+                subject_kind=str(payload.get("subject_kind") or ""),
+                subject_value=str(payload.get("subject_value") or ""),
+                resource=str(payload.get("resource") or ""),
+                effect=str(payload.get("effect") or ""),
+            )
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        return {"policy_id": policy_id}
+
+    @app.delete("/api/hub/admin/policies/{policy_id}")
+    async def admin_delete_policy(
+        policy_id: str,
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        deleted = await run_in_threadpool(
+            app.state.group_store.delete_policy,
+            policy_id,
+        )
+        if not deleted:
+            raise HTTPException(404, "policy not found")
+        return {"deleted": True}
+
     @app.get("/api/hub/admin/quota")
     async def admin_quota_status(
         _user: HubUser = Depends(require_admin),
@@ -2332,10 +2462,21 @@ def create_hub_app(  # pylint: disable=too-many-statements
         # EP-2-11 governance bridging: one trace id per proxied request,
         # echoed downstream (runtime audit) and on the response.
         trace_id = trace_id_from_headers(request.headers)
+        user_groups = await run_in_threadpool(
+            app.state.group_store.group_names_for,
+            user.user_id,
+        )
+        user_policies = await run_in_threadpool(
+            app.state.group_store.policies_for,
+            user_id=user.user_id,
+            groups=user_groups,
+            role=user.role,
+        )
         decision = app.state.acl.decide(
             user.role,
             request.method,
             request.url.path,
+            policies=user_policies,
         )
         if not decision.allowed:
             await record_audit(

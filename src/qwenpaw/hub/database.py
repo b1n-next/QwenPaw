@@ -354,6 +354,31 @@ CREATE TABLE IF NOT EXISTS hub_audit_events (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS groups (
+    group_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    source TEXT NOT NULL DEFAULT 'local',
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS group_members (
+    group_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    added_at TEXT NOT NULL,
+    PRIMARY KEY (group_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS policies (
+    policy_id TEXT PRIMARY KEY,
+    subject TEXT NOT NULL,
+    resource TEXT NOT NULL,
+    effect TEXT NOT NULL CHECK(effect IN ('allow', 'deny')),
+    created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_policies_subject
+    ON policies(subject);
+
 CREATE TABLE IF NOT EXISTS hub_resource_extensions (
     resource_type TEXT NOT NULL,
     resource_id TEXT NOT NULL,

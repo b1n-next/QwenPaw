@@ -40,7 +40,7 @@ tag 补记：`enterprise/v0.1`（Phase 0 收口 @717c85ff）、`enterprise/v0.2`
 
 | 票 | 内容 | 预估 |
 |---|---|---|
-| EP-2-1 ⬜ | groups/policies 表 + 策略求值并入 AclEngine（05） | 3d |
+| EP-2-1 ☑ | groups/policies 表 + 策略求值并入 AclEngine（05） | 3d |
 | EP-2-2 ⬜ | OIDC SSO（授权码 + JIT + 组映射，借 oauth_routes） | 5d |
 | EP-2-3 ☑ | 配额（软硬阈值 + 代理前置检查 + UI 文案） | 3d |
 | EP-2-4 ☑ | Prometheus `/metrics` + 告警规则样例 | 2d |

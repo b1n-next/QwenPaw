@@ -39,7 +39,7 @@
 | ID | 需求 | 来源 | 状态 | 优先级 | 阶段 | 撞车 |
 |---|---|---|---|---|---|---|
 | C1 | 多用户账号（注册/禁用/改密/登录限速） | USR/HUB | ✅（`hub/auth.py`：sqlite 用户表、角色、token 版本、锁定） | — | — | — |
-| C2 | 用户组（group + member 表，组级策略挂载点） | HUB/GLM | ❌ | P1 | Ph2 | **高**（官方"用户组、RBAC"在列） |
+| C2 | C2 | 用户组（group + member 表，组级策略挂载点） | ✅（EP-2-1：`groups`+`group_members`+`policies` 三表迁移；`GroupPolicyStore` CRUD；admin API `/api/hub/admin/groups*` 与 `/policies*` 全套） | ✅ | Ph2（已落） | — |
 | C3 | OIDC SSO（企业 IdP：Keycloak/AD/Authing；JIT 建号；组映射） | GLM | 🟡（`oauth_routes.py` 有 OAuth 中转骨架，非 OIDC RP） | P1 | Ph2 | 高 |
 | C4 | LDAP 直连 | GLM | ❌ | P2 | backlog | 中 |
 | C5 | SCIM 自动回收（离职联动） | GLM | ❌ | P3 | backlog | 中 |
@@ -54,7 +54,7 @@
 | D1 | 角色→控制台能力（=B1/B2，先行切片） | USR | ✅（随 B1/B2 交付） | P0 | Ph0 | 低 |
 | D2 | 按用户/组控制 Agent 访问 | HUB | ❌ | P1 | Ph2 | **高** |
 | D3 | 按用户/组控制 Skill / MCP / Channel 访问 | HUB | ❌ | P1 | Ph2 | 高 |
-| D4 | 策略引擎最小实现（静态半边 = 有序规则表 + overlay 已随 Ph0 落地；组级扩展（groups/policies 表求值）仍 Ph2，见 05 §7） | AUD | 🟡（静态半边 ✅：`acl/rules.py`+`engine.py`；动态半边 ☐ EP-2-1） | P1 | **Ph2（组级）** | 中 |
+| D4 | D4 | 策略引擎最小实现（静态半边 = 有序规则表 + overlay 已随 Ph0 落地；组级扩展（groups/policies 表求值）仍 Ph2，见 05 §7） | ✅（动态+静态全落：`AclEngine.decide` 前置 policies 求值——user>group>role、同路径 deny 优先、fail-closed 默认表兜底；`menu:*/agent:*/model:*` 资源类型已建模、代理层不消费） | ✅ | Ph2（已落） | — |
 | D5 | Agent/Skill 上架审批流 | GLM | ❌（市场有安装，无审批） | P2 | Ph2 | 中 |
 | D6 | 多租户共享 Agent/Skill 商店（组织级发布/分享） | #7318 社区(rerbin) | ❌ | P3 | backlog | 中 |
 

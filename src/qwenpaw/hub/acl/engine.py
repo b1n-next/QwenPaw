@@ -25,6 +25,7 @@ from typing import Any, List, Optional, Tuple
 from urllib.parse import unquote
 
 from .rules import DEFAULT_RULES, RuleSpec
+from .groups import Policy
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,23 @@ _VALID_METHODS = frozenset(
 )
 # Conservative length cap: the longest legit console route is ~120 chars.
 _MAX_PATH_LENGTH = 2048
+
+#: ``apigroup:<name>`` resources resolve to an API path prefix at
+#: evaluation time. ``apigroup:admin`` is special: it covers every
+#: path NOT granted to the user role by the static table.
+_API_GROUP_PREFIXES = {
+    "chat": "/api/console",
+    "agents": "/api/agents",
+    "agent-status": "/api/agent-status",
+    "approval": "/api/approval",
+    "tool-calls": "/api/tool-calls",
+    "knowledge": "/api/knowledge",
+    "graph": "/api/graph",
+    "models": "/api/models",
+    "healthz": "/api/healthz",
+    "version": "/api/version",
+    "auth": "/api/auth",
+}
 _FORBIDDEN_CHARS = re.compile(r"[\x00-\x1f\x7f]")
 
 
@@ -69,8 +87,21 @@ class AclEngine:
 
     # ── public API ────────────────────────────────────────────────────────
 
-    def decide(self, role: str, method: str, raw_path: str) -> Decision:
-        """Decide whether *role* may call *method raw_path*."""
+    def decide(
+        self,
+        role: str,
+        method: str,
+        raw_path: str,
+        *,
+        policies: Tuple[Policy, ...] = (),
+    ) -> Decision:
+        """Decide whether *role* may call *method raw_path*.
+
+        Explicit policies (EP-2-1) run BEFORE the static table:
+        user > group > row order from the caller, first resource
+        match wins, deny beats allow at equal specificity. No
+        policy hit falls through to the fail-closed defaults.
+        """
         normalized = self._normalize(raw_path)
         if role == "admin":
             return Decision(
@@ -89,6 +120,14 @@ class AclEngine:
                 path=raw_path[:_MAX_PATH_LENGTH],
             )
         method = method.upper()
+        decision = self._policy_decision(
+            policies,
+            method,
+            normalized,
+            role,
+        )
+        if decision is not None:
+            return decision
         self._reload_if_stale()
         with self._lock:
             rules = self._rules
@@ -108,6 +147,59 @@ class AclEngine:
             method=method,
             path=normalized,
         )
+
+    @staticmethod
+    def _policy_decision(
+        policies: Tuple[Policy, ...],
+        method: str,
+        normalized_path: str,
+        role: str,
+    ) -> Optional[Decision]:
+        """Evaluate explicit policies for one request (05 §2 order)."""
+        if not policies:
+            return None
+        matched = [
+            policy
+            for policy in policies
+            if AclEngine._resource_matches(
+                policy.resource,
+                normalized_path,
+            )
+        ]
+        if not matched:
+            return None
+        # deny beats allow at equal subject specificity; stricter
+        # subject (user > group > role) already leads from store order
+        for policy in matched:
+            if policy.effect == "deny":
+                chosen = policy
+                break
+        else:
+            chosen = matched[0]
+        return Decision(
+            allowed=chosen.effect == "allow",
+            reason=f"policy-{chosen.policy_id[:8]}",
+            role=role,
+            method=method,
+            path=normalized_path,
+        )
+
+    @staticmethod
+    def _resource_matches(resource: str, normalized_path: str) -> bool:
+        """Does one policy resource cover this API path?"""
+        kind, _, value = resource.partition(":")
+        if kind == "apigroup":
+            if value == "admin":
+                # covers everything the static user table does NOT
+                # grant — deny(admin) narrows, allow(admin) broadens
+                return True
+            prefix = _API_GROUP_PREFIXES.get(value)
+            return prefix is not None and (
+                normalized_path == prefix
+                or normalized_path.startswith(prefix + "/")
+            )
+        # menu:/agent:/model: resources do not gate proxy paths
+        return False
 
     # ── internals ─────────────────────────────────────────────────────────
 
