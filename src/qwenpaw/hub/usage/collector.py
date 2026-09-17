@@ -46,6 +46,7 @@ class UsageCollector:
         self._task: asyncio.Task | None = None
         self._stop = asyncio.Event()
         self.last_pass_at: str | None = None
+        self.last_pass_epoch: float | None = None
         self.last_error: str | None = None
 
     async def collect_once(self) -> int:
@@ -109,7 +110,9 @@ class UsageCollector:
                     )
         from datetime import datetime, timezone
 
-        self.last_pass_at = datetime.now(timezone.utc).isoformat()
+        stamp = datetime.now(timezone.utc)
+        self.last_pass_at = stamp.isoformat()
+        self.last_pass_epoch = stamp.timestamp()
         if not had_error:
             self.last_error = None
         return collected

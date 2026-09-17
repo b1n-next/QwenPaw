@@ -56,6 +56,7 @@ from .credentials import TenantCredentialVault
 from .model_catalog import ModelCatalogStore
 from .provisioner import RuntimeProvisionerUnavailableError
 from .provisioners.k8s import K8sRuntimeProvisioner
+from .metrics import HubMetrics
 from .quota import QuotaEngine, UsageSnapshot
 
 
@@ -384,6 +385,8 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.state.quota = QuotaEngine(
         runtime_service.root_dir / "quota.json",
     )
+    # EP-2-4: hand-rolled Prometheus registry (07 §4)
+    app.state.metrics = HubMetrics()
     # EP-1-1: central model provider catalog (shares control.db + its
     # own secrets key under <hub root>/secrets/).
     app.state.model_catalog = ModelCatalogStore(
@@ -691,6 +694,53 @@ def create_hub_app(  # pylint: disable=too-many-statements
             ) from exc
         if record.owner_user_id != user.user_id:
             raise HTTPException(status_code=404, detail="Runtime not found")
+
+    @app.get("/api/hub/metrics")
+    async def prometheus_metrics(
+        _user: HubUser = Depends(require_user),
+    ) -> Response:
+        """Prometheus exposition endpoint (EP-2-4, 07 §4).
+
+        Store-backed families are sampled here (scrape frequency,
+        not request frequency): runtime states from the registry,
+        usage totals from the usage store, collector freshness.
+        Event families (request decisions, quota soft warnings) are
+        incremented at the gates.
+        """
+        metrics: HubMetrics = app.state.metrics
+        records = await run_in_threadpool(runtime_service.registry.list)
+        for record in records:
+            metrics.set_gauge(
+                "qwenpaw_runtime_state",
+                1,
+                tenant=record.tenant_id,
+                state=record.state.value
+                if hasattr(record.state, "value")
+                else str(record.state),
+            )
+        usage = await run_in_threadpool(
+            usage_store.summary,
+            start_date=None,
+            end_date=None,
+        )
+        by_model = usage.get("by_model", []) if isinstance(usage, dict) else []
+        for row in by_model:
+            metrics.set_gauge(
+                "qwenpaw_hub_tokens_total",
+                float(
+                    row["prompt_tokens"] + row["completion_tokens"],
+                ),
+                model=str(row["model"]),
+            )
+        if usage_collector.last_pass_at is not None:
+            metrics.set_gauge(
+                "qwenpaw_usage_last_success_timestamp_seconds",
+                float(usage_collector.last_pass_epoch or 0.0),
+            )
+        return Response(
+            content=metrics.render(),
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
 
     @app.get("/api/hub/healthz")
     async def healthz(
@@ -2296,6 +2346,11 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 {"reason": decision.reason, "method": request.method},
                 trace_id=trace_id,
             )
+            app.state.metrics.inc(
+                "qwenpaw_hub_requests_total",
+                role=user.role,
+                decision="denied",
+            )
             raise HTTPException(
                 status_code=403,
                 detail={
@@ -2328,6 +2383,11 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 remote_address=(
                     request.client.host if request.client else None
                 ),
+            )
+            app.state.metrics.inc(
+                "qwenpaw_hub_requests_total",
+                role=user.role,
+                decision="denied_quota",
             )
             raise HTTPException(
                 status_code=403,
@@ -2585,11 +2645,20 @@ def create_hub_app(  # pylint: disable=too-many-statements
             if name.lower() not in excluded_response_headers
         }
         response_headers[TRACE_HEADER] = trace_id
+        app.state.metrics.inc(
+            "qwenpaw_hub_requests_total",
+            role=user.role,
+            decision="allowed",
+        )
         if quota_decision.soft_hit:
             # EP-2-3: console banner reads this header (UI copy ticket)
             response_headers["X-QwenPaw-Quota-Warning"] = (
                 f"{quota_decision.dimension} "
                 f"{int(quota_decision.ratio * 100)}%"
+            )
+            app.state.metrics.inc(
+                "qwenpaw_hub_quota_soft_total",
+                dimension=quota_decision.dimension,
             )
 
         async def stream_upstream() -> AsyncIterator[bytes]:
