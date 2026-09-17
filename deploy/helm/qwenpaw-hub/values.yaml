@@ -12,6 +12,12 @@ image:
   pullPolicy: IfNotPresent
 
 hub:
+  # A4: mount credentials through a K8s Secret resource instead of
+  # plain env entries in the Deployment spec. off = legacy env flow
+  secretProvider:
+    enabled: false
+    # optional: OIDC client secret delivered the same way
+    # oidcClientSecret: ""
   replicas: 1
   port: 8088
   # Persisted sqlite + audit + secrets (RWO is sufficient).

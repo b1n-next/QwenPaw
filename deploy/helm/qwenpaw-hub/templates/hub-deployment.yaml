@@ -30,14 +30,36 @@ spec:
           env:
             - name: QWENPAW_HUB_DIR
               value: /var/lib/qwenpaw
+            {{- if .Values.hub.secretProvider.enabled }}
+            - name: QWENPAW_HUB_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-hub-credentials
+                  key: QWENPAW_HUB_ADMIN_USERNAME
+            - name: QWENPAW_HUB_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-hub-credentials
+                  key: QWENPAW_HUB_ADMIN_PASSWORD
+            {{- end }}
           command:
             - python
             - -m
             - qwenpaw.hub.bootstrap_admin
+            - --root
+            - /var/lib/qwenpaw
             - --username
+            {{- if .Values.hub.secretProvider.enabled }}
+            - $(QWENPAW_HUB_ADMIN_USERNAME)
+            {{- else }}
             - {{ .Values.hub.adminUsername | quote }}
+            {{- end }}
             - --password
+            {{- if .Values.hub.secretProvider.enabled }}
+            - $(QWENPAW_HUB_ADMIN_PASSWORD)
+            {{- else }}
             - {{ required "hub.adminPassword is required" .Values.hub.adminPassword | quote }}
+            {{- end }}
           volumeMounts:
             - name: hub-data
               mountPath: /var/lib/qwenpaw
@@ -64,10 +86,24 @@ spec:
           env:
             - name: QWENPAW_HUB_DIR
               value: /var/lib/qwenpaw
+            {{- if .Values.hub.secretProvider.enabled }}
+            # A4: credentials from the Secret resource, not the spec
+            - name: QWENPAW_HUB_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-hub-credentials
+                  key: QWENPAW_HUB_ADMIN_USERNAME
+            - name: QWENPAW_HUB_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}-hub-credentials
+                  key: QWENPAW_HUB_ADMIN_PASSWORD
+            {{- else }}
             - name: QWENPAW_HUB_ADMIN_USERNAME
               value: {{ .Values.hub.adminUsername | quote }}
             - name: QWENPAW_HUB_ADMIN_PASSWORD
               value: {{ required "hub.adminPassword is required" .Values.hub.adminPassword | quote }}
+            {{- end }}
             # --- k8s runtime provisioner (EP-1-6) ---
             - name: QWENPAW_HUB_K8S_NAMESPACE
               value: {{ .Values.runtimes.namespace | quote }}

@@ -12,7 +12,7 @@
 | A1 | 内网可信环境部署（不出公网） | USR | ✅（现状即支持） | P0 | — | — |
 | A2 | Helm Chart：Hub Deployment + per-tenant Pod | HUB | ✅（`deploy/helm/qwenpaw-hub/`：deployment/pvc/service/rbac/configmap + bootstrap_admin initContainer + NOTES；kind 验收过） | P1 | Ph1 | **高**（官方在考虑 K8s） |
 | A3 | per-tenant PVC（RWO 即可，per-tenant 模型下无需 RWX） | AUD | ✅（`provisioners/k8s/manifest.py` PVC builder + stop 保 PVC 会话延续，06 §7.1 kind 实测） | P1 | Ph1 | 高 |
-| A4 | Secret 集成（K8s Secret 起步，Vault/KMS 可选） | HUB/GLM | 🟡（凭据现走 bootstrap env 直投 + Fernet vault；K8s Secret 资源未建——**2026-09-14 归置 Ph2**（EP-2 线，随 EP-2-13 策略下发一并做 Secret 投递）） | P1 | **Ph2** | 中 |
+| A4 | A4 | Secret 集成（K8s Secret 起步，Vault/KMS 可选） | ✅（闭环 EP-2-13 归置承诺：`hub-secret.yaml` 新模板（admin 凭据 + 可选 OIDC client_secret 入 Secret 资源）；Deployment env/init args 全部 `secretKeyRef`/`$(VAR)` 引用（**spec 零明文**，grep 实证 0）；`hub.secretProvider.enabled` 开关（默认 off 兼容旧流，staging/prod 档默认 on）；顺手修真 bug：bootstrap init 缺 `--root` 参数（镜像 argparse 必需，CrashLoopBackOff 实证）；kind 实弹：helm upgrade → rollout → Secret 投递冒烟 SMOKE-PASS。Vault/KMS 升级位留待需要时） | ✅ | Ph2（已落） | Vault/KMS 可选升级 |
 | A5 | 多机调度（K8s 原生调度即可满足） | HUB | ✅（随 G1 达成：k8s provisioner 起 per-tenant Pod 跨节点调度；多副本 hub 仍属 A6 状态外置前提） | P2 | Ph1 | 高 |
 | A6 | 弹性扩缩容（Hub 层 HPA；runtime per-tenant 不扩副本） | HUB | ❌ | P2 | Ph2 | 高 |
 | A7 | A7 | 升级策略（hub 滚动升级 + runtime 重建；金丝雀/蓝绿） | ✅（EP-2-10 金丝雀：sqlite 单写者约束下采用**隔离状态金丝雀**——emptyDir 草稿副本 + `hub-smoke.sh` 五关冒烟门 + JSON patch 选择器切流；kind 全链路实测含回退（merge patch 不删 selector key 的踩坑已固化为手册警示）；runtime 升级走 registry 期望态重建） | ✅ | Ph2（已落） | — |

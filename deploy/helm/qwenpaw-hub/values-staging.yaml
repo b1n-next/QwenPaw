@@ -5,7 +5,10 @@
 image:
   tag: "2.2.0" # candidate release under test
 
+# A4: credentials ride the K8s Secret resource (qwenpaw-hub-credentials)
 hub:
+  secretProvider:
+    enabled: true
   replicas: 1
   storage:
     size: 5Gi
