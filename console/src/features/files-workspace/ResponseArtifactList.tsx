@@ -22,6 +22,13 @@ interface ResponseArtifact {
 const MIN_FILE_WIDTH = 320;
 const GRID_GAP = 8;
 const FILE_IO_TOOLS = new Set(["appendfile", "editfile", "writefile"]);
+const TOOL_INPUT_TYPES = new Set([
+  "tool_call",
+  "plugin_call",
+  "function_call",
+  "mcp_call",
+  "component_call",
+]);
 const SEND_FILE_TOOL = "sendfiletouser";
 const TOOL_OUTPUT_TYPES = new Set([
   "tool_call_output",
@@ -76,6 +83,46 @@ function contentData(
 ): Record<string, unknown> {
   const content = Array.isArray(item.content) ? item.content : [];
   return record(record(content[index])?.data) ?? {};
+}
+
+function mergeArtifactToolMessages(messages: unknown): unknown[] {
+  if (!Array.isArray(messages)) return [];
+
+  const merged: unknown[] = [];
+  const pendingInputs = new Map<string, number[]>();
+  for (const value of messages) {
+    const item = record(value);
+    if (!item) {
+      merged.push(value);
+      continue;
+    }
+    const type = firstString(item, ["type"]);
+    const key = firstString(contentData(item, 0), ["call_id", "name"]);
+    if (TOOL_INPUT_TYPES.has(type) && key) {
+      const indexes = pendingInputs.get(key) ?? [];
+      indexes.push(merged.length);
+      pendingInputs.set(key, indexes);
+      merged.push(item);
+      continue;
+    }
+    if (TOOL_OUTPUT_TYPES.has(type) && key) {
+      const indexes = pendingInputs.get(key);
+      const inputIndex = indexes?.shift();
+      if (inputIndex !== undefined) {
+        const input = record(merged[inputIndex]);
+        const inputContent = Array.isArray(input?.content) ? input.content : [];
+        const outputContent = Array.isArray(item.content) ? item.content : [];
+        merged[inputIndex] = {
+          ...item,
+          content: [...inputContent, ...outputContent.slice(0, 1)],
+        };
+        if (indexes?.length === 0) pendingInputs.delete(key);
+        continue;
+      }
+    }
+    merged.push(item);
+  }
+  return merged;
 }
 
 function normalizedToolName(name: string): string {
@@ -143,10 +190,8 @@ function hasDeliveredFile(output: unknown): boolean {
 }
 
 function extractResponseArtifacts(messages: unknown): ResponseArtifact[] {
-  if (!Array.isArray(messages)) return [];
-
   const artifacts = new Map<string, ResponseArtifact>();
-  for (const value of messages) {
+  for (const value of mergeArtifactToolMessages(messages)) {
     const item = record(value);
     if (!item) continue;
     const type = firstString(item, ["type"]);

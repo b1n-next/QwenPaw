@@ -1,6 +1,7 @@
 import type { HubRuntime } from "../../api/modules/hub";
 
 export type Section =
+  | "models"
   | "overview"
   | "agents"
   | "runtimes"
@@ -25,7 +26,7 @@ export interface KeyFormValues {
 
 export interface SettingsFormValues {
   publicBaseUrl?: string;
-  registrationEnabled: boolean;
+  registrationMode: "open" | "invite" | "closed";
   runtimeProvisioner: "local" | "docker";
   dockerSource: "docker_hub" | "aliyun_acr" | "local" | "custom";
   dockerImage: string;

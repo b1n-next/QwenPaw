@@ -36,6 +36,7 @@ from fastapi.responses import (
     StreamingResponse,
 )
 from starlette.concurrency import run_in_threadpool
+from starlette.requests import ClientDisconnect
 
 from ..__version__ import __version__
 from ..app.exception_handlers import register_exception_handlers
@@ -66,7 +67,10 @@ from .bootstrap import get_hub_root
 from .config import HubConfig, HubConfigStore
 from .credentials import TenantCredentialVault
 from .model_catalog import ModelCatalogStore
-from .provisioner import RuntimeProvisionerUnavailableError
+from .provisioner import (
+    RuntimeModelNetwork,
+    RuntimeProvisionerUnavailableError,
+)
 from .provisioners.k8s import K8sRuntimeProvisioner
 from .metrics import HubMetrics
 from .oidc import OidcClient, OidcError, OidcSettings
@@ -74,8 +78,6 @@ from .database import HubExtensionStore
 from .ratelimit import RateLimiter
 from .siem import SiemRelay
 from .quota import QuotaEngine, UsageSnapshot
-
-
 from .local_provisioner import LocalProcessRuntimeProvisioner
 from .docker_images import DockerImagePullStore
 from .docker_provisioner import (
@@ -115,6 +117,14 @@ from .static_files import (
     resolve_console_response,
     resolve_console_static_dir,
 )
+from .invitations import InvitationService
+from .model_service.storage import GovernanceStore
+from .model_service.catalog import ModelCatalog
+from .model_service.budget import TokenBudgetService
+from .model_service.gateway import ModelGateway
+from .model_service.routes import governance_router
+from .model_service.listener import ModelListener
+from .model_service.runtime_policy import require_model_route
 from . import websocket_proxy
 
 
@@ -388,6 +398,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
     hub_config: HubConfig | None = None,
     root_dir: Path | None = None,
     public_bind: bool = False,
+    model_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     """Create a Hub control-plane app with an injectable runtime service."""
     runtime_service = service or build_runtime_service(
@@ -408,6 +419,23 @@ def create_hub_app(  # pylint: disable=too-many-statements
         runtime_service.registry.database_path,
         credential_vault,
     )
+    governance = GovernanceStore(runtime_service.registry.database_path)
+    model_catalog = ModelCatalog(governance, credential_vault)
+    model_budgets = TokenBudgetService(governance)
+    model_gateway = ModelGateway(model_catalog, model_budgets, model_transport)
+    invitations = InvitationService(governance, hub_auth)
+    model_listener = ModelListener(governance, model_catalog, model_gateway)
+    model_networks: dict[str, RuntimeModelNetwork] = {}
+    original_credentials = runtime_service.credential_provider
+
+    def managed_credentials(record):
+        values = dict(original_credentials(record))
+        network = model_networks[record.provisioner]
+        values["QWENPAW_HUB_MODEL_URL"] = network.url(model_listener.port)
+        values["QWENPAW_HUB_MODEL_TOKEN"] = model_catalog.issue_token(record)
+        return values
+
+    runtime_service.credential_provider = managed_credentials
     operations = HubOperationsStore(
         runtime_service.registry.database_path,
         runtime_service.root_dir,
@@ -459,7 +487,16 @@ def create_hub_app(  # pylint: disable=too-many-statements
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         usage_collector.start()
         try:
-            yield
+            await run_in_threadpool(model_gateway.recover)
+            model_networks.clear()
+            for name, status in runtime_service.provisioner_statuses().items():
+                if status["available"]:
+                    model_networks[name] = await run_in_threadpool(
+                        runtime_service.provisioners[name].model_network,
+                    )
+            bind_hosts = {item.bind_host for item in model_networks.values()}
+            async with model_listener.serve(bind_hosts):
+                yield
         finally:
             await usage_collector.stop()
             if docker_pulls is not None:
@@ -826,6 +863,24 @@ def create_hub_app(  # pylint: disable=too-many-statements
         if record.owner_user_id != user.user_id:
             raise HTTPException(status_code=404, detail="Runtime not found")
 
+    app.include_router(
+        governance_router(
+            governance,
+            model_catalog,
+            model_budgets,
+            model_gateway,
+            invitations,
+            hub_auth,
+            require_user,
+            require_admin,
+            record_audit,
+        ),
+    )
+    app.state.model_listener = model_listener
+    app.state.model_catalog = model_catalog
+    app.state.model_budgets = model_budgets
+    app.state.model_gateway = model_gateway
+
     @app.get("/api/hub/metrics")
     async def prometheus_metrics(
         _user: HubUser = Depends(require_user),
@@ -939,7 +994,8 @@ def create_hub_app(  # pylint: disable=too-many-statements
 
     @app.get("/api/auth/status")
     async def auth_status() -> dict[str, object]:
-        return await run_in_threadpool(hub_auth.status)
+        result = await run_in_threadpool(hub_auth.status)
+        return result
 
     def _provision_oidc_user(identity: Any) -> HubUser | None:
         """JIT login: create or find the user, sync oidc groups.
@@ -1064,11 +1120,22 @@ def create_hub_app(  # pylint: disable=too-many-statements
         client_ip = require_auth_access(request, "registration")
         access_security.record_attempt("registration", client_ip)
         try:
-            user, token = await run_in_threadpool(
-                hub_auth.register,
-                body.username,
-                body.password,
-            )
+            mode = await run_in_threadpool(hub_auth.registration_mode)
+            if mode == "invite" and await run_in_threadpool(
+                hub_auth.user_count,
+            ):
+                user, token = await run_in_threadpool(
+                    invitations.redeem,
+                    body.invite_code or "",
+                    body.username,
+                    body.password,
+                )
+            else:
+                user, token = await run_in_threadpool(
+                    hub_auth.register,
+                    body.username,
+                    body.password,
+                )
         except PermissionError as exc:
             await record_auth_event(
                 "auth.register",
@@ -3248,6 +3315,8 @@ def create_hub_app(  # pylint: disable=too-many-statements
         # EP-2-11 governance bridging: one trace id per proxied request,
         # echoed downstream (runtime audit) and on the response.
         trace_id = trace_id_from_headers(request.headers)
+        # upstream #7779: the model gateway owns model-plane routes
+        require_model_route(path)
         user_groups = await run_in_threadpool(
             app.state.group_store.group_names_for,
             user.user_id,
@@ -3511,6 +3580,10 @@ def create_hub_app(  # pylint: disable=too-many-statements
                         proxy_config.response_header_timeout_seconds
                     ),
                 )
+            except ClientDisconnect:
+                await client.aclose()
+                # The caller is gone; end the proxy without an ASGI error.
+                return Response(status_code=499)
             except ProxyRequestTooLargeError as exc:
                 await client.aclose()
                 raise HTTPException(

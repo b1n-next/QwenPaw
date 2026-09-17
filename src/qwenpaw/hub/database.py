@@ -5,11 +5,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .config_migration import migrate_hub_settings
+
+# fork stays the highest generation: upstream's rewritten hub-v1
+# baseline (no trace_id, registration_mode) migrates INTO our v2,
+# which adds the audit hash chain, groups/policies and archives.
 _SCHEMA_GENERATION = "hub-v2"
 _JSON_DEFAULT = '{"schema_version":1}'
 
@@ -39,6 +45,8 @@ def initialize_hub_database(database_path: Path) -> None:
         _ensure_audit_chain_columns(connection)
         _validate_existing_columns(connection)
         connection.executescript(_SCHEMA_SQL)
+        connection.execute("BEGIN IMMEDIATE")
+        migrated = migrate_hub_settings(connection, utc_now())
         connection.execute(
             "INSERT OR IGNORE INTO hub_schema(key, value) VALUES (?, ?)",
             ("schema_generation", _SCHEMA_GENERATION),
@@ -47,7 +55,7 @@ def initialize_hub_database(database_path: Path) -> None:
             "INSERT OR IGNORE INTO hub_settings("
             "key, value_json, schema_version, revision, updated_at) "
             "VALUES (?, ?, 1, 1, ?)",
-            ("registration_enabled", "false", utc_now()),
+            ("registration_mode", '"closed"', utc_now()),
         )
         connection.execute(
             "INSERT OR IGNORE INTO hub_settings("
@@ -56,6 +64,10 @@ def initialize_hub_database(database_path: Path) -> None:
             ("registration_default_role", '"user"', utc_now()),
         )
         _validate_schema(connection)
+    if migrated:
+        logging.getLogger(__name__).info(
+            "Upgraded legacy Hub registration and model settings",
+        )
 
 
 def ensure_tenant(

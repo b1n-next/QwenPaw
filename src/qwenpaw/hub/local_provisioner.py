@@ -246,6 +246,7 @@ class LocalProcessRuntimeProvisioner(RuntimeProvisioner):
                     "",
                 ),
             )
+            self.verify_model_connection(starting, isolated.environment)
         except Exception as exc:
             self._terminate(record.runtime_id, process)
             raise RuntimeError(
@@ -423,6 +424,11 @@ class LocalProcessRuntimeProvisioner(RuntimeProvisioner):
         policy_baseline = credentials.get("QWENPAW_POLICY_BASELINE_JSON")
         if policy_baseline:
             environment["QWENPAW_POLICY_BASELINE_JSON"] = policy_baseline
+        # upstream #7779: the hub model gateway endpoint rides the same
+        # hub-originated projection
+        for name in ("QWENPAW_HUB_MODEL_URL", "QWENPAW_HUB_MODEL_TOKEN"):
+            if credentials.get(name):
+                environment[name] = credentials[name]
         environment["PYTHONUNBUFFERED"] = "1"
         environment["PYTHONIOENCODING"] = "utf-8"
         return environment

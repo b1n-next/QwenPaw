@@ -4,7 +4,12 @@ import {
   bailianDarkTheme,
   bailianTheme,
 } from "@agentscope-ai/design";
-import { App as AntdApp, theme as antdTheme } from "antd";
+import {
+  App as AntdApp,
+  ConfigProvider as AntdConfigProvider,
+  theme as antdTheme,
+} from "antd";
+import designI18n from "@agentscope-ai/design/lib/i18n";
 import type { ThemeConfig as AntThemeConfig } from "antd";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -336,6 +341,9 @@ function AppInner({ backendInfo }: { backendInfo: BackendInfo }) {
   const [antdLocale, setAntdLocale] = useState<Locale>(
     antdLocaleMap[lang] ?? enUS,
   );
+  useEffect(() => {
+    designI18n.updateLocale(antdLocale.locale);
+  }, [antdLocale]);
 
   useEffect(() => {
     if (!localStorage.getItem("language")) {
@@ -493,7 +501,9 @@ function AppInner({ backendInfo }: { backendInfo: BackendInfo }) {
         {...selectedTheme}
         prefix="qwenpaw"
         prefixCls="qwenpaw"
-        locale={antdLocale}
+        // Spark keys its App by locale. Keep that boundary stable and update
+        // Ant Design's context below it so unsent attachments survive.
+        locale={enUS}
         theme={{
           ...(selectedTheme as { theme?: AntThemeConfig }).theme,
           algorithm: isDark
@@ -502,14 +512,16 @@ function AppInner({ backendInfo }: { backendInfo: BackendInfo }) {
           token: getAppThemeToken(userTheme, isDark),
         }}
       >
-        <AntdApp>
-          <CloseWindowPrompt />
-          <DesktopUpdateProvider>
-            <UpdateTakeoverGate>
-              <ApprovalProvider>{routedContent}</ApprovalProvider>
-            </UpdateTakeoverGate>
-          </DesktopUpdateProvider>
-        </AntdApp>
+        <AntdConfigProvider locale={antdLocale}>
+          <AntdApp>
+            <CloseWindowPrompt />
+            <DesktopUpdateProvider>
+              <UpdateTakeoverGate>
+                <ApprovalProvider>{routedContent}</ApprovalProvider>
+              </UpdateTakeoverGate>
+            </DesktopUpdateProvider>
+          </AntdApp>
+        </AntdConfigProvider>
       </ConfigProvider>
     </>
   );

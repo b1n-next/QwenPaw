@@ -18,6 +18,8 @@ import { Slot } from "../../plugins/registry/Slot";
 import { pickSelectedKey } from "./routeSelection";
 import { deniedPathsForRoutes, isPathDenied } from "../registry/permissions";
 
+import { HubModeContext } from "../../contexts/HubModeContext";
+
 const { Content } = Layout;
 
 export default function MainLayout({ hubMode = false }: { hubMode?: boolean }) {
@@ -67,29 +69,30 @@ export default function MainLayout({ hubMode = false }: { hubMode?: boolean }) {
   );
 
   return (
-    <Layout className={styles.mainLayout}>
-      {!settingsCenterActive && (
-        <Sidebar selectedKey={selectedKey} hubMode={hubMode} />
-      )}
-      <Layout className={styles.mainContentLayout}>
-        <Header showBrand={settingsCenterActive} />
-        <Content className="page-container">
-          <ConsolePollService />
-          <AgentStatusPollingController />
-          <Slot name="content.statusBar" kind="fill" />
-          <div className="page-content">
-            <ChunkErrorBoundary
-              resetKey={currentPath}
-              canRestartRuntime={hubMode}
-            >
-              <Suspense
-                fallback={
-                  <Spin
-                    tip={t("common.loading")}
-                    style={{ display: "block", margin: "20vh auto" }}
-                  />
-                }
+    <HubModeContext.Provider value={hubMode}>
+      <Layout className={styles.mainLayout}>
+        {!settingsCenterActive && (
+          <Sidebar selectedKey={selectedKey} hubMode={hubMode} />
+        )}
+        <Layout className={styles.mainContentLayout}>
+          <Header showBrand={settingsCenterActive} />
+          <Content className="page-container">
+            <ConsolePollService />
+            <AgentStatusPollingController />
+            <Slot name="content.statusBar" kind="fill" />
+            <div className="page-content">
+              <ChunkErrorBoundary
+                resetKey={currentPath}
+                canRestartRuntime={hubMode}
               >
+                <Suspense
+                  fallback={
+                    <Spin
+                      tip={t("common.loading")}
+                      style={{ display: "block", margin: "20vh auto" }}
+                    />
+                  }
+                >
                 {pathDenied ? (
                   <Navigate to="/chat" replace />
                 ) : (
@@ -103,12 +106,13 @@ export default function MainLayout({ hubMode = false }: { hubMode?: boolean }) {
                     ))}
                   </Routes>
                 )}
-              </Suspense>
-            </ChunkErrorBoundary>
-          </div>
-        </Content>
+                </Suspense>
+              </ChunkErrorBoundary>
+            </div>
+          </Content>
+        </Layout>
+        <Slot name="overlay.global" kind="fill" />
       </Layout>
-      <Slot name="overlay.global" kind="fill" />
-    </Layout>
+    </HubModeContext.Provider>
   );
 }
