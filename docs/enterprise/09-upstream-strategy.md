@@ -105,6 +105,9 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/hub/auth.py`（追加） | EP-2-2 `find_by_username`（JIT 查找） | Ph2 | EP-2-2 |
 | `src/qwenpaw/app/routers/console_profile.py`（新文件） | EP-2-9 直连 runtime 受限 profile 端点（B6） | Ph2 | EP-2-9 |
 | `src/qwenpaw/app/_app.py`（追加 2 行） | EP-2-9 profile router 挂载（import + include） | Ph2 | EP-2-9 |
+| `deploy/helm/qwenpaw-hub/values-{dev,staging,prod}.yaml`（新文件 ×3） | EP-2-10 环境分层三档（模板真实消费项 + 策略档案 key 注明） | Ph2 | EP-2-10 |
+| `deploy/scripts/hub-smoke.sh`（新文件） | EP-2-10 金丝雀冒烟门（五关：鉴权/登录/健康/权限契约/registry） | Ph2 | EP-2-10 |
+| `docs/enterprise/runbook-canary-upgrade.md`（新文件） | EP-2-10 金丝雀五步手册 + kind 全链路演练记录（含 merge-patch 踩坑警示） | Ph2 | EP-2-10 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/mobile/approvals`（1 行 import + include，根路径非 /api） | Ph3 | G-P14 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 `/api/mcp-server`（1 行 import + include；`/api/mcp/*` 既有客户端面不动） | Ph2 | EP-2-20 |
 | `src/qwenpaw/app/_app.py`（追加） | 挂载 A2A 面（root `/.well-known/agent-card.json` + `/api/a2a`，2 行 include） | Ph2 | EP-2-21 |
