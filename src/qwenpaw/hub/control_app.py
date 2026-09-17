@@ -11,6 +11,7 @@ import os
 import re
 import secrets
 import sqlite3
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, AsyncIterator
@@ -71,6 +72,7 @@ from .metrics import HubMetrics
 from .oidc import OidcClient, OidcError, OidcSettings
 from .database import HubExtensionStore
 from .ratelimit import RateLimiter
+from .siem import SiemRelay
 from .quota import QuotaEngine, UsageSnapshot
 
 
@@ -92,7 +94,12 @@ from .policy_catalog import PolicyCatalogStore
 from .key_pool import KeyPool
 from .prompt_library import PromptLibrary
 from .templates import TemplateStore
-from .trace import TRACE_HEADER, trace_id_from_headers
+from .trace import (
+    TRACE_HEADER,
+    TRACEPARENT_HEADER,
+    trace_id_from_headers,
+    traceparent_from_headers,
+)
 from .usage import UsageCollector, UsageStore
 from .oauth_routes import oauth_callback_route, runtime_oauth_callback_path
 from .proxy_limits import (
@@ -495,6 +502,8 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.state.capability_requirement = (
         lambda: CapabilityRequirement.from_document(None)
     )
+    # F9: SIEM relay (best-effort mirror of audit events)
+    app.state.siem_relay = SiemRelay()
     # EP-1-1: central model provider catalog (shares control.db + its
     # own secrets key under <hub root>/secrets/).
     app.state.model_catalog = ModelCatalogStore(
@@ -670,6 +679,20 @@ def create_hub_app(  # pylint: disable=too-many-statements
             trace_id=trace_id,
             outcome=outcome,
             remote_address=remote_address,
+        )
+        # F9: mirror to the SIEM relay when configured (never blocks
+        # or fails the request path — see SiemRelay.enqueue)
+        app.state.siem_relay.enqueue(
+            {
+                "actor_user_id": user.user_id,
+                "actor_username": user.username,
+                "action": action,
+                "resource_type": resource_type,
+                "resource_id": resource_id,
+                "outcome": outcome,
+                "trace_id": trace_id,
+                "detail": detail or {},
+            },
         )
 
     async def record_auth_event(
@@ -1632,6 +1655,92 @@ def create_hub_app(  # pylint: disable=too-many-statements
             ) from exc
         return await runtime_payload(record)
 
+    @app.post(
+        "/api/hub/runtimes/{runtime_id}/sandbox-jobs",
+        status_code=201,
+    )
+    async def launch_sandbox_job(
+        runtime_id: str,
+        payload: dict[str, Any],
+        user: HubUser = Depends(require_user),
+    ) -> dict[str, Any]:
+        """Dispatch one on-demand sandbox Job (G7 tier-2).
+
+        The resident agent Pod is untouched; untrusted or heavy
+        execution lands in a hardened, TTL-cleaned Job.
+        """
+        await require_runtime_access(runtime_id, user)
+        record = await run_in_threadpool(
+            runtime_service.registry.get,
+            runtime_id,
+        )
+        if record is None:
+            raise HTTPException(status_code=404, detail="Runtime not found")
+        command = payload.get("command")
+        if (
+            not isinstance(command, list)
+            or not command
+            or not all(isinstance(item, str) and item for item in command)
+        ):
+            raise HTTPException(422, "command must be a string list")
+        if len(command) > 32:
+            raise HTTPException(422, "command too long")
+        ttl = int(payload.get("ttl_seconds") or 3600)
+        if ttl < 60 or ttl > 86400:
+            raise HTTPException(422, "ttl_seconds must be 60..86400")
+        timeout = int(payload.get("timeout_seconds") or 600)
+        if timeout < 10 or timeout > 7200:
+            raise HTTPException(422, "timeout_seconds must be 10..7200")
+        provisioner = runtime_service.provisioners.get(
+            record.provisioner,
+        )
+        launcher = getattr(provisioner, "launch_sandbox_job", None)
+        if launcher is None:
+            raise HTTPException(
+                status_code=501,
+                detail={
+                    "code": "SANDBOX_JOBS_UNSUPPORTED",
+                    "message": (
+                        "This runtime's provisioner does not offer "
+                        "tier-2 sandbox jobs."
+                    ),
+                },
+            )
+        job_id = uuid.uuid4().hex
+        try:
+            job_name = await run_in_threadpool(
+                launcher,
+                record,
+                command=command,
+                job_id=job_id,
+                ttl_seconds=ttl,
+                timeout_seconds=timeout,
+            )
+        except Exception as exc:  # provisioner transport failures
+            raise HTTPException(
+                status_code=502,
+                detail=f"Sandbox job dispatch failed: {exc}",
+            ) from exc
+        await record_audit(
+            user,
+            "runtime.sandbox_job",
+            "runtime",
+            runtime_id,
+            {
+                "job_id": job_id,
+                "job_name": job_name,
+                "command": command[:4],
+                "ttl_seconds": ttl,
+                "timeout_seconds": timeout,
+            },
+        )
+        return {
+            "job_id": job_id,
+            "job_name": job_name,
+            "ttl_seconds": ttl,
+            "timeout_seconds": timeout,
+        }
+
     @app.post("/api/hub/runtimes/{runtime_id}/start")
     async def start_runtime(
         runtime_id: str,
@@ -2409,6 +2518,43 @@ def create_hub_app(  # pylint: disable=too-many-statements
             "range": {"start": start, "end": end},
         }
 
+    @app.get("/api/hub/models")
+    async def user_model_catalog(
+        user: HubUser = Depends(require_user),
+    ) -> dict[str, Any]:
+        """Catalog visible to the caller, policy-filtered (E9).
+
+        Visibility == activatability: the same model:* policies
+        gate the E4 activation path, so the catalog never shows a
+        model the proxy would refuse to activate.
+        """
+        records = await run_in_threadpool(
+            model_catalog.list_providers,
+            include_disabled=False,
+        )
+        user_groups = await run_in_threadpool(
+            app.state.group_store.group_names_for,
+            user.user_id,
+        )
+        user_policies = await run_in_threadpool(
+            app.state.group_store.policies_for,
+            user_id=user.user_id,
+            groups=user_groups,
+            role=user.role,
+        )
+        models: list[dict[str, Any]] = []
+        for record in records:
+            for model in record.models or []:
+                if _model_policies_allow(user_policies, model):
+                    models.append(
+                        {
+                            "provider_id": record.provider_id,
+                            "model": model,
+                            "default": model == record.default_model,
+                        },
+                    )
+        return {"models": models, "total": len(models)}
+
     @app.get("/api/hub/models/fallbacks")
     async def models_fallbacks(
         _user: HubUser = Depends(require_user),
@@ -2520,6 +2666,51 @@ def create_hub_app(  # pylint: disable=too-many-statements
             {"revision": revision, **body.model_dump()},
         )
         return {"revision": revision, **body.model_dump()}
+
+    @app.get("/api/hub/admin/siem")
+    async def admin_siem_status(
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """Relay health: queue depth, sent/dropped, last error (F9)."""
+        return await run_in_threadpool(app.state.siem_relay.stats)
+
+    @app.put("/api/hub/admin/siem")
+    async def admin_siem_configure(
+        payload: dict[str, Any],
+        user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """Configure the SIEM webhook (F9). Empty endpoint disables."""
+        endpoint = payload.get("endpoint")
+        if endpoint is not None and not isinstance(endpoint, str):
+            raise HTTPException(422, "endpoint must be a string")
+        if endpoint and not endpoint.startswith(("http://", "https://")):
+            raise HTTPException(422, "endpoint must be an http(s) URL")
+        secret = str(payload.get("secret") or "")
+        batch_size = int(payload.get("batch_size") or 50)
+        if batch_size < 1 or batch_size > 1000:
+            raise HTTPException(422, "batch_size must be 1..1000")
+        flush_interval = float(payload.get("flush_interval") or 5.0)
+        if flush_interval < 0.5 or flush_interval > 300:
+            raise HTTPException(422, "flush_interval must be 0.5..300")
+        await run_in_threadpool(
+            app.state.siem_relay.configure,
+            endpoint or None,
+            secret=secret,
+            batch_size=batch_size,
+            flush_interval=flush_interval,
+        )
+        await record_audit(
+            user,
+            "siem.configure",
+            "hub",
+            "siem_relay",
+            {
+                "endpoint": endpoint or None,
+                "batch_size": batch_size,
+                "flush_interval": flush_interval,
+            },
+        )
+        return await run_in_threadpool(app.state.siem_relay.stats)
 
     @app.get("/api/hub/admin/audit/verify")
     async def admin_audit_verify(
@@ -3260,6 +3451,16 @@ def create_hub_app(  # pylint: disable=too-many-statements
             }
             headers["X-QwenPaw-Runtime-Token"] = internal_token
             headers[TRACE_HEADER] = trace_id
+            # F5: W3C tracecontext passthrough — drop malformed
+            # inbound values, forward only well-formed traceparent
+            # so the runtime's OTel SDK (when present) joins spans
+            inbound_traceparent = traceparent_from_headers(
+                request.headers,
+            )
+            if inbound_traceparent:
+                headers[TRACEPARENT_HEADER] = inbound_traceparent
+            else:
+                headers.pop(TRACEPARENT_HEADER, None)
             callback_route = oauth_callback_route(request.method, path)
             if callback_route:
                 public_base_url = (

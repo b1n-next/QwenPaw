@@ -181,3 +181,85 @@ def pod_manifest(
         },
         "spec": spec,
     }
+
+
+def sandbox_job_manifest(
+    record: Any,
+    *,
+    namespace: str,
+    image: str,
+    command: list[str],
+    job_id: str,
+    ttl_seconds: int = 3600,
+    timeout_seconds: int = 600,
+    environment: Mapping[str, str] | None = None,
+    resources: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    """One on-demand sandbox Job (G7 two-tier execution).
+
+    Tier 1 is the resident agent Pod (unchanged); tier 2 is this
+    short-lived hardened Job for untrusted/heavy code execution —
+    K8s never boots a fresh agent Pod per call. Hardened by
+    default: non-root, all capabilities dropped, no privilege
+    escalation, writable /tmp via emptyDir, TTL auto-cleanup and a
+    bounded activeDeadline.
+    """
+    environment = environment or {}
+    labels = runtime_labels(record)
+    labels["qwenpaw.ai/tier"] = "sandbox"
+    labels["qwenpaw.ai/job-id"] = job_id
+    env_list = [
+        {"name": str(key), "value": str(value)}
+        for key, value in sorted(environment.items())
+    ]
+    container: dict[str, Any] = {
+        "name": "sandbox",
+        "image": image,
+        "command": command,
+        "env": env_list,
+        "securityContext": {
+            "runAsNonRoot": True,
+            "allowPrivilegeEscalation": False,
+            "readOnlyRootFilesystem": True,
+            "capabilities": {"drop": ["ALL"]},
+        },
+        "volumeMounts": [
+            {"name": "tmp", "mountPath": "/tmp"},
+        ],
+    }
+    if resources:
+        container["resources"] = dict(resources)
+    return {
+        "apiVersion": "batch/v1",
+        "kind": "Job",
+        "metadata": {
+            "name": f"{pod_name(record)}-sbx-{job_id[:12]}",
+            "namespace": namespace,
+            "labels": labels,
+        },
+        "spec": {
+            "ttlSecondsAfterFinished": ttl_seconds,
+            "activeDeadlineSeconds": timeout_seconds,
+            "backoffLimit": 0,
+            "restartPolicy": "Never",
+            "template": {
+                "metadata": {"labels": labels},
+                "spec": {
+                    "containers": [container],
+                    "volumes": [
+                        {"name": "tmp", "emptyDir": {}},
+                    ],
+                },
+            },
+        },
+    }
+
+
+__all__ = [
+    "dns_name",
+    "pod_manifest",
+    "pvc_manifest",
+    "runtime_labels",
+    "sandbox_job_manifest",
+    "service_manifest",
+]

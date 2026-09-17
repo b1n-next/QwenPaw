@@ -28,6 +28,7 @@ from .manifest import (
     pod_name,
     pvc_manifest,
     pvc_name,
+    sandbox_job_manifest,
     service_manifest,
     service_name,
 )
@@ -167,6 +168,39 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
         if self._client_factory is None:
             self._client_factory = K8sClient.from_environment
         return self._client_factory()
+
+    def launch_sandbox_job(
+        self,
+        record: RuntimeRecord,
+        *,
+        command: list[str],
+        job_id: str,
+        environment: dict[str, str] | None = None,
+        ttl_seconds: int = 3600,
+        timeout_seconds: int = 600,
+    ) -> str:
+        """Create one on-demand sandbox Job (G7 tier-2 execution).
+
+        Returns the job name. The resident agent Pod stays put —
+        untrusted/heavy work runs here and self-cleans via TTL.
+        """
+        manifest = sandbox_job_manifest(
+            record,
+            namespace=str(self._namespace),
+            image=str(self._image),
+            command=command,
+            job_id=job_id,
+            ttl_seconds=ttl_seconds,
+            timeout_seconds=timeout_seconds,
+            environment=environment or {},
+        )
+        job = _run(
+            self._make_client().create(
+                "/apis/batch/v1/namespaces/" f"{self._namespace}/jobs",
+                manifest,
+            ),
+        )
+        return str(job["metadata"]["name"])
 
     def runtime_host(self, record: RuntimeRecord) -> str:
         """Cluster-local Service DNS name for *record*."""

@@ -70,7 +70,7 @@
 | E6 | 限流与并发控制 | HUB | ❌ | P2 | Ph2 | 高 |
 | E7 | E7 | 额度与成本控制（预算/熔断，与 F 区配额联动） | ✅（成本核算：单价表存模型扩展（`input/output_per_mtok`+currency，admin PUT 入审计）；`GET /admin/usage/costs` 按模型计价（MTok 单价 × usage 汇总）+ 按组汇总（tenant→组映射，无组落 `(ungrouped)`）+ 多币种合计 + `unpriced_models` 明示；读取入审计） | ✅ | Ph2（已落） | — |
 | E8 | Key 轮换机制 | GLM | 🟡（vault 有 secret 管理，轮换流程缺） | P2 | Ph2 | 中 |
-| E9 | 模型→RBAC 交叉（不同组可见不同模型子集） | GLM | ❌ | P2 | Ph2 | 高 |
+| E9 | E9 | 模型→RBAC 交叉（不同组可见不同模型子集） | ✅（`GET /api/hub/models` 用户面目录：enabled 目录 × 调用者组/用户 `model:*` 策略过滤；**可见性≡可激活**（与 E4 同一 `_model_policies_allow` 判定，deny 优先），目录不显代理会拒的模型；admin 目录端点不受影响） | ✅ | Ph2（已落） | — |
 | E10 | 计费精度到对话/Agent 级 | GLM | ❌ | P3 | backlog | 中 |
 
 ## F. 用量与可观测
@@ -81,11 +81,11 @@
 | F2 | 计量采集点（**架构偏差：拉取式**——hub 每 60s 拉 runtime `/api/token-usage/details`，零 runtime patch，代理层不解析 SSE 原则保持） | AUD | ✅（07 §7 偏差说明 + `usage_counters` 幂等快照表） | P1 | Ph1 | 中 |
 | F3 | 配额软硬双阈值（80% 告警 / 100% 熔断，hub 代理前置检查） | HUB/GLM | ❌ | P1 | Ph2 | 高 |
 | F4 | Prometheus 指标导出（hub `/metrics`） | GLM | ❌ | P2 | Ph2 | 中 |
-| F5 | OpenTelemetry trace | GLM | ❌ | P3 | backlog | 中 |
+| F5 | F5 | OpenTelemetry trace | ✅（W3C tracecontext：`trace.py` 增 `sanitize/traceparent` 解析（version-00 严格校验，畸形即弃）+ trace-id 回退映射；代理转发注入 `traceparent` 下游（runtime OTel SDK 可接）；`X-QwenPaw-Trace-Id` 贯穿保持。**OTLP 全家桶不引入**——零依赖原则下的显式取舍，hub 侧 trace 已全程贯穿） | ✅ | Ph2（已落） | — |
 | F6 | 审计事件结构化（who/what/when/allow-deny/reason，落 operations store 扩展表） | GLM/AUD | 🟡（`hub_audit_events` 五要素已落（actor/action/resource/outcome/correlation_id）；acl_denied 已有、quota 预留字段 ☐——**EP-1-5 2026-09-14 降级并入 EP-2-3 配额票**实施） | P1 | Ph1（残留）/Ph2（quota 字段） | 中 |
 | F7 | 运行时日志按租户留存与检索 | HUB | 🟡（runtime 日志本地；hub 不汇聚） | P2 | Ph2 | 中 |
 | F8 | 健康状态面板（runtime 起停/资源，admin 页已有骨架） | HUB | 🟡（overview/runtimes 列表 + 起停随 hub 交付；**资源粒度深化 2026-09-14 归置 Ph2**——与 EP-2-4 metrics 指标源共用管线，无独立 Ph1 票故显式改期） | P1 | **Ph2** | 低 |
-| F9 | SIEM 对接/日志外送 | GLM | ❌ | P3 | backlog | 低 |
+| F9 | F9 | SIEM 对接/日志外送 | ✅（`hub/siem.py` SiemRelay：审计事件 JSONL 批量外送 webhook（batch_size/flush_interval/secret 头可配）；fire-and-forget 不阻塞请求路径，失败计数+last_error 可观测（`GET/PUT /admin/siem`）；H2 链不依赖 relay 存活） | ✅ | Ph2（已落） | — |
 
 ## G. 运行时与隔离
 
@@ -97,7 +97,7 @@
 | G4 | gVisor/Kata/MicroVM 后端 | HUB | ✅（`SandboxMode.CONTAINER`：docker run/exec/rm，`platform_hints[container_runtime]` 直通 `--runtime`（gVisor/Kata 零代码切换），内存/pids 为真实 cgroup 限额；live 验收套真 daemon 证明隔离属性（2026-09-17，`aee532b8`/`5255f348`）） | ✅ | Ph3（已提前落） | — |
 | G5 | 远程 runtime 后端（跨机） | HUB | ❌ | P3 | backlog | 中 |
 | G6 | per-tenant 运行时池与资源上限（Docker 已有 limits，K8s 用 quotas/limits） | HUB/GLM | 🟡 | P1 | Ph1 | 高 |
-| G7 | 常驻 Agent Pod + 按需沙箱 Job 两级执行（K8s 场景沙箱不逐调用启 Pod） | AUD/GLM | ❌ | P2 | Ph2 | 中 |
+| G7 | G7 | 常驻 Agent Pod + 按需沙箱 Job 两级执行（K8s 场景沙箱不逐调用启 Pod） | ✅（两级执行：常驻 agent Pod（现状不动）+ `sandbox_job_manifest()` 按需沙箱 Job——batch/v1，默认加固（non-root/drop ALL/禁提权/只读 rootfs+tmp emptyDir）、TTL 自清、activeDeadline 上限、backoff 0；provisioner `launch_sandbox_job` 派发；端点 `POST /runtimes/{id}/sandbox-jobs`（校验+审计+501 优雅降级）） | ✅ | Ph2（已落） | — |
 
 ## H. 数据治理与合规
 
