@@ -93,19 +93,19 @@ export default function MainLayout({ hubMode = false }: { hubMode?: boolean }) {
                     />
                   }
                 >
-                {pathDenied ? (
-                  <Navigate to="/chat" replace />
-                ) : (
-                  <Routes>
-                    {renderableRoutes.map((r) => (
-                      <Route
-                        key={r.id}
-                        path={r.path}
-                        element={<r.Component />}
-                      />
-                    ))}
-                  </Routes>
-                )}
+                  {pathDenied ? (
+                    <Navigate to="/chat" replace />
+                  ) : (
+                    <Routes>
+                      {renderableRoutes.map((r) => (
+                        <Route
+                          key={r.id}
+                          path={r.path}
+                          element={<r.Component />}
+                        />
+                      ))}
+                    </Routes>
+                  )}
                 </Suspense>
               </ChunkErrorBoundary>
             </div>

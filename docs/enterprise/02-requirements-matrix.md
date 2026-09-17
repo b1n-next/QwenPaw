@@ -30,7 +30,7 @@
 | B2 | user 角色的对应 API 在 hub 代理层 403（真安全边界） | USR/AUD | ✅（`hub/acl/` 引擎 + 代理 decide→403 + `acl.denied` 审计；fail-closed；67+ 单测/集成用例） | **P0** | Ph0 | 低 |
 | B3 | WS 代理同步 ACL | AUD | ✅（websocket_proxy decide→close 1008） | P0 | Ph0 | 低 |
 | B4 | permissions 下发（**端点实现定名 `/api/hub/me/permissions`**，公开 version 端点不承载角色数据；四键 payload 含 model_readonly） | AUD | ✅（control_app.py + console_map.py） | P0 | Ph0 | 低 |
-| B5 | 按租户/组定制菜单白名单（而非全局两档） | USR 扩展 | ❌ | P2 | Ph2 | 低 |
+| B5 | 按租户/组定制菜单白名单（而非全局两档） | USR 扩展 | ✅（`acl/console_map.py` 组/用户 `menu:<group>` 策略消费，菜单载荷按策略过滤；`test_menu_policies.py` 7 用例） | P2 | Ph2（已落） | 低 |
 | B6 | B6 | 直连 runtime 场景的受限 profile（`QWENPAW_CONSOLE_PROFILE`） | ✅（EP-2-9：runtime 环境变量 `QWENPAW_CONSOLE_PROFILE=restricted` 启用 `/api/console/profile`（复用 hub user 档 payload，shape 同 `/hub/me/permissions`）；console 降级链升级为 permissions 404 → 探测 profile → 才全量；未设置/`full` 行为与上游完全一致） | ✅ | Ph2（已落） | — |
 | B7 | 移动端/瘦客户端仅对话视图 | #7318 社区 | ❌ | P3 | backlog | 中 |
 
@@ -66,8 +66,8 @@
 | E2 | 用户只见批准的模型目录/别名，不见凭据与 Endpoint | HUB/USR | ✅（服务端强制：代理 GET /api/models 目录过滤 + 密钥永不回显 `api_key_set`；@c0f5174a） | P0 | Ph1 | 高 |
 | E3 | 首启 bootstrap：新租户 runtime 自动拿到可用默认模型 | HUB | ✅（`QWENPAW_MODEL_BOOTSTRAP_JSON` env + re-sync 钩子，04 §7；真机 E2E 过） | P0 | Ph1 | 高 |
 | E4 | E4 | 默认模型与按用途路由（编码→强模型，闲聊→轻模型） | ✅（模型路由策略：`model:<id>`/`model:*` 策略在成员激活 `PUT /api/models/active` 时代理内生效——catalog 门之后二次收口；deny 优先（对齐引擎/B5）；无策略沿用 catalog 判定；403 `MODEL_FORBIDDEN_BY_POLICY` 带目标模型） | ✅ | Ph2（已落） | — |
-| E5 | 故障切换/fallback 链 | HUB | ❌ | P2 | Ph2 | 高 |
-| E6 | 限流与并发控制 | HUB | ❌ | P2 | Ph2 | 高 |
+| E5 | 故障切换/fallback 链 | HUB | 🟡（配置面已落：fallback 链存储+admin CRUD+审计；**消费面未接**——网关/代理按链故障切换留待应用线接线，届时升 ✅） | P2 | Ph2（半边） | 高 |
+| E6 | 限流与并发控制 | HUB | ✅（`ratelimit.py` 令牌桶+并发槽；代理门链 429+Retry-After+`ratelimit.exceeded` 审计+`qwenpaw_hub_rate_limited_total` 指标，finally 释放槽位） | P2 | Ph2（已落） | 高 |
 | E7 | E7 | 额度与成本控制（预算/熔断，与 F 区配额联动） | ✅（成本核算：单价表存模型扩展（`input/output_per_mtok`+currency，admin PUT 入审计）；`GET /admin/usage/costs` 按模型计价（MTok 单价 × usage 汇总）+ 按组汇总（tenant→组映射，无组落 `(ungrouped)`）+ 多币种合计 + `unpriced_models` 明示；读取入审计） | ✅ | Ph2（已落） | — |
 | E8 | Key 轮换机制 | GLM | 🟡（vault 有 secret 管理，轮换流程缺） | P2 | Ph2 | 中 |
 | E9 | E9 | 模型→RBAC 交叉（不同组可见不同模型子集） | ✅（`GET /api/hub/models` 用户面目录：enabled 目录 × 调用者组/用户 `model:*` 策略过滤；**可见性≡可激活**（与 E4 同一 `_model_policies_allow` 判定，deny 优先），目录不显代理会拒的模型；admin 目录端点不受影响） | ✅ | Ph2（已落） | — |
@@ -79,8 +79,8 @@
 |---|---|---|---|---|---|---|
 | F1 | per-user token/成本统计 | HUB | ✅ token 维度（`usage/collector+store` + admin 用量页 by_user/by_model/by_date + 真机对账；**成本估算 ☐ Ph2** 依赖单价表，见 07 §7） | P1 | Ph1 | 高 |
 | F2 | 计量采集点（**架构偏差：拉取式**——hub 每 60s 拉 runtime `/api/token-usage/details`，零 runtime patch，代理层不解析 SSE 原则保持） | AUD | ✅（07 §7 偏差说明 + `usage_counters` 幂等快照表） | P1 | Ph1 | 中 |
-| F3 | 配额软硬双阈值（80% 告警 / 100% 熔断，hub 代理前置检查） | HUB/GLM | ❌ | P1 | Ph2 | 高 |
-| F4 | Prometheus 指标导出（hub `/metrics`） | GLM | ❌ | P2 | Ph2 | 中 |
+| F3 | 配额软硬双阈值（80% 告警 / 100% 熔断，hub 代理前置检查） | HUB/GLM | ✅（QuotaEngine 软/硬双阈值，代理前置 403 QUOTA_EXCEEDED；软阈值 X-QwenPaw-Quota-Warning 响应头+审计+指标；`/admin/quota` 管理；14 测试） | P1 | Ph2（已落） | 高 |
+| F4 | Prometheus 指标导出（hub `/metrics`） | GLM | ✅（`metrics.py` exposition + `GET /api/hub/metrics`（require_user）+ `deploy/prometheus/qwenpaw-alerts.yaml` 告警样例；9 测试） | P2 | Ph2（已落） | 中 |
 | F5 | F5 | OpenTelemetry trace | ✅（W3C tracecontext：`trace.py` 增 `sanitize/traceparent` 解析（version-00 严格校验，畸形即弃）+ trace-id 回退映射；代理转发注入 `traceparent` 下游（runtime OTel SDK 可接）；`X-QwenPaw-Trace-Id` 贯穿保持。**OTLP 全家桶不引入**——零依赖原则下的显式取舍，hub 侧 trace 已全程贯穿） | ✅ | Ph2（已落） | — |
 | F6 | 审计事件结构化（who/what/when/allow-deny/reason，落 operations store 扩展表） | GLM/AUD | 🟡（`hub_audit_events` 五要素已落（actor/action/resource/outcome/correlation_id）；acl_denied 已有、quota 预留字段 ☐——**EP-1-5 2026-09-14 降级并入 EP-2-3 配额票**实施） | P1 | Ph1（残留）/Ph2（quota 字段） | 中 |
 | F7 | 运行时日志按租户留存与检索 | HUB | 🟡（runtime 日志本地；hub 不汇聚） | P2 | Ph2 | 中 |
@@ -93,7 +93,7 @@
 |---|---|---|---|---|---|---|
 | G1 | Runtime Provisioner 第三实现：K8s（per-tenant Pod） | HUB | ✅（六方法 + 14 单测 + kind 验收四项（Pod/PVC/Service/stop 保会话/fail-closed）；06 §7.1） | P1 | Ph1 | **高** |
 | G2 | G2 | 能力协商协议（requirement ⊆ capability 才调度；schema 借 `SandboxCapability`） | ✅（`hub/capability.py`：`RuntimeCapability`（version/sandbox[借 SandboxCapability 形状]/tools，metadata 往返）+ `CapabilityRequirement` + `negotiate()`（requirement ⊆ capability：**数值序**版本比较、沙箱必选、工具子集）；注册无门记录能力集（可观测），**start 端点协商调度**：不满足 → 409 `CAPABILITY_MISMATCH` + missing 明细 + 审计 failure；admin `GET/PUT /runtime-requirements` 热设要求（入审计）；runtime payload 透出 capabilities） | ✅ | Ph2（已落） | — |
-| G3 | 拒绝启动而非降级（fail-closed）+ 硬拒绝/软降级区分 | HUB/GLM | 🟡（**Ph1 半边达成**：preflight fail-closed + k8s 清单资源限额（06 §7）；能力级细分（G2 协商）仍 Ph2） | P1 | Ph1✅/Ph2（细分） | 中 |
+| G3 | 拒绝启动而非降级（fail-closed）+ 硬拒绝/软降级区分 | HUB/GLM | ✅（preflight fail-closed（Ph1）+ G2 协商门：requirement ⊄ capability → 409 CAPABILITY_MISMATCH + missing 明细 + 审计，硬拒绝语义全程无静默降级） | P1 | Ph1+Ph2（已落） | 中 |
 | G4 | gVisor/Kata/MicroVM 后端 | HUB | ✅（`SandboxMode.CONTAINER`：docker run/exec/rm，`platform_hints[container_runtime]` 直通 `--runtime`（gVisor/Kata 零代码切换），内存/pids 为真实 cgroup 限额；live 验收套真 daemon 证明隔离属性（2026-09-17，`aee532b8`/`5255f348`）） | ✅ | Ph3（已提前落） | — |
 | G5 | 远程 runtime 后端（跨机） | HUB | ❌ | P3 | backlog | 中 |
 | G6 | per-tenant 运行时池与资源上限（Docker 已有 limits，K8s 用 quotas/limits） | HUB/GLM | 🟡 | P1 | Ph1 | 高 |
