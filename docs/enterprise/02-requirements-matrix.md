@@ -97,7 +97,7 @@
 | G3 | 拒绝启动而非降级（fail-closed）+ 硬拒绝/软降级区分 | HUB/GLM | ✅（preflight fail-closed（Ph1）+ G2 协商门：requirement ⊄ capability → 409 CAPABILITY_MISMATCH + missing 明细 + 审计，硬拒绝语义全程无静默降级） | P1 | Ph1+Ph2（已落） | 中 |
 | G4 | gVisor/Kata/MicroVM 后端 | HUB | ✅（`SandboxMode.CONTAINER`：docker run/exec/rm，`platform_hints[container_runtime]` 直通 `--runtime`（gVisor/Kata 零代码切换），内存/pids 为真实 cgroup 限额；live 验收套真 daemon 证明隔离属性（2026-09-17，`aee532b8`/`5255f348`）） | ✅ | Ph3（已提前落） | — |
 | G5 | 远程 runtime 后端（跨机） | HUB | ❌ | P3 | backlog | 中 |
-| G6 | per-tenant 运行时池与资源上限（Docker 已有 limits，K8s 用 quotas/limits） | HUB/GLM | 🟡 | P1 | Ph1 | 高 |
+| G6 | per-tenant 运行时池与资源上限（Docker 已有 limits，K8s 用 quotas/limits） | HUB/GLM | ✅（三层齐备：① per-pod——chart `runtimes.resources` → `QWENPAW_HUB_K8S_{CPU,MEMORY}_{REQUEST,LIMIT}` env → provisioner configure → 容器 resources（既有）；② ns 级——`runtime-quota.yaml` 新模板：ResourceQuota（pods/cpu/memory/storage 聚合上限）+ LimitRange（兜底注入 default requests/limits，四键成对校验）；③ kind 实测：quota `pods: 0/8, requests.cpu: 0/8` 就位、LimitRange default 250m/512Mi~1/2Gi、hub healthz 200。per-tenant **差异化档位**留 Ph3（当前全局一档+ns 护栏，够企业起步）） | P1 | Ph1（已落） | 高 |
 | G7 | G7 | 常驻 Agent Pod + 按需沙箱 Job 两级执行（K8s 场景沙箱不逐调用启 Pod） | ✅（两级执行：常驻 agent Pod（现状不动）+ `sandbox_job_manifest()` 按需沙箱 Job——batch/v1，默认加固（non-root/drop ALL/禁提权/只读 rootfs+tmp emptyDir）、TTL 自清、activeDeadline 上限、backoff 0；provisioner `launch_sandbox_job` 派发；端点 `POST /runtimes/{id}/sandbox-jobs`（校验+审计+501 优雅降级）） | ✅ | Ph2（已落） | — |
 
 ## H. 数据治理与合规
@@ -150,7 +150,7 @@
 | ID | 需求 | 来源 | 状态（证据） |
 |---|---|---|---|
 | M1 | 插件清单格式与生成器（自产条目） | 24 §2② | 🟡 开源（`scripts/pack/*`、`plugins/*/plugin.json`） |
-| M2 | 插件安装/下载（CDN 链路自托管） | 24 §2② | 🟡 客户端开源；`PLUGIN_DOWNLOAD_CDN` 硬编码待配置化 |
+| M2 | 插件安装/下载（CDN 链路自托管） | 24 §2② | ✅（`PLUGIN_DOWNLOAD_CDN` 支持 `QWENPAW_PLUGIN_DOWNLOAD_CDN` env 覆盖——内网镜像指 env 即用；官方 CDN 保底默认） |
 | M3 | 应用/插件市场服务端（搜索/账号/发布） | 24 §2① | ❌ 官方闭源无源码；内网可仿 EP-2-19 模板市场自建 |
 | M4 | 技能市场 provider 接入 | 24 §2③ | 🟡 4 provider；platform/clawhub 闭源、modelscope 可自托管 |
 | M5 | 市场供应链安全（sha256/签名/缓存） | 24 §5 | ❌ 安装路径无摘要校验，内网源启用前必须补 |

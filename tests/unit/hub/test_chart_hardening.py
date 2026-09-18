@@ -132,6 +132,50 @@ class ChartHardeningTest(unittest.TestCase):
         self.assertIn("port: 53", out)
         self.assertIn("name: qwenpaw-runtimes", out)
 
+    def test_runtime_quota_off_by_default(self) -> None:
+        out = _render("--set", "hub.adminPassword=smoke")
+        self.assertNotIn("kind: ResourceQuota", out)
+        self.assertNotIn("kind: LimitRange", out)
+
+    def test_runtime_quota_renders_guardrails(self) -> None:
+        out = _render(
+            "--set",
+            "hub.adminPassword=smoke",
+            "--set",
+            "runtimes.quota.enabled=true",
+            "--set",
+            "runtimes.quota.maxPods=20",
+            "--set",
+            "runtimes.quota.requestsCpu=20",
+            "--set",
+            "runtimes.quota.requestsStorage=500Gi",
+            "--set",
+            "runtimes.quota.defaultRequestCpu=250m",
+            "--set",
+            "runtimes.quota.defaultRequestMemory=512Mi",
+            "--set",
+            "runtimes.quota.defaultLimitCpu=1",
+            "--set",
+            "runtimes.quota.defaultLimitMemory=2Gi",
+        )
+        self.assertIn("kind: ResourceQuota", out)
+        self.assertIn('pods: "20"', out)
+        self.assertIn('requests.storage: "500Gi"', out)
+        # LimitRange backstops pods that launch without explicit sizing
+        self.assertIn("kind: LimitRange", out)
+        self.assertIn("defaultRequest:", out)
+
+    def test_runtime_quota_rejects_half_pairs(self) -> None:
+        with self.assertRaises(subprocess.CalledProcessError):
+            _render(
+                "--set",
+                "hub.adminPassword=smoke",
+                "--set",
+                "runtimes.quota.enabled=true",
+                "--set",
+                "runtimes.quota.defaultLimitCpu=1",
+            )
+
     def test_service_account_token_stays_mounted(self) -> None:
         # the K8s runtime provisioner needs the API; the flag is
         # explicit so a future default flip cannot break provisioning

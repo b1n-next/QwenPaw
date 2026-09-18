@@ -1,0 +1,57 @@
+{{- if .Values.runtimes.quota.enabled }}
+# G6: namespace-level guardrails for the runtimes namespace. Per-pod
+# sizing rides QWENPAW_HUB_K8S_* env (provisioner configure); these
+# bounds cap the aggregate so one tenant fleet cannot starve the node.
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: qwenpaw-runtimes-quota
+  namespace: {{ .Values.runtimes.namespace }}
+  labels:
+    app.kubernetes.io/name: qwenpaw-hub
+    app.kubernetes.io/part-of: qwenpaw
+spec:
+  hard:
+{{- if .Values.runtimes.quota.maxPods }}
+    pods: {{ .Values.runtimes.quota.maxPods | quote }}
+{{- end }}
+{{- if .Values.runtimes.quota.requestsCpu }}
+    requests.cpu: {{ .Values.runtimes.quota.requestsCpu | quote }}
+{{- end }}
+{{- if .Values.runtimes.quota.requestsMemory }}
+    requests.memory: {{ .Values.runtimes.quota.requestsMemory | quote }}
+{{- end }}
+{{- if .Values.runtimes.quota.limitsCpu }}
+    limits.cpu: {{ .Values.runtimes.quota.limitsCpu | quote }}
+{{- end }}
+{{- if .Values.runtimes.quota.limitsMemory }}
+    limits.memory: {{ .Values.runtimes.quota.limitsMemory | quote }}
+{{- end }}
+{{- if .Values.runtimes.quota.requestsStorage }}
+    requests.storage: {{ .Values.runtimes.quota.requestsStorage | quote }}
+{{- end }}
+{{- if and .Values.runtimes.quota.defaultRequestCpu .Values.runtimes.quota.defaultRequestMemory }}
+---
+# Every runtime pod gets requests/limits injected even if a future
+# provisioner path forgets them (defense in depth for the quota above).
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: qwenpaw-runtimes-limits
+  namespace: {{ .Values.runtimes.namespace }}
+  labels:
+    app.kubernetes.io/name: qwenpaw-hub
+    app.kubernetes.io/part-of: qwenpaw
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: {{ .Values.runtimes.quota.defaultRequestCpu | quote }}
+        memory: {{ .Values.runtimes.quota.defaultRequestMemory | quote }}
+      default:
+        cpu: {{ .Values.runtimes.quota.defaultLimitCpu | quote }}
+        memory: {{ .Values.runtimes.quota.defaultLimitMemory | quote }}
+{{- else if or .Values.runtimes.quota.defaultLimitCpu .Values.runtimes.quota.defaultLimitMemory }}
+{{- fail "runtimes.quota default request/limit pairs must be set together (cpu+memory)" }}
+{{- end }}
+{{- end }}

@@ -57,6 +57,22 @@ runtimes:
     limits:
       cpu: "2"
       memory: 4Gi
+  # G6: namespace-level guardrails (ResourceQuota + LimitRange) for
+  # the runtimes namespace. Per-pod sizing rides the resources block
+  # above; these cap the aggregate fleet and default any pod that
+  # somehow launches without explicit requests/limits.
+  quota:
+    enabled: false
+    # maxPods: "40"
+    # requestsCpu: "20"
+    # requestsMemory: 40Gi
+    # limitsCpu: "40"
+    # limitsMemory: 80Gi
+    # requestsStorage: 500Gi
+    # defaultRequestCpu: 250m
+    # defaultRequestMemory: 512Mi
+    # defaultLimitCpu: "1"
+    # defaultLimitMemory: 2Gi
   # A12 GPU affinity placeholders — left empty in Phase 1.
   nodeSelector: {}
   tolerations: []

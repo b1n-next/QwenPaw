@@ -66,3 +66,18 @@ upgrade:
     login: true
     healthz: true
     permissions: true
+
+# G6: namespace guardrails example for prod (enable + size per cluster):
+# runtimes:
+#   quota:
+#     enabled: true
+#     maxPods: "40"
+#     requestsCpu: "20"
+#     requestsMemory: 40Gi
+#     limitsCpu: "40"
+#     limitsMemory: 80Gi
+#     requestsStorage: 500Gi
+#     defaultRequestCpu: 250m
+#     defaultRequestMemory: 512Mi
+#     defaultLimitCpu: "1"
+#     defaultLimitMemory: 2Gi

@@ -8,6 +8,7 @@ import gzip
 import http.client
 import json
 import logging
+import os
 import urllib.error
 import urllib.request
 from typing import Any
@@ -19,7 +20,12 @@ from ..plugins.architecture import PluginManifest
 
 logger = logging.getLogger(__name__)
 
-PLUGIN_DOWNLOAD_CDN = "https://download.qwenpaw.agentscope.io"
+# Default official CDN; override with QWENPAW_PLUGIN_DOWNLOAD_CDN for
+# intranet self-hosted mirrors (M2, docs/enterprise/24 §3).
+PLUGIN_DOWNLOAD_CDN = (
+    os.environ.get("QWENPAW_PLUGIN_DOWNLOAD_CDN")
+    or "https://download.qwenpaw.agentscope.io"
+)
 _FETCH_TIMEOUT = 30
 
 
