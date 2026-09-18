@@ -70,7 +70,7 @@
 | E5 | 故障切换/fallback 链 | HUB | ✅（消费面已接：`ModelGateway.call` 按 admin 定义链逐跳重试（每跳全量 reserve+open 记账），seen-set 防跨模型环，成功响应带 `X-QwenPaw-Fallback` 头 + `qwenpaw_hub_model_fallback_total` 指标；链配置热读（admin PUT 即生效）；测试 `test_e5_failover.py` 4 例） | P2 | Ph2 | 高 |
 | E6 | 限流与并发控制 | HUB | ✅（`ratelimit.py` 令牌桶+并发槽；代理门链 429+Retry-After+`ratelimit.exceeded` 审计+`qwenpaw_hub_rate_limited_total` 指标，finally 释放槽位） | P2 | Ph2（已落） | 高 |
 | E7 | E7 | 额度与成本控制（预算/熔断，与 F 区配额联动） | ✅（成本核算：单价表存模型扩展（`input/output_per_mtok`+currency，admin PUT 入审计）；`GET /admin/usage/costs` 按模型计价（MTok 单价 × usage 汇总）+ 按组汇总（tenant→组映射，无组落 `(ungrouped)`）+ 多币种合计 + `unpriced_models` 明示；读取入审计） | ✅ | Ph2（已落） | — |
-| E8 | Key 轮换机制 | GLM | 🟡（vault 有 secret 管理，轮换流程缺） | P2 | Ph2 | 中 |
+| E8 | Key 轮换机制 | GLM | ✅（双通道：① provider key `POST .../providers/{id}/rotate-key`——新 key preflight 探测（GET /models）通过才落库，失败 409 保旧 key（fail-closed）+ 审计；② runtime internal token `POST .../runtimes/{id}/rotate-token`——vault 新值+PREVIOUS 双值，graph 推送 401 时宽限回退旧值，runtime 重启即全切 + 审计；流程手册 runbook-key-rotation） | P2 | Ph2（已落） | 中 |
 | E9 | E9 | 模型→RBAC 交叉（不同组可见不同模型子集） | ✅（`GET /api/hub/models` 用户面目录：enabled 目录 × 调用者组/用户 `model:*` 策略过滤；**可见性≡可激活**（与 E4 同一 `_model_policies_allow` 判定，deny 优先），目录不显代理会拒的模型；admin 目录端点不受影响） | ✅ | Ph2（已落） | — |
 | E10 | 计费精度到对话/Agent 级 | GLM | ❌ | P3 | backlog | 中 |
 
@@ -84,7 +84,7 @@
 | F4 | Prometheus 指标导出（hub `/metrics`） | GLM | ✅（`metrics.py` exposition + `GET /api/hub/metrics`（require_user）+ `deploy/prometheus/qwenpaw-alerts.yaml` 告警样例；9 测试） | P2 | Ph2（已落） | 中 |
 | F5 | F5 | OpenTelemetry trace | ✅（W3C tracecontext：`trace.py` 增 `sanitize/traceparent` 解析（version-00 严格校验，畸形即弃）+ trace-id 回退映射；代理转发注入 `traceparent` 下游（runtime OTel SDK 可接）；`X-QwenPaw-Trace-Id` 贯穿保持。**OTLP 全家桶不引入**——零依赖原则下的显式取舍，hub 侧 trace 已全程贯穿） | ✅ | Ph2（已落） | — |
 | F6 | 审计事件结构化（who/what/when/allow-deny/reason，落 operations store 扩展表） | GLM/AUD | 🟡（`hub_audit_events` 五要素已落（actor/action/resource/outcome/correlation_id）；acl_denied 已有、quota 预留字段 ☐——**EP-1-5 2026-09-14 降级并入 EP-2-3 配额票**实施） | P1 | Ph1（残留）/Ph2（quota 字段） | 中 |
-| F7 | 运行时日志按租户留存与检索 | HUB | 🟡（runtime 日志本地；hub 不汇聚） | P2 | Ph2 | 中 |
+| F7 | 运行时日志按租户留存与检索 | HUB | ✅（拉取式尾部留存：`hub/runtime_logs.py` RuntimeLogCollector 仿 EP-1-4（5min 拉 `/api/debug/backend-logs` 尾 500 行，internal token 通道），滚动保留 48 快照/runtime + sha256 去重；检索= `GET /api/hub/admin/runtimes/{id}/logs`（admin）；**边界诚实**：尾部窗口留存非日志管道（Loki/ELK 外置，07 §7）） | P2 | Ph2（已落） | 中 |
 | F8 | 健康状态面板（runtime 起停/资源，admin 页已有骨架） | HUB | 🟡（overview/runtimes 列表 + 起停随 hub 交付；**资源粒度深化 2026-09-14 归置 Ph2**——与 EP-2-4 metrics 指标源共用管线，无独立 Ph1 票故显式改期） | P1 | **Ph2** | 低 |
 | F9 | F9 | SIEM 对接/日志外送 | ✅（`hub/siem.py` SiemRelay：审计事件 JSONL 批量外送 webhook（batch_size/flush_interval/secret 头可配）；fire-and-forget 不阻塞请求路径，失败计数+last_error 可观测（`GET/PUT /admin/siem`）；H2 链不依赖 relay 存活） | ✅ | Ph2（已落） | — |
 

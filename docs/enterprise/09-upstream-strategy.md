@@ -128,6 +128,8 @@ git push -u origin feature/enterprise
 | `deploy/helm/qwenpaw-hub/templates/hub-deployment.yaml`（追加） | K8s 加固：automountServiceAccountToken 显式 true、podSecurityContext、>1 副本反亲和、startup/liveness 探针、containerSecurityContext（drop ALL/禁提权/RO rootfs）、/tmp emptyDir + PVC subPath 三挂载（RO rootfs 门控） | Ph2 | K8s 补件 |
 | `deploy/helm/qwenpaw-hub/values.yaml` + `values-prod.yaml`（追加） | K8s 加固开关与 prod 档默认（PDB/探针/securityContext/ingress/networkPolicy 全段） | Ph2 | K8s 补件 |
 | `deploy/prometheus/hub-scrape-job.yaml`（新文件） | metrics 抓取凭证样例（bearer_token_file Secret + 注解不可用说明 + 部署步骤） | Ph2 | K8s 补件 |
+| `src/qwenpaw/hub/control_app.py`（追加） | F7 拉取式日志留存接线（collector 挂 lifespan + admin 检索端点×2）+ E8 轮换端点×2（provider key preflight 轮换 / runtime token 双值轮换）+ graph 推送 401 宽限回退 | Ph2 | F7/E8 批 |
+| `src/qwenpaw/hub/runtime_logs.py`（新文件，fork 原生） | F7 RuntimeLogStore+Collector（尾部快照、滚动保留、sha256 去重） | Ph2 | F7 |
 | `tests/integration/test_hub_control_app_module.py`（追加 1 行） | 上游 #7779 `_runtime_payload` 增 capability 后 FakeRecord 缺 `metadata`（merge 遗留基线红，非 fork 回归）——补 `metadata = {}` | Ph2 | E5/D2/D3/A4 批 |
 | `console/src/pages/Hub/index.tsx`（fork 文件，吸收登记） | 上游 #7779 组件吸收：治理 section（OrganizationModels/OrganizationBudget/Invitations）+ 导航项 + governanceGrid 样式 | Ph2 | B8 吸收 |
 

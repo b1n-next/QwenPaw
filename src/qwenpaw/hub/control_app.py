@@ -104,6 +104,7 @@ from .trace import (
     traceparent_from_headers,
 )
 from .usage import UsageCollector, UsageStore
+from .runtime_logs import RuntimeLogCollector, RuntimeLogStore
 from .oauth_routes import oauth_callback_route, runtime_oauth_callback_path
 from .proxy_limits import (
     ProxyRequestIdleTimeoutError,
@@ -535,6 +536,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
     @asynccontextmanager
     async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         usage_collector.start()
+        runtime_log_collector.start()
         try:
             await run_in_threadpool(model_gateway.recover)
             model_networks.clear()
@@ -548,6 +550,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 yield
         finally:
             await usage_collector.stop()
+            await runtime_log_collector.stop()
             if docker_pulls is not None:
                 await run_in_threadpool(docker_pulls.close)
             await run_in_threadpool(runtime_service.close)
@@ -665,6 +668,17 @@ def create_hub_app(  # pylint: disable=too-many-statements
     # EP-1-4: usage accounting store (collector started in lifespan).
     app.state.usage_store = usage_store
     app.state.usage_collector = usage_collector
+    # F7: tenant-scoped runtime log tail retention (pull-based)
+    runtime_log_store = RuntimeLogStore(
+        runtime_service.registry.database_path,
+    )
+    runtime_log_collector = RuntimeLogCollector(
+        runtime_service=runtime_service,
+        credential_vault=credential_vault,
+        store=runtime_log_store,
+    )
+    app.state.runtime_log_store = runtime_log_store
+    app.state.runtime_log_collector = runtime_log_collector
 
     def require_loopback_runtime(record: RuntimeRecord) -> None:
         # EP-1-6: k8s runtimes live at cluster Service DNS names; the
@@ -2269,14 +2283,33 @@ def create_hub_app(  # pylint: disable=too-many-statements
         except Exception:  # noqa: BLE001 - instantiation must not 500
             return False
         target = f"http://{record.host}:{record.port}/api/graph/publish"
+
+        async def _post(client, value):
+            return await client.post(
+                target,
+                json={"graph": graph},
+                headers={"Authorization": f"Bearer {value}"},
+            )
+
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.post(
-                    target,
-                    json={"graph": graph},
-                    headers={"Authorization": f"Bearer {token}"},
-                )
-            return response.status_code == 200
+                response = await _post(client, token)
+                if response.status_code == 401:
+                    # E8 grace: a freshly rotated token only reaches the
+                    # runtime at its next (re)start; retry once with the
+                    # previous token so pushes survive the window.
+                    previous = await run_in_threadpool(
+                        credential_vault.get,
+                        tenant_id="__qwenpaw_hub_system__",
+                        scope=(
+                            f"runtime-control:{record.tenant_id}:"
+                            f"{record.runtime_id}"
+                        ),
+                        name="QWENPAW_RUNTIME_INTERNAL_TOKEN_PREVIOUS",
+                    )
+                    if previous:
+                        response = await _post(client, previous)
+                return response.status_code == 200
         except httpx.HTTPError:
             return False
 
@@ -3283,6 +3316,135 @@ def create_hub_app(  # pylint: disable=too-many-statements
         )
         return {"deleted": provider_id}
 
+    @app.post("/api/hub/admin/models/providers/{provider_id}/rotate-key")
+    async def rotate_provider_key(
+        provider_id: str,
+        request: Request,
+        admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Rotate one provider API key with a preflight probe (E8).
+
+        The new key is verified against GET {base_url}/models
+        before anything is stored; a failed probe keeps the old key
+        (fail-closed rotation) and reports the upstream answer.
+        """
+        record = model_catalog.get_provider(provider_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="provider not found")
+        body = await request.json()
+        new_key = str(body.get("api_key") or "")
+        if not new_key:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "KEY_REQUIRED"},
+            )
+        base_url = record.base_url.rstrip("/")
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                response = await client.get(
+                    f"{base_url}/models",
+                    headers={"Authorization": f"Bearer {new_key}"},
+                )
+            ok = response.status_code < 500
+            message = f"upstream responded HTTP {response.status_code}"
+        except httpx.HTTPError as exc:
+            ok = False
+            message = f"connection failed: {type(exc).__name__}"
+        if not ok:
+            await record_audit(
+                admin,
+                "model_catalog.key_rotate_rejected",
+                "model_provider",
+                provider_id,
+                detail={"probe": message},
+            )
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "ROTATE_PREFLIGHT_FAILED",
+                    "message": message,
+                },
+            )
+        updated = await run_in_threadpool(
+            model_catalog.upsert_provider,
+            provider_id=provider_id,
+            name=record.name,
+            base_url=record.base_url,
+            api_key=new_key,
+            models=record.models,
+            default_model=record.default_model,
+            enabled=record.enabled,
+        )
+        await record_audit(
+            admin,
+            "model_catalog.key_rotated",
+            "model_provider",
+            provider_id,
+            detail={"probe": message},
+        )
+        return _provider_payload(updated)
+
+    @app.post("/api/hub/admin/runtimes/{runtime_id}/rotate-token")
+    async def rotate_runtime_token(
+        runtime_id: str,
+        admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Rotate one runtime's internal boundary token (E8).
+
+        The new token takes effect when the runtime next (re)starts
+        (env is injected at provision time). Until then hub→runtime
+        pushes fall back to the previous token inside a 24h grace
+        window, so an in-flight runtime is never locked out.
+        """
+        records = await run_in_threadpool(runtime_service.list)
+        record = next(
+            (r for r in records if r.runtime_id == runtime_id),
+            None,
+        )
+        if record is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "RUNTIME_NOT_FOUND"},
+            )
+        new_token = secrets.token_urlsafe(32)
+        previous = await run_in_threadpool(
+            credential_vault.get_runtime_secret,
+            tenant_id=record.tenant_id,
+            runtime_id=record.runtime_id,
+            name="QWENPAW_RUNTIME_INTERNAL_TOKEN",
+        )
+        scope = f"runtime-control:{record.tenant_id}:{record.runtime_id}"
+        system_tenant = "__qwenpaw_hub_system__"
+        if previous:
+            await run_in_threadpool(
+                credential_vault.put,
+                tenant_id=system_tenant,
+                scope=scope,
+                name="QWENPAW_RUNTIME_INTERNAL_TOKEN_PREVIOUS",
+                value=previous,
+                trusted=True,
+            )
+        await run_in_threadpool(
+            credential_vault.put,
+            tenant_id=system_tenant,
+            scope=scope,
+            name="QWENPAW_RUNTIME_INTERNAL_TOKEN",
+            value=new_token,
+            trusted=True,
+        )
+        await record_audit(
+            admin,
+            "runtime.token.rotated",
+            "runtime",
+            runtime_id,
+            detail={"grace_hours": 24},
+        )
+        return {
+            "runtime_id": runtime_id,
+            "applies_on": "next runtime (re)start",
+            "grace_hours": 24,
+        }
+
     @app.post("/api/hub/admin/models/providers/{provider_id}/test")
     async def test_model_provider(
         provider_id: str,
@@ -3321,6 +3483,53 @@ def create_hub_app(  # pylint: disable=too-many-statements
             detail={"reachable": ok},
         )
         return {"success": ok, "message": message}
+
+    @app.get("/api/hub/admin/runtimes/logs")
+    async def admin_runtime_logs_index(
+        _admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Runtimes with retained log tails (F7)."""
+        ids = await run_in_threadpool(
+            app.state.runtime_log_store.list_runtime_ids,
+        )
+        records = await run_in_threadpool(runtime_service.list)
+        owners = {r.runtime_id: r.owner_user_id for r in records}
+        return {
+            "runtimes": [
+                {
+                    "runtime_id": runtime_id,
+                    "owner_user_id": owners.get(runtime_id),
+                }
+                for runtime_id in sorted(ids)
+            ],
+        }
+
+    @app.get("/api/hub/admin/runtimes/{runtime_id}/logs")
+    async def admin_runtime_logs(
+        runtime_id: str,
+        _admin: HubUser = Depends(require_admin),
+        snapshots: int = Query(default=1, ge=1, le=48),
+    ) -> dict[str, object]:
+        """Retained log tail snapshots for one runtime (F7).
+
+        Newer snapshots come first; ``content`` is the raw tail text
+        captured at ``captured_at``. Browsing is per-runtime — the hub
+        deliberately keeps a bounded tail window, not a log pipeline.
+        """
+        rows = await run_in_threadpool(
+            app.state.runtime_log_store.latest,
+            runtime_id,
+            snapshots=snapshots,
+        )
+        if not rows and not any(
+            r.runtime_id == runtime_id
+            for r in await run_in_threadpool(runtime_service.list)
+        ):
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "RUNTIME_NOT_FOUND"},
+            )
+        return {"runtime_id": runtime_id, "snapshots": rows}
 
     @app.get("/api/hub/admin/usage/summary")
     async def usage_summary(
