@@ -31,7 +31,9 @@ class TestSessionsDeep:
 
     @pytest.mark.test_id("COV-SS-001")
     def test_sessions_filter_sort_edit(
-        self, sessions_page: SessionsPage, request: pytest.FixtureRequest
+        self,
+        sessions_page: SessionsPage,
+        request: pytest.FixtureRequest,
     ):
         test_name = request.node.name
 

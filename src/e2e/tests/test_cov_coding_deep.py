@@ -48,7 +48,9 @@ class TestCodingToolCallsDeep:
 
         log_test_step("2. Seed a file in the project")
         coding_page.api_save_code_file(
-            api_context, "notes.txt", "e2e coverage boost seed\n"
+            api_context,
+            "notes.txt",
+            "e2e coverage boost seed\n",
         )
 
         log_test_step("3. Enable coding mode and verify IDE")
@@ -63,16 +65,16 @@ class TestCodingToolCallsDeep:
         coding_page.open_chat()
         coding_page.page.wait_for_timeout(3000)
         chat_input = coding_page.page.locator(
-            '.qwenpaw-sender textarea:visible, '
-            '.qwenpaw-sender [role="textbox"]:visible'
+            ".qwenpaw-sender textarea:visible, "
+            '.qwenpaw-sender [role="textbox"]:visible',
         ).first
         chat_input.fill("Append the line 'edited by e2e' to notes.txt")
         send_btn = coding_page.page.locator(
-            "button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary"
+            "button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary",
         ).first
         send_btn.click()
         ai_bubble = coding_page.page.locator(
-            ".qwenpaw-bubble.qwenpaw-bubble-start"
+            ".qwenpaw-bubble.qwenpaw-bubble-start",
         ).first
         try:
             ai_bubble.wait_for(state="visible", timeout=120000)

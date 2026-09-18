@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # P0-001: New chat + basic Q&A + copy message (core flow combination)
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.requires_llm
 @pytest.mark.p0
@@ -54,7 +55,9 @@ class TestNewChatAndBasicQA:
     """
 
     @pytest.mark.test_id("P0-001")
-    def test_new_chat_basic_qa_copy(self, clean_chat_page: ChatPage, request: pytest.FixtureRequest):
+    def test_new_chat_basic_qa_copy(
+        self, clean_chat_page: ChatPage, request: pytest.FixtureRequest
+    ):
         """
         Verify the full flow: new chat, send message, receive response, copy message.
 
@@ -76,7 +79,9 @@ class TestNewChatAndBasicQA:
         clean_chat_page.create_new_chat()
 
         log_test_step("3. Verify the welcome screen")
-        assert clean_chat_page.verify_welcome_screen(), "Welcome screen not shown"
+        assert (
+            clean_chat_page.verify_welcome_screen()
+        ), "Welcome screen not shown"
 
         log_test_step("4. Send a basic text message")
         clean_chat_page.send_message("你好，请介绍一下你自己")
@@ -105,22 +110,26 @@ class TestNewChatAndBasicQA:
         try:
             token_usage_indicator = clean_chat_page.page.locator(
                 '[class*="token"], [class*="Token"], '
-                'text="tokens", text="Tokens"'
+                'text="tokens", text="Tokens"',
             )
             if token_usage_indicator.count() > 0:
                 logger.info("Token usage indicator visible")
             else:
-                logger.info("Token usage indicator not visible (backend tracking)")
+                logger.info(
+                    "Token usage indicator not visible (backend tracking)"
+                )
         except Exception as e:
             logger.warning(f"Token usage check failed: {e}")
 
-        log_test_step("10. Verify context window metadata (coverage extension)")
+        log_test_step(
+            "10. Verify context window metadata (coverage extension)"
+        )
         # Context window info may be in chat metadata
         # This extends coverage to agents/context/ module
         try:
             context_metadata = clean_chat_page.page.locator(
                 '[class*="context"], [class*="Context"], '
-                '[class*="window-size"]'
+                '[class*="window-size"]',
             )
             if context_metadata.count() > 0:
                 logger.info("Context window metadata visible")
@@ -133,11 +142,10 @@ class TestNewChatAndBasicQA:
         logger.info(f"Test {test_name} passed")
 
 
-
-
 # ============================================================================
 # P0-002: Multi-turn conversation + context understanding (core intelligence combination)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.requires_llm
@@ -186,22 +194,26 @@ class TestMultiTurnConversation:
             log_test_step(f"  Turn {i}: send message - {message[:30]}...")
             clean_chat_page.send_message(message)
             ai_response = clean_chat_page.wait_for_ai_response(timeout=90000)
-            assert ai_response is not None, f"AI response timed out at turn {i}"
+            assert (
+                ai_response is not None
+            ), f"AI response timed out at turn {i}"
 
         log_test_step("4. Verify the conversation history is complete")
         ai_messages = clean_chat_page.get_ai_messages()
-        assert len(ai_messages) == len(conversation_flow), \
-            f"AI message count mismatch: expected {len(conversation_flow)}, actual {len(ai_messages)}"
+        assert len(ai_messages) == len(
+            conversation_flow
+        ), f"AI message count mismatch: expected {len(conversation_flow)}, actual {len(ai_messages)}"
 
         log_test_result(test_name, True, 0)
-        logger.info(f"Test {test_name} passed with {len(conversation_flow)} turns")
-
-
+        logger.info(
+            f"Test {test_name} passed with {len(conversation_flow)} turns"
+        )
 
 
 # ============================================================================
 # P0-003: File upload + file-content Q&A (core feature combination)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.requires_llm
@@ -246,14 +258,18 @@ class TestFileUploadAndQA:
         clean_chat_page.upload_file(test_file)
 
         log_test_step("4. Verify the file upload succeeded")
-        assert clean_chat_page.verify_file_uploaded(timeout=10000), "File upload failed"
+        assert clean_chat_page.verify_file_uploaded(
+            timeout=10000
+        ), "File upload failed"
 
         log_test_step("5. Ask a question based on the file content")
         clean_chat_page.send_message("这个文档的标题是什么？请直接回答")
         ai_response = clean_chat_page.wait_for_ai_response(timeout=60000)
         assert ai_response is not None, "AI response timed out"
 
-        log_test_step("6. Verify the AI response contains file-related content")
+        log_test_step(
+            "6. Verify the AI response contains file-related content"
+        )
         response_text = clean_chat_page.get_message_text(ai_response)
         assert len(response_text.strip()) > 0, f"AI response is empty"
         logger.info(f"AI response: {response_text[:200]}")
@@ -262,11 +278,10 @@ class TestFileUploadAndQA:
         logger.info(f"Test {test_name} passed")
 
 
-
-
 # ============================================================================
 # P0-004: Session management (rename + pin + delete + switch)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.requires_llm
@@ -337,7 +352,9 @@ class TestSessionManagement:
 
         log_test_step("6. Pin the first session and verify pinned state")
         clean_chat_page.pin_session(0)
-        assert clean_chat_page.verify_pinned_session(), "Pinned marker not shown"
+        assert (
+            clean_chat_page.verify_pinned_session()
+        ), "Pinned marker not shown"
 
         log_test_step("7. Switch to another session and verify its content")
         clean_chat_page.switch_to_session(1)
@@ -346,26 +363,28 @@ class TestSessionManagement:
         messages = clean_chat_page.get_all_messages()
         assert len(messages) > 0, "Session has no messages after switching"
 
-        log_test_step("8. Delete the last session and verify deletion succeeded")
+        log_test_step(
+            "8. Delete the last session and verify deletion succeeded"
+        )
         clean_chat_page.open_session_list()
         count_before = clean_chat_page.get_session_count()
         clean_chat_page.delete_session(count_before - 1)
 
         count_after = clean_chat_page.get_session_count()
-        assert count_after == count_before - 1, \
-            f"Delete failed: before {count_before}, after {count_after}"
+        assert (
+            count_after == count_before - 1
+        ), f"Delete failed: before {count_before}, after {count_after}"
 
         clean_chat_page.close_session_list()
 
         log_test_result(test_name, True, 0)
         logger.info(f"Test {test_name} passed")
-    
-
 
 
 # ============================================================================
 # P0-005: Model switching + skill invocation + agent switching (advanced feature combination)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.requires_llm
@@ -427,16 +446,22 @@ class TestAdvancedFeatures:
             clean_chat_page.wait(1000)
             logger.info(f"Switched to model: {target_model}")
         else:
-            logger.info("Qwen 3.5 model not found; using the current default model")
+            logger.info(
+                "Qwen 3.5 model not found; using the current default model"
+            )
             clean_chat_page.page.keyboard.press("Escape")
             clean_chat_page.wait(500)
 
-        log_test_step("4. Send a message using the current model and verify the response")
+        log_test_step(
+            "4. Send a message using the current model and verify the response"
+        )
         clean_chat_page.send_message("1+1等于几？请直接回答数字")
         model_response = clean_chat_page.wait_for_ai_response(timeout=60000)
         assert model_response is not None, "No response after switching models"
         model_response_text = clean_chat_page.get_message_text(model_response)
-        assert len(model_response_text.strip()) > 0, "AI response empty after switching models"
+        assert (
+            len(model_response_text.strip()) > 0
+        ), "AI response empty after switching models"
         logger.info(f"Model response: {model_response_text[:200]}")
 
         log_test_step("5. Send a skills query")
@@ -459,11 +484,10 @@ class TestAdvancedFeatures:
         logger.info(f"Test {test_name} passed")
 
 
-
-
 # ============================================================================
 # P0-006: Input validation + quick actions + error handling (edge-case combination)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.requires_llm
@@ -503,19 +527,29 @@ class TestInputValidationAndEdgeCases:
         except Exception:
             logger.warning("Chat page first load timed out, retrying...")
             clean_chat_page.page.wait_for_timeout(3000)
-            clean_chat_page.page.goto(f"{clean_chat_page.base_url}/chat", wait_until="load", timeout=60000)
+            clean_chat_page.page.goto(
+                f"{clean_chat_page.base_url}/chat",
+                wait_until="load",
+                timeout=60000,
+            )
             clean_chat_page.page.wait_for_timeout(3000)
 
         log_test_step("2. Test special characters")
         special_chars = "!@#$%^&*()_+-=[]{}|;:',.<>?/`~中文测试🚀"
         clean_chat_page.send_message(special_chars)
         special_response = clean_chat_page.wait_for_ai_response(timeout=30000)
-        assert special_response is not None, "No AI response for special-character message"
+        assert (
+            special_response is not None
+        ), "No AI response for special-character message"
         special_text = clean_chat_page.get_message_text(special_response)
-        assert len(special_text.strip()) > 0, "AI response empty for special-character message"
+        assert (
+            len(special_text.strip()) > 0
+        ), "AI response empty for special-character message"
 
         user_messages = clean_chat_page.get_user_messages()
-        assert len(user_messages) >= 1, "Special-character message not shown in the chat"
+        assert (
+            len(user_messages) >= 1
+        ), "Special-character message not shown in the chat"
 
         log_test_step("3. Test code block input")
         code_input = """```python
@@ -524,22 +558,27 @@ def hello():
 ```"""
         clean_chat_page.send_message(code_input)
         code_response = clean_chat_page.wait_for_ai_response(timeout=30000)
-        assert code_response is not None, "No AI response for code-block message"
+        assert (
+            code_response is not None
+        ), "No AI response for code-block message"
         code_text = clean_chat_page.get_message_text(code_response)
-        assert len(code_text.strip()) > 0, "AI response empty for code-block message"
+        assert (
+            len(code_text.strip()) > 0
+        ), "AI response empty for code-block message"
 
         all_messages = clean_chat_page.get_all_messages()
-        assert len(all_messages) >= 4, f"Message history incomplete: expected at least 4, actual {len(all_messages)}"
+        assert (
+            len(all_messages) >= 4
+        ), f"Message history incomplete: expected at least 4, actual {len(all_messages)}"
 
         log_test_result(test_name, True, 0)
         logger.info(f"Test {test_name} passed")
 
 
-
-
 # ============================================================================
 # P0-007: Message search
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.requires_llm
@@ -594,7 +633,9 @@ class TestChatMessageSearch:
         ai_response = clean_chat_page.wait_for_ai_response(timeout=30000)
         assert ai_response is not None, "AI response timed out"
 
-        log_test_step("4. Open the All Chats drawer (conversation search lives here)")
+        log_test_step(
+            "4. Open the All Chats drawer (conversation search lives here)"
+        )
         # The message-level search panel (ChatSearchPanel) was removed from
         # the UI in the v2.0.0 redesign: ChatActionGroup no longer renders a
         # search trigger and the panel is mounted nowhere. Search now filters
@@ -604,16 +645,18 @@ class TestChatMessageSearch:
         clean_chat_page.wait(300)
         clean_chat_page.open_session_list()
         initial_count = clean_chat_page.get_session_count()
-        assert initial_count >= 1, f"No sessions available to search: {initial_count}"
+        assert (
+            initial_count >= 1
+        ), f"No sessions available to search: {initial_count}"
         logger.info(f"Session count before search: {initial_count}")
 
         log_test_step("5. Search a term that matches no conversation")
         no_match_term = "zzqx_nomatch_e2e_9911"
         clean_chat_page.search_sessions(no_match_term)
         filtered_count = clean_chat_page.get_session_count()
-        assert filtered_count == 0, (
-            f"No-match search should empty the session list, got {filtered_count}"
-        )
+        assert (
+            filtered_count == 0
+        ), f"No-match search should empty the session list, got {filtered_count}"
         logger.info("No-match term filtered the conversation list to empty")
 
         log_test_step("6. Clear the search and verify the list is restored")
@@ -638,6 +681,7 @@ class TestChatMessageSearch:
 # CHAT-P1-003: Message edit / regenerate
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.p1
 @pytest.mark.chat
@@ -651,18 +695,24 @@ class TestChatMessageEdit:
     """
 
     @pytest.mark.test_id("CHAT-P1-003")
-    def test_chat_message_edit(self, page: Page, request: pytest.FixtureRequest):
+    def test_chat_message_edit(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Test message edit / regenerate."""
         test_name = request.node.name
 
         log_test_step("Navigate to the Chat page")
-        page.goto(f"{config.base_url}/chat", wait_until="domcontentloaded", timeout=60000)
+        page.goto(
+            f"{config.base_url}/chat",
+            wait_until="domcontentloaded",
+            timeout=60000,
+        )
         page.wait_for_timeout(3000)
 
         log_test_step("Find the message input area")
         input_area = page.locator(
             'textarea, [class*="chatInput"], [class*="messageInput"], '
-            '[contenteditable="true"]'
+            '[contenteditable="true"]',
         ).first
 
         if input_area.count() == 0:
@@ -672,39 +722,49 @@ class TestChatMessageEdit:
 
         log_test_step("Find action buttons on existing messages")
         message_actions = page.locator(
-            'button:has(.anticon-edit), button:has(.anticon-redo), '
+            "button:has(.anticon-edit), button:has(.anticon-redo), "
             'button[aria-label*="edit"], button[aria-label*="retry"], '
             'button[aria-label*="regenerate"], '
             '[class*="messageAction"] button, '
-            '[class*="actionBar"] button'
+            '[class*="actionBar"] button',
         ).all()
 
         if len(message_actions) > 0:
-            logger.info(f"Found {len(message_actions)} message action button(s)")
+            logger.info(
+                f"Found {len(message_actions)} message action button(s)"
+            )
             for i, btn in enumerate(message_actions[:3]):
                 is_visible = btn.is_visible()
                 logger.info(f"Button {i+1}: visible={is_visible}")
         else:
             # Try hovering over a message to trigger the action buttons
-            messages = page.locator('[class*="message"], [class*="chatMessage"]').all()
+            messages = page.locator(
+                '[class*="message"], [class*="chatMessage"]'
+            ).all()
             if len(messages) > 0:
                 messages[-1].hover()
                 page.wait_for_timeout(1000)
                 hover_actions = page.locator(
-                    '[class*="actionBar"] button, [class*="messageAction"] button'
+                    '[class*="actionBar"] button, [class*="messageAction"] button',
                 ).all()
-                logger.info(f"After hover, found {len(hover_actions)} action button(s)")
+                logger.info(
+                    f"After hover, found {len(hover_actions)} action button(s)"
+                )
             else:
-                logger.info("No messages on the page; verify the input area works")
+                logger.info(
+                    "No messages on the page; verify the input area works"
+                )
                 assert input_area.is_visible(), "Input area should be visible"
                 assert input_area.is_enabled(), "Input area should be enabled"
                 logger.info("Input area is functional")
 
         log_test_result(test_name, True, 0)
 
+
 # ============================================================================
 # CHAT-P1-004: Stream interruption / stop generation
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -719,7 +779,9 @@ class TestChatStopGeneration:
     """
 
     @pytest.mark.test_id("CHAT-P1-004")
-    def test_chat_stop_generation(self, page: Page, request: pytest.FixtureRequest):
+    def test_chat_stop_generation(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Test stream interruption / stop generation."""
         test_name = request.node.name
 
@@ -730,7 +792,7 @@ class TestChatStopGeneration:
 
         log_test_step("Verify the input area exists")
         input_area = page.locator(
-            'textarea, [class*="chatInput"], [contenteditable="true"]'
+            'textarea, [class*="chatInput"], [contenteditable="true"]',
         ).first
         assert input_area.count() > 0, "Chat page should have an input area"
         expect(input_area).to_be_visible(timeout=5000)
@@ -740,33 +802,43 @@ class TestChatStopGeneration:
         send_btn = page.locator(
             'button:has(.anticon-send), button[aria-label*="send"], '
             'button[aria-label*="发送"], [class*="sendButton"], '
-            'button:has(.anticon-arrow-up)'
+            "button:has(.anticon-arrow-up)",
         ).first
         if send_btn.count() > 0:
             logger.info("Send button exists")
         else:
             # The send button may be triggered by Enter; verify the input area accepts input
-            assert input_area.is_enabled(), "Input area should be enabled (can submit with Enter)"
-            logger.info("No standalone send button found; input area can submit with Enter")
+            assert (
+                input_area.is_enabled()
+            ), "Input area should be enabled (can submit with Enter)"
+            logger.info(
+                "No standalone send button found; input area can submit with Enter"
+            )
 
-        log_test_step("Find the stop-generation button (may only show during generation)")
+        log_test_step(
+            "Find the stop-generation button (may only show during generation)"
+        )
         stop_btn = page.locator(
-            'button:has(.anticon-pause), button:has(.anticon-stop), '
+            "button:has(.anticon-pause), button:has(.anticon-stop), "
             'button[aria-label*="stop"], button[aria-label*="停止"], '
             'button:has-text("Stop"), button:has-text("停止"), '
-            '[class*="stopButton"], [class*="stop-button"]'
+            '[class*="stopButton"], [class*="stop-button"]',
         ).first
 
         if stop_btn.count() > 0 and stop_btn.is_visible():
             logger.info("Stop-generation button is currently visible")
         else:
-            logger.info("Stop-generation button not currently visible (shown only during streaming; normal)")
+            logger.info(
+                "Stop-generation button not currently visible (shown only during streaming; normal)"
+            )
 
         log_test_result(test_name, True, 0)
+
 
 # ============================================================================
 # CHAT-P2-001: Long-message / large-file Q&A performance
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p2
@@ -781,7 +853,9 @@ class TestChatLongMessage:
     """
 
     @pytest.mark.test_id("CHAT-P2-001")
-    def test_chat_long_message(self, page: Page, request: pytest.FixtureRequest):
+    def test_chat_long_message(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Test very long message input."""
         test_name = request.node.name
 
@@ -792,7 +866,7 @@ class TestChatLongMessage:
 
         log_test_step("Find the input box")
         input_area = page.locator(
-            'textarea, [class*="chatInput"], [contenteditable="true"]'
+            'textarea, [class*="chatInput"], [contenteditable="true"]',
         ).first
         if input_area.count() == 0:
             logger.info("Input box not found, skipping test")
@@ -804,8 +878,14 @@ class TestChatLongMessage:
         input_area.fill(long_text)
         page.wait_for_timeout(1000)
 
-        filled_value = input_area.input_value() if input_area.evaluate('el => el.tagName') == 'TEXTAREA' else input_area.inner_text()
-        assert len(filled_value) > 100, f"Long-text input failed; actual length: {len(filled_value)}"
+        filled_value = (
+            input_area.input_value()
+            if input_area.evaluate("el => el.tagName") == "TEXTAREA"
+            else input_area.inner_text()
+        )
+        assert (
+            len(filled_value) > 100
+        ), f"Long-text input failed; actual length: {len(filled_value)}"
         logger.info(f"Long-text input succeeded; length: {len(filled_value)}")
 
         # Clear the input
@@ -814,9 +894,11 @@ class TestChatLongMessage:
 
         log_test_result(test_name, True, 0)
 
+
 # ============================================================================
 # CHAT-P2-002: IME composition event handling
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p2
@@ -842,7 +924,7 @@ class TestChatIMEInput:
 
         log_test_step("Find the input box")
         input_area = page.locator(
-            'textarea, [class*="chatInput"], [contenteditable="true"]'
+            'textarea, [class*="chatInput"], [contenteditable="true"]',
         ).first
         if input_area.count() == 0:
             logger.info("Input box not found, skipping test")
@@ -857,7 +939,11 @@ class TestChatIMEInput:
         input_area.fill("你好世界")
         page.wait_for_timeout(500)
 
-        filled_value = input_area.input_value() if input_area.evaluate('el => el.tagName') == 'TEXTAREA' else input_area.inner_text()
+        filled_value = (
+            input_area.input_value()
+            if input_area.evaluate("el => el.tagName") == "TEXTAREA"
+            else input_area.inner_text()
+        )
         assert "你好世界" in filled_value, f"Chinese input failed: {filled_value}"
         logger.info(f"Chinese input succeeded: {filled_value}")
 
@@ -867,9 +953,11 @@ class TestChatIMEInput:
 
         log_test_result(test_name, True, 0)
 
+
 # ============================================================================
 # APPROVAL-001/002/003: Session-level tool approval toggle (upstream #5685)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.chat
@@ -891,7 +979,9 @@ class TestToolApproval:
     @pytest.mark.p0
     @pytest.mark.test_id("APPROVAL-001")
     def test_approval_toggle_renders_and_switches(
-        self, clean_chat_page: ChatPage, request: pytest.FixtureRequest
+        self,
+        clean_chat_page: ChatPage,
+        request: pytest.FixtureRequest,
     ):
         """Toggle renders, exposes 4 levels, and the Tag follows the choice."""
         test_name = request.node.name
@@ -920,7 +1010,9 @@ class TestToolApproval:
     @pytest.mark.p0
     @pytest.mark.test_id("APPROVAL-002")
     def test_approval_level_persists_across_reload(
-        self, clean_chat_page: ChatPage, request: pytest.FixtureRequest
+        self,
+        clean_chat_page: ChatPage,
+        request: pytest.FixtureRequest,
     ):
         """A selected level is stored in localStorage and survives a reload."""
         test_name = request.node.name
@@ -939,13 +1031,14 @@ class TestToolApproval:
         log_test_step("4. Reload and assert the level persists")
         chat.page.reload()
         chat.page.locator(chat.CHAT_INPUT).first.wait_for(
-            state="visible", timeout=30000
+            state="visible",
+            timeout=30000,
         )
         expect(chat.get_approval_toggle()).to_contain_text("Strict Mode")
         entries_after = chat.get_approval_storage_entries()
-        assert "STRICT" in entries_after.values(), (
-            f"STRICT lost after reload: {entries_after}"
-        )
+        assert (
+            "STRICT" in entries_after.values()
+        ), f"STRICT lost after reload: {entries_after}"
 
         log_test_result(test_name, True, 0)
 
@@ -960,7 +1053,9 @@ class TestToolApproval:
         """Deleting a session removes its ``approval_level-<id>`` localStorage key."""
         test_name = request.node.name
 
-        log_test_step("1. Seed a real chat via API so a deletable row exists (no LLM)")
+        log_test_step(
+            "1. Seed a real chat via API so a deletable row exists (no LLM)"
+        )
         seed = api_context.post(
             "/api/chats",
             data={
@@ -972,22 +1067,30 @@ class TestToolApproval:
         )
         if not seed.ok:
             pytest.skip(
-                f"chat seed failed ({seed.status}); cannot test delete cleanup"
+                f"chat seed failed ({seed.status}); cannot test delete cleanup",
             )
 
-        log_test_step("2. Open chat, open the session list, select the seeded session")
+        log_test_step(
+            "2. Open chat, open the session list, select the seeded session"
+        )
         chat = clean_chat_page.open()
         chat.open_session_list()
         if chat.get_session_count() == 0:
-            pytest.skip("seeded session not visible in drawer; skipping cleanup check")
+            pytest.skip(
+                "seeded session not visible in drawer; skipping cleanup check"
+            )
         chat.switch_to_session(0)
         chat.wait(500)
 
-        log_test_step("3. Select STRICT and capture the persisted approval key(s)")
+        log_test_step(
+            "3. Select STRICT and capture the persisted approval key(s)"
+        )
         chat.select_approval_level("STRICT")
         entries = chat.get_approval_storage_entries()
         strict_keys = [k for k, v in entries.items() if v == "STRICT"]
-        assert strict_keys, f"no STRICT approval_level entry after select: {entries}"
+        assert (
+            strict_keys
+        ), f"no STRICT approval_level entry after select: {entries}"
 
         log_test_step("4. Delete the session via the more-menu")
         chat.open_session_list()
@@ -997,17 +1100,20 @@ class TestToolApproval:
         log_test_step("5. Assert the approval key(s) were cleared on delete")
         after = chat.get_approval_storage_entries()
         for k in strict_keys:
-            assert k not in after, (
-                f"approval key {k} not cleared after delete; still present: {after}"
-            )
+            assert (
+                k not in after
+            ), f"approval key {k} not cleared after delete; still present: {after}"
 
         log_test_result(test_name, True, 0)
 
 
 if __name__ == "__main__":
-    pytest.main([
-        __file__,
-        "-v",
-        "--tb=short",
-        "-m", "p0",
-    ])
+    pytest.main(
+        [
+            __file__,
+            "-v",
+            "--tb=short",
+            "-m",
+            "p0",
+        ]
+    )

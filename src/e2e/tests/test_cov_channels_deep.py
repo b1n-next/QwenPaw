@@ -32,7 +32,9 @@ class TestChannelsDeep:
 
     @pytest.mark.test_id("COV-CH-001")
     def test_channels_filter_drawer_config(
-        self, channels_page: ChannelsPage, request: pytest.FixtureRequest
+        self,
+        channels_page: ChannelsPage,
+        request: pytest.FixtureRequest,
     ):
         test_name = request.node.name
 
@@ -66,7 +68,7 @@ class TestChannelsDeep:
             if opened:
                 # Inspect a few config fields without saving
                 fields = channels_page.page.locator(
-                    '.qwenpaw-drawer input, .qwenpaw-drawer textarea'
+                    ".qwenpaw-drawer input, .qwenpaw-drawer textarea",
                 )
                 logger.info(f"Drawer config fields: {fields.count()}")
                 channels_page.page.keyboard.press("Escape")

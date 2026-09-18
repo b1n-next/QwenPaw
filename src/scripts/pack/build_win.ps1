@@ -93,7 +93,7 @@ if (Test-Path $CondaUnpack) {
   Write-Host "[build_win] Running conda-unpack..."
   & $CondaUnpack
   if ($LASTEXITCODE -ne 0) { throw "conda-unpack failed with exit code $LASTEXITCODE" }
-  
+
   # Fix conda-unpack bug: it corrupts Python string escaping on Windows
   # See: issue.md and https://github.com/conda/conda-pack/issues/154
   # Solution: Reinstall affected packages using cached wheels
@@ -101,7 +101,7 @@ if (Test-Path $CondaUnpack) {
   $WheelsCache = Join-Path $RepoRoot ".cache\conda_unpack_wheels"
   if (Test-Path $WheelsCache) {
     $pythonExe = Join-Path $EnvRoot "python.exe"
-    
+
     foreach ($pkg in $CondaUnpackAffectedPackages) {
       Write-Host "  Reinstalling $pkg..."
       & $pythonExe -m pip install --force-reinstall --no-deps `
@@ -110,10 +110,10 @@ if (Test-Path $CondaUnpack) {
         Write-Host "  WARN: Failed to reinstall $pkg (exit code: $LASTEXITCODE)" -ForegroundColor Yellow
       }
     }
-    
+
     # Verify the fix worked
     Write-Host "[build_win] Verifying fix..."
-    
+
     # Create a verification script that handles SSL certificate store issues on Windows
     $verifyScript = @"
 import sys
@@ -165,17 +165,17 @@ except Exception as e:
     print(f'✗ discord.py import failed: {e}')
     sys.exit(1)
 "@
-    
+
     $verifyScriptPath = Join-Path $EnvRoot "verify_imports.py"
     Set-Content -Path $verifyScriptPath -Value $verifyScript -Encoding UTF8
-    
+
     $pythonExe = Join-Path $EnvRoot "python.exe"
     & $pythonExe $verifyScriptPath
     $verifyExitCode = $LASTEXITCODE
-    
+
     # Clean up verification script
     Remove-Item -Path $verifyScriptPath -Force -ErrorAction SilentlyContinue
-    
+
     if ($verifyExitCode -ne 0) {
         throw "CRITICAL: Package verification failed after reinstall. See output above for details."
     }
@@ -193,17 +193,17 @@ $pythonExe = Join-Path $EnvRoot "python.exe"
 if (Test-Path $pythonExe) {
   Write-Host "[build_win] Compiling all .py files to .pyc..."
   $compileStart = Get-Date
-  
+
   # Compile all Python files to bytecode
   # -q: quiet mode (only show errors)
   # -j 0: use all CPU cores for parallel compilation
   & $pythonExe -m compileall -q -j 0 $EnvRoot
-  
+
   if ($LASTEXITCODE -eq 0) {
     $compileEnd = Get-Date
     $compileTime = ($compileEnd - $compileStart).TotalSeconds
     Write-Host "[build_win] ✓ Bytecode compilation completed in $($compileTime.ToString('F1')) seconds"
-    
+
     # Count compiled files for reporting
     $pycCount = (Get-ChildItem -Path $EnvRoot -Recurse -Filter "*.pyc" -ErrorAction SilentlyContinue | Measure-Object).Count
     Write-Host "[build_win] Generated $pycCount .pyc files (these will be included in installer)"

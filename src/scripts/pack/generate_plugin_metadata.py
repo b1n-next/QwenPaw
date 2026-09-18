@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Scan local plugins, build distributable zips, and emit OSS metadata.
 
 Mirrors the shape of ``generate_oss_metadata.py`` so the resulting
@@ -536,7 +537,7 @@ def _dry_run_scan(
             print(
                 f"  ~ would pack {kind}/{plugin_dir.name} "
                 f"(id={manifest.get('id')}, "
-                f"version={manifest.get('version')})"
+                f"version={manifest.get('version')})",
             )
     print("Dry run complete.")
 
@@ -599,7 +600,7 @@ def main() -> int:
     metadata_out = Path(
         args.metadata_out
         if args.metadata_out is not None
-        else dist_root / "index.json"
+        else dist_root / "index.json",
     ).resolve()
 
     print(f"Scanning plugins under: {plugins_root}")

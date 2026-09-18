@@ -68,7 +68,7 @@ class EnvironmentsPage(BasePage):
     # `styles.state` instead), so it doubles as the "data arrived" signal.
     SECTION_HEADING = 'div[class*="__sectionHeading__"]'
     CUSTOM_SECTION_HEADING = f'{SECTION_HEADING}:has-text("Custom variables")'
-    CUSTOM_COUNT_SELECTOR = f'{CUSTOM_SECTION_HEADING} span'
+    CUSTOM_COUNT_SELECTOR = f"{CUSTOM_SECTION_HEADING} span"
 
     # Rows and their cells.
     ENV_ROW = 'div[class*="__row__"]'
@@ -90,10 +90,10 @@ class EnvironmentsPage(BasePage):
     # All modal selectors are `:visible`-scoped: antd does not destroy a
     # closed Modal by default, so an unscoped `.first` could resolve to a
     # stale hidden node left over from a previous interaction.
-    MODAL = '.qwenpaw-modal:visible, .ant-modal:visible'
+    MODAL = ".qwenpaw-modal:visible, .ant-modal:visible"
     MODAL_TITLE = (
-        '.qwenpaw-modal:visible .qwenpaw-modal-title, '
-        '.ant-modal:visible .ant-modal-title'
+        ".qwenpaw-modal:visible .qwenpaw-modal-title, "
+        ".ant-modal:visible .ant-modal-title"
     )
     MODAL_KEY_INPUT = (
         '.qwenpaw-modal:visible input[placeholder="VARIABLE_NAME"], '
@@ -104,8 +104,8 @@ class EnvironmentsPage(BasePage):
         '.qwenpaw-modal:visible input[placeholder="Value"], .ant-modal:visible input[placeholder="Value"]'
     )
     MODAL_OK_CANDIDATES = (
-        '.qwenpaw-modal:visible .qwenpaw-modal-footer button.qwenpaw-btn-primary',
-        '.ant-modal:visible .ant-modal-footer button.ant-btn-primary',
+        ".qwenpaw-modal:visible .qwenpaw-modal-footer button.qwenpaw-btn-primary",
+        ".ant-modal:visible .ant-modal-footer button.ant-btn-primary",
         '.qwenpaw-modal:visible button:has-text("Apply now")',
         '.ant-modal:visible button:has-text("Apply now")',
     )
@@ -114,25 +114,27 @@ class EnvironmentsPage(BasePage):
         '.ant-modal:visible .ant-modal-footer button:has-text("Cancel")',
         '.qwenpaw-modal:visible button:has-text("Cancel")',
         '.ant-modal:visible button:has-text("Cancel")',
-        '.qwenpaw-modal:visible .qwenpaw-modal-close',
-        '.ant-modal:visible .ant-modal-close',
+        ".qwenpaw-modal:visible .qwenpaw-modal-close",
+        ".ant-modal:visible .ant-modal-close",
     )
 
     # Confirm dialog (static `Modal.confirm`, same prefix via holderRender).
     # `:visible`-scoped for the same stale-DOM reason: a static dialog is
     # created per call and several methods confirm more than once.
-    CONFIRM_MODAL = '.qwenpaw-modal-confirm:visible, .ant-modal-confirm:visible'
+    CONFIRM_MODAL = (
+        ".qwenpaw-modal-confirm:visible, .ant-modal-confirm:visible"
+    )
     CONFIRM_BTNS_SCOPES = (
-        '.qwenpaw-modal-confirm-btns',
-        '.ant-modal-confirm-btns',
+        ".qwenpaw-modal-confirm-btns",
+        ".ant-modal-confirm-btns",
     )
     # okButtonProps {danger: !reset} => dangerous on delete, primary on reset.
     CONFIRM_OK_STYLES = ("dangerous", "primary")
 
     # Toasts (`useAppMessage()` → antd App context, same prefix).
     MESSAGE_NOTICE = (
-        '.qwenpaw-message-notice-content, .qwenpaw-message-custom-content, '
-        '.ant-message-notice-content, .ant-message-custom-content'
+        ".qwenpaw-message-notice-content, .qwenpaw-message-custom-content, "
+        ".ant-message-notice-content, .ant-message-custom-content"
     )
 
     # Shipped copy for the outcomes tests assert on.
@@ -149,12 +151,20 @@ class EnvironmentsPage(BasePage):
         self.wait_for_page_loaded()
         return self
 
-    def wait_for_page_loaded(self, timeout: Optional[int] = None) -> "EnvironmentsPage":
+    def wait_for_page_loaded(
+        self, timeout: Optional[int] = None
+    ) -> "EnvironmentsPage":
         """Wait for the page shell and the loaded catalogue."""
         timeout = timeout or self.timeout
-        expect(self.page.locator(self.PAGE_LOAD_INDICATOR).first).to_be_visible(timeout=timeout)
-        expect(self.page.locator(self.SECTION_HEADING).first).to_be_visible(timeout=timeout)
-        expect(self.page.locator(self.ADD_BTN).first).to_be_visible(timeout=timeout)
+        expect(
+            self.page.locator(self.PAGE_LOAD_INDICATOR).first
+        ).to_be_visible(timeout=timeout)
+        expect(self.page.locator(self.SECTION_HEADING).first).to_be_visible(
+            timeout=timeout
+        )
+        expect(self.page.locator(self.ADD_BTN).first).to_be_visible(
+            timeout=timeout
+        )
         return self
 
     # ========== Environment variable queries ==========
@@ -172,9 +182,15 @@ class EnvironmentsPage(BasePage):
         `styles.row`, so `.last` points into the read-only catalogue rather
         than at a freshly created variable.
         """
-        return self.page.locator(self.ENV_ROW).filter(
-            has=self.page.locator(f'{self.IDENTITY_CODE}:text-is("{env_key}")')
-        ).first
+        return (
+            self.page.locator(self.ENV_ROW)
+            .filter(
+                has=self.page.locator(
+                    f'{self.IDENTITY_CODE}:text-is("{env_key}")'
+                ),
+            )
+            .first
+        )
 
     def get_env_key(self, row: Locator) -> str:
         """Return the environment variable key shown by a row."""
@@ -201,7 +217,9 @@ class EnvironmentsPage(BasePage):
         expect(count_el).to_be_visible(timeout=timeout or self.timeout)
         raw = count_el.inner_text().strip()
         if not raw.isdigit():
-            raise AssertionError(f"Custom variables count is not an integer: {raw!r}")
+            raise AssertionError(
+                f"Custom variables count is not an integer: {raw!r}"
+            )
         return int(raw)
 
     # ========== Environment variable operations ==========
@@ -214,11 +232,15 @@ class EnvironmentsPage(BasePage):
         add_btn.click()
         modal = self.page.locator(self.MODAL).first
         expect(modal).to_be_visible(timeout=timeout)
-        expect(self.page.locator(self.MODAL_KEY_INPUT).first).to_be_visible(timeout=timeout)
+        expect(self.page.locator(self.MODAL_KEY_INPUT).first).to_be_visible(
+            timeout=timeout
+        )
         logger.info("Opened the Add Variable modal")
         return modal
 
-    def fill_modal(self, key: Optional[str] = None, value: Optional[str] = None) -> None:
+    def fill_modal(
+        self, key: Optional[str] = None, value: Optional[str] = None
+    ) -> None:
         """Fill the Key / Value inputs of the open editor Modal."""
         if key is not None:
             key_input = self.page.locator(self.MODAL_KEY_INPUT).first
@@ -254,7 +276,9 @@ class EnvironmentsPage(BasePage):
         for scope in self.CONFIRM_BTNS_SCOPES:
             prefix = "qwenpaw" if "qwenpaw" in scope else "ant"
             for style in self.CONFIRM_OK_STYLES:
-                candidates.append(dialog.locator(f"{scope} button.{prefix}-btn-{style}"))
+                candidates.append(
+                    dialog.locator(f"{scope} button.{prefix}-btn-{style}")
+                )
         for candidate in candidates:
             try:
                 if candidate.count() > 0 and candidate.first.is_visible():
@@ -285,7 +309,7 @@ class EnvironmentsPage(BasePage):
         after a successful close and never pass.
         """
         expect(self.page.locator(self.MODAL_KEY_INPUT).first).to_be_hidden(
-            timeout=self.timeout
+            timeout=self.timeout,
         )
 
     def add_variable(self, key: str, value: str) -> None:
@@ -301,9 +325,13 @@ class EnvironmentsPage(BasePage):
         """Edit an existing variable's value through the row action."""
         row = self.row_for_key(key)
         expect(row).to_be_visible(timeout=self.timeout)
-        expect(row.locator(self.EDIT_BTN).first).to_be_visible(timeout=self.timeout)
+        expect(row.locator(self.EDIT_BTN).first).to_be_visible(
+            timeout=self.timeout
+        )
         row.locator(self.EDIT_BTN).first.click()
-        expect(self.page.locator(self.MODAL_KEY_INPUT).first).to_be_visible(timeout=self.timeout)
+        expect(self.page.locator(self.MODAL_KEY_INPUT).first).to_be_visible(
+            timeout=self.timeout
+        )
         self.fill_modal(value=new_value)
         self.click_apply()
         self._expect_modal_closed()
@@ -314,14 +342,20 @@ class EnvironmentsPage(BasePage):
         """Delete a custom variable through the row action + confirm dialog."""
         row = self.row_for_key(key)
         expect(row).to_be_visible(timeout=self.timeout)
-        expect(row.locator(self.DELETE_BTN).first).to_be_visible(timeout=self.timeout)
+        expect(row.locator(self.DELETE_BTN).first).to_be_visible(
+            timeout=self.timeout
+        )
         row.locator(self.DELETE_BTN).first.click()
-        expect(self.page.locator(self.CONFIRM_MODAL).first).to_be_visible(timeout=self.timeout)
+        expect(self.page.locator(self.CONFIRM_MODAL).first).to_be_visible(
+            timeout=self.timeout
+        )
         confirm_ok = self._confirm_ok_button()
         expect(confirm_ok).to_be_visible(timeout=self.timeout)
         confirm_ok.click()
         # CONFIRM_MODAL is :visible-scoped, so count 0 means "no dialog showing".
-        expect(self.page.locator(self.CONFIRM_MODAL)).to_have_count(0, timeout=self.timeout)
+        expect(self.page.locator(self.CONFIRM_MODAL)).to_have_count(
+            0, timeout=self.timeout
+        )
         logger.info(f"Deleted variable {key}")
 
     def search(self, query: str) -> None:
@@ -334,19 +368,30 @@ class EnvironmentsPage(BasePage):
 
     # ========== Assertion methods ==========
 
-    def assert_env_row_count(self, expected_count: int, timeout: Optional[int] = None) -> "EnvironmentsPage":
+    def assert_env_row_count(
+        self, expected_count: int, timeout: Optional[int] = None
+    ) -> "EnvironmentsPage":
         """Assert the total variable row count across all sections."""
         expect(self.page.locator(self.ENV_ROW)).to_have_count(
-            expected_count, timeout=timeout or self.timeout
+            expected_count,
+            timeout=timeout or self.timeout,
         )
         return self
 
-    def assert_env_exists(self, env_key: str, timeout: Optional[int] = None) -> "EnvironmentsPage":
+    def assert_env_exists(
+        self, env_key: str, timeout: Optional[int] = None
+    ) -> "EnvironmentsPage":
         """Assert that a variable row with this key is visible."""
-        expect(self.row_for_key(env_key)).to_be_visible(timeout=timeout or self.timeout)
+        expect(self.row_for_key(env_key)).to_be_visible(
+            timeout=timeout or self.timeout
+        )
         return self
 
-    def assert_env_absent(self, env_key: str, timeout: Optional[int] = None) -> "EnvironmentsPage":
+    def assert_env_absent(
+        self, env_key: str, timeout: Optional[int] = None
+    ) -> "EnvironmentsPage":
         """Assert that no variable row with this key exists."""
-        expect(self.row_for_key(env_key)).to_have_count(0, timeout=timeout or self.timeout)
+        expect(self.row_for_key(env_key)).to_have_count(
+            0, timeout=timeout or self.timeout
+        )
         return self

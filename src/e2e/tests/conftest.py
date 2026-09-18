@@ -32,6 +32,7 @@ def pytest_sessionstart(session):
     if marker_expr.strip() == "ui_smoke":
         return
     from config.settings import config
+
     _ = config.working_dir  # raises RuntimeError on misconfiguration
 
 
@@ -39,7 +40,9 @@ _DEFAULT_PROVIDER = os.getenv("QWENPAW_MODEL_PROVIDER", "dashscope")
 _DEFAULT_MODEL = os.getenv("QWENPAW_DEFAULT_MODEL", "qwen3.6-plus")
 
 _SEED_FILE_NAME = "_e2e_test_note.md"
-_SEED_FILE_CONTENT = "# E2E Test Note\n\nThis file was created by the E2E test framework.\n"
+_SEED_FILE_CONTENT = (
+    "# E2E Test Note\n\nThis file was created by the E2E test framework.\n"
+)
 
 _SEED_SKILL_NAME = "_e2e_seed_skill"
 _SEED_SKILL_CONTENT = """\
@@ -72,7 +75,9 @@ def setup_default_model(api_context):
         if resp.ok:
             logger.info(f"Provider '{provider}' configured with API key")
         else:
-            logger.warning(f"Provider config returned {resp.status}: {resp.text()}")
+            logger.warning(
+                f"Provider config returned {resp.status}: {resp.text()}"
+            )
     except Exception as exc:
         logger.warning(f"Provider config failed: {exc}")
 
@@ -84,7 +89,9 @@ def setup_default_model(api_context):
         if resp.ok:
             logger.info(f"Global model set to {provider}/{model}")
         elif resp.status == 400 and "not found" in resp.text().lower():
-            logger.info(f"Model '{model}' not in built-in list, adding as extra model")
+            logger.info(
+                f"Model '{model}' not in built-in list, adding as extra model"
+            )
             add_resp = api_context.post(
                 f"/api/models/{provider}/models",
                 data={"id": model, "name": model},
@@ -93,16 +100,26 @@ def setup_default_model(api_context):
                 logger.info(f"Extra model '{model}' added to {provider}")
                 resp = api_context.put(
                     "/api/models/active",
-                    data={"provider_id": provider, "model": model, "scope": "global"},
+                    data={
+                        "provider_id": provider,
+                        "model": model,
+                        "scope": "global",
+                    },
                 )
                 if resp.ok:
                     logger.info(f"Global model set to {provider}/{model}")
                 else:
-                    logger.warning(f"Set active model returned {resp.status}: {resp.text()}")
+                    logger.warning(
+                        f"Set active model returned {resp.status}: {resp.text()}"
+                    )
             else:
-                logger.warning(f"Add extra model returned {add_resp.status}: {add_resp.text()}")
+                logger.warning(
+                    f"Add extra model returned {add_resp.status}: {add_resp.text()}"
+                )
         else:
-            logger.warning(f"Set active model returned {resp.status}: {resp.text()}")
+            logger.warning(
+                f"Set active model returned {resp.status}: {resp.text()}"
+            )
     except Exception as exc:
         logger.warning(f"Set active model failed: {exc}")
 
@@ -119,7 +136,9 @@ def seed_workspace_file(api_context):
             yield
             return
     except Exception as exc:
-        logger.warning(f"Workspace files check failed ({exc}), attempting seed anyway")
+        logger.warning(
+            f"Workspace files check failed ({exc}), attempting seed anyway"
+        )
 
     created = False
     try:
@@ -131,7 +150,9 @@ def seed_workspace_file(api_context):
             logger.info(f"Seed workspace file '{_SEED_FILE_NAME}' created")
             created = True
         else:
-            logger.warning(f"Seed file creation returned {resp.status}: {resp.text()}")
+            logger.warning(
+                f"Seed file creation returned {resp.status}: {resp.text()}"
+            )
     except Exception as exc:
         logger.warning(f"Seed file creation failed: {exc}")
 
@@ -148,13 +169,19 @@ def seed_test_skill(api_context):
             yield
             return
     except Exception as exc:
-        logger.warning(f"Skills list check failed ({exc}), attempting seed anyway")
+        logger.warning(
+            f"Skills list check failed ({exc}), attempting seed anyway"
+        )
 
     created = False
     try:
         resp = api_context.post(
             "/api/skills",
-            data={"name": _SEED_SKILL_NAME, "content": _SEED_SKILL_CONTENT, "enable": True},
+            data={
+                "name": _SEED_SKILL_NAME,
+                "content": _SEED_SKILL_CONTENT,
+                "enable": True,
+            },
         )
         if resp.ok:
             logger.info(f"Seed skill '{_SEED_SKILL_NAME}' created")

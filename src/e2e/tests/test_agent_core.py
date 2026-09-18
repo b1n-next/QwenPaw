@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # AC-001: Fork project + multi-agent collaboration
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.requires_llm
 @pytest.mark.p1
@@ -76,16 +77,18 @@ class TestForkProjectMultiAgent:
         # Look for "Create Agent" button
         create_btn = clean_chat_page.page.locator(
             'button:has-text("Create Agent"), button:has-text("创建智能体"), '
-            '[class*="create-agent-btn"]'
+            '[class*="create-agent-btn"]',
         ).first
         if create_btn.count() == 0 or not create_btn.is_visible():
-            logger.warning("Create Agent button not found; using existing agents")
+            logger.warning(
+                "Create Agent button not found; using existing agents"
+            )
         else:
             create_btn.click()
             clean_chat_page.page.wait_for_timeout(2000)
             # Fill agent name
             name_input = clean_chat_page.page.locator(
-                'input[placeholder*="name"], input[placeholder*="名称"]'
+                'input[placeholder*="name"], input[placeholder*="名称"]',
             ).first
             if name_input.count() > 0:
                 name_input.fill("TestAgent-A")
@@ -112,7 +115,7 @@ class TestForkProjectMultiAgent:
         # Send a task that would benefit from multi-agent
         clean_chat_page.send_message(
             "Analyze this code file and suggest improvements, "
-            "then write a summary report"
+            "then write a summary report",
         )
         ai_response = clean_chat_page.wait_for_ai_response(timeout=60000)
         assert ai_response is not None, "AI response timed out"
@@ -121,12 +124,14 @@ class TestForkProjectMultiAgent:
         # Look for multi-agent indicators
         multi_agent_indicator = clean_chat_page.page.locator(
             '[class*="multi-agent"], [class*="MultiAgent"], '
-            '[class*="agent-switch"], [class*="collaboration"]'
+            '[class*="agent-switch"], [class*="collaboration"]',
         )
         if multi_agent_indicator.count() > 0:
             logger.info("Multi-agent orchestration visible")
         else:
-            logger.info("Multi-agent indicator not visible (may use single agent)")
+            logger.info(
+                "Multi-agent indicator not visible (may use single agent)"
+            )
 
         log_test_step("8. Check project files were modified")
         # Navigate to file browser to check modifications
@@ -142,6 +147,7 @@ class TestForkProjectMultiAgent:
 # ============================================================================
 # AC-002: Agent lifecycle (create, configure, delete)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -186,7 +192,7 @@ class TestAgentLifecycle:
 
         log_test_step("2. Create a new agent with custom name")
         create_btn = clean_chat_page.page.locator(
-            'button:has-text("Create"), button:has-text("创建")'
+            'button:has-text("Create"), button:has-text("创建")',
         ).first
         if create_btn.count() == 0:
             logger.warning("Create button not found")
@@ -198,7 +204,7 @@ class TestAgentLifecycle:
 
         # Fill agent name
         name_input = clean_chat_page.page.locator(
-            'input[placeholder*="name"], input[placeholder*="名称"]'
+            'input[placeholder*="name"], input[placeholder*="名称"]',
         ).first
         if name_input.count() > 0:
             name_input.fill("E2E-Test-Agent")
@@ -207,7 +213,7 @@ class TestAgentLifecycle:
         log_test_step("3. Configure system prompt")
         system_prompt_input = clean_chat_page.page.locator(
             'textarea[placeholder*="system"], textarea[placeholder*="System"], '
-            '[class*="system-prompt"]'
+            '[class*="system-prompt"]',
         ).first
         if system_prompt_input.count() > 0:
             system_prompt_input.fill("You are a test agent for E2E testing.")
@@ -218,7 +224,7 @@ class TestAgentLifecycle:
         log_test_step("4. Enable/disable specific tools")
         # Look for tool toggles
         tool_toggle = clean_chat_page.page.locator(
-            '[class*="tool-toggle"], [class*="ToolToggle"]'
+            '[class*="tool-toggle"], [class*="ToolToggle"]',
         ).first
         if tool_toggle.count() > 0:
             tool_toggle.click()
@@ -244,12 +250,12 @@ class TestAgentLifecycle:
         log_test_step("7. Delete the agent")
         # Find the agent we just created
         agent_row = clean_chat_page.page.locator(
-            f'[class*="agent-row"]:has-text("E2E-Test-Agent")'
+            f'[class*="agent-row"]:has-text("E2E-Test-Agent")',
         ).first
         if agent_row.count() > 0:
             # Look for delete button
             delete_btn = agent_row.locator(
-                'button:has-text("Delete"), button:has-text("删除")'
+                'button:has-text("Delete"), button:has-text("删除")',
             ).first
             if delete_btn.count() > 0:
                 delete_btn.click()
@@ -262,12 +268,14 @@ class TestAgentLifecycle:
 
         log_test_step("8. Verify agent removed from list")
         agent_row_after = clean_chat_page.page.locator(
-            '[class*="agent-row"]:has-text("E2E-Test-Agent")'
+            '[class*="agent-row"]:has-text("E2E-Test-Agent")',
         )
         if agent_row_after.count() == 0:
             logger.info("Agent removed from list")
         else:
-            logger.info("Agent still in list (deletion may require confirmation)")
+            logger.info(
+                "Agent still in list (deletion may require confirmation)"
+            )
 
         log_test_result(test_name, True, 0)
         logger.info(f"Test {test_name} passed")

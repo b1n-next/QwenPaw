@@ -44,9 +44,7 @@ class MemoryPage(BasePage):
     # Switches and inputs use stable form-item names (Form.Item name=[...]).
     # The dream_cron input is unique to this card and serves as a
     # reliable "card content rendered" signal.
-    DREAM_CRON_INPUT = (
-        'input[id$="reme_light_memory_config_dream_cron"]'
-    )
+    DREAM_CRON_INPUT = 'input[id$="reme_light_memory_config_dream_cron"]'
     # --- Long-term Memory card fields (ReMeLightMemoryCard.tsx) ---
     AUTO_MEMORY_INTERVAL_INPUT = (
         'input[id$="reme_light_memory_config_auto_memory_interval"]'
@@ -62,8 +60,7 @@ class MemoryPage(BasePage):
         '.qwenpaw-collapse-header:has-text("自动记忆搜索")'
     )
     AUTO_SEARCH_SWITCH = (
-        'button[role="switch"]'
-        '[id$="auto_memory_search_config_enabled"]'
+        'button[role="switch"]' '[id$="auto_memory_search_config_enabled"]'
     )
     AUTO_SEARCH_MAX_RESULTS_INPUT = (
         'input[id$="auto_memory_search_config_max_results"]'
@@ -74,7 +71,7 @@ class MemoryPage(BasePage):
         'button.qwenpaw-btn-primary:has-text("保存"), '
         'button.qwenpaw-btn-primary:has-text("保 存")'
     )
-    SUCCESS_TOAST = '.qwenpaw-message-success'
+    SUCCESS_TOAST = ".qwenpaw-message-success"
 
     # localStorage agent storage — see CodingPage for the rationale.
     AGENT_ID_DEFAULT = "default"
@@ -117,7 +114,8 @@ class MemoryPage(BasePage):
         )
         try:
             self.page.wait_for_load_state(
-                "networkidle", timeout=self.timeout
+                "networkidle",
+                timeout=self.timeout,
             )
         except TimeoutError:
             pass
@@ -132,7 +130,8 @@ class MemoryPage(BasePage):
         )
         try:
             self.page.wait_for_load_state(
-                "networkidle", timeout=self.timeout
+                "networkidle",
+                timeout=self.timeout,
             )
         except TimeoutError:
             pass
@@ -158,7 +157,10 @@ class MemoryPage(BasePage):
         return {"X-Agent-Id": self.AGENT_ID_DEFAULT}
 
     def api_write_daily_memory(
-        self, api_context, name: str, content: str,
+        self,
+        api_context,
+        name: str,
+        content: str,
     ) -> dict:
         """PUT /api/workspace/memory/{name} — used as test setup."""
         resp = api_context.put(
@@ -166,9 +168,7 @@ class MemoryPage(BasePage):
             data={"content": content},
             headers=self._agent_headers(),
         )
-        assert resp.ok, (
-            f"Write memory failed [{resp.status}]: {resp.text()}"
-        )
+        assert resp.ok, f"Write memory failed [{resp.status}]: {resp.text()}"
         return resp.json()
 
     def api_get_running_config(self, api_context) -> dict:
@@ -177,9 +177,9 @@ class MemoryPage(BasePage):
             "/api/workspace/running-config",
             headers=self._agent_headers(),
         )
-        assert resp.ok, (
-            f"Get running config failed [{resp.status}]: {resp.text()}"
-        )
+        assert (
+            resp.ok
+        ), f"Get running config failed [{resp.status}]: {resp.text()}"
         return resp.json()
 
     def api_put_running_config(self, api_context, cfg: dict) -> None:

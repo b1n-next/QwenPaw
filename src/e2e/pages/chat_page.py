@@ -47,19 +47,19 @@ class ChatPage(BasePage):
         '.qwenpaw-sender [role="textbox"][contenteditable="true"]:visible, '
         "textarea.qwenpaw-sender-input:visible"
     )
-    SEND_BTN = 'button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary'
+    SEND_BTN = "button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary"
     FILE_INPUT = 'input[type="file"]'
-    UPLOAD_WRAPPER = 'span.qwenpaw-upload-wrapper'
+    UPLOAD_WRAPPER = "span.qwenpaw-upload-wrapper"
 
     # Message area
-    USER_MESSAGE = '.qwenpaw-bubble.qwenpaw-bubble-end'
-    AI_MESSAGE = '.qwenpaw-bubble.qwenpaw-bubble-start'
-    MESSAGE_CONTAINER = '.qwenpaw-bubble.qwenpaw-bubble-start, .qwenpaw-bubble.qwenpaw-bubble-end'
-    MESSAGE_LIST = '.qwenpaw-bubble-list-scroll'
+    USER_MESSAGE = ".qwenpaw-bubble.qwenpaw-bubble-end"
+    AI_MESSAGE = ".qwenpaw-bubble.qwenpaw-bubble-start"
+    MESSAGE_CONTAINER = ".qwenpaw-bubble.qwenpaw-bubble-start, .qwenpaw-bubble.qwenpaw-bubble-end"
+    MESSAGE_LIST = ".qwenpaw-bubble-list-scroll"
 
     # Welcome screen (check input visibility)
     WELCOME_TEXT = CHAT_INPUT
-    QUICK_ACTIONS = '.quick-action'
+    QUICK_ACTIONS = ".quick-action"
 
     # Session management (right-side "All Chats" drawer).
     # Post v2.0.0 redesign the SessionItem container is a hashed CSS-Module
@@ -68,19 +68,19 @@ class ChatPage(BasePage):
     # role, keeping the old class as a fallback for older builds.
     SESSION_ITEM = (
         '[class*=listWrapper] div[class*="sessionItem-module__item"], '
-        '[class*=chatSessionItem]'
+        "[class*=chatSessionItem]"
     )
     SESSION_ACTIVE = (
         '[class*=listWrapper] div[class*="sessionItem-module__item"][class*=active], '
-        '[class*=chatSessionItem][class*=active]'
+        "[class*=chatSessionItem][class*=active]"
     )
     SESSION_NAME = (
         '[class*=listWrapper] div[class*="sessionItem-module__item"] [class*=name], '
-        '[class*=chatSessionItem] [class*=name]'
+        "[class*=chatSessionItem] [class*=name]"
     )
     # SessionItem actions now live behind a "more" button (SparkMoreLine)
     # that opens an antd Dropdown menu (Pin / Rename / Archive / Delete).
-    SESSION_MORE_BTN = '[class*=moreBtn]'
+    SESSION_MORE_BTN = "[class*=moreBtn]"
     # ``:text-is`` is exact so "Pin" does not also match "Unpin".
     SESSION_MENU_PIN = (
         '.qwenpaw-dropdown-menu-item:has-text("Pin"), '
@@ -99,13 +99,17 @@ class ChatPage(BasePage):
         '.qwenpaw-dropdown-menu-item:has-text("删除")'
     )
     # Inline rename input rendered when a SessionItem enters edit mode.
-    SESSION_RENAME_INPUT = 'input[class*=renameInput]'
+    SESSION_RENAME_INPUT = "input[class*=renameInput]"
     # Conversation search box inside the drawer (filters sessions by title).
-    SESSION_SEARCH_INPUT = '[class*=searchContainer] input'
+    SESSION_SEARCH_INPUT = "[class*=searchContainer] input"
     # Legacy hover-button selectors (kept for older builds / fallbacks).
-    SESSION_PIN_BTN = 'button:has(.spark-icon-spark-mark-line), button:has(.anticon-pushpin)'
-    SESSION_EDIT_BTN = 'button:has(.spark-icon-spark-edit-line), button:has(.anticon-edit)'
-    SESSION_DELETE_BTN = 'button:has(.spark-icon-spark-delete-line), button:has(.anticon-delete)'
+    SESSION_PIN_BTN = (
+        "button:has(.spark-icon-spark-mark-line), button:has(.anticon-pushpin)"
+    )
+    SESSION_EDIT_BTN = (
+        "button:has(.spark-icon-spark-edit-line), button:has(.anticon-edit)"
+    )
+    SESSION_DELETE_BTN = "button:has(.spark-icon-spark-delete-line), button:has(.anticon-delete)"
 
     # --- Tool approval level toggle (composer / sender area) — upstream #5685 ---
     # Upstream #7334 rebuilt ApprovalLevelToggle from an antd Tag into a plain
@@ -134,14 +138,14 @@ class ChatPage(BasePage):
     # the DOM with a ``-hidden`` modifier). The #7334 rebuild kept the antd
     # Dropdown for the menu itself, so this selector is unchanged.
     APPROVAL_MENU_ITEM = (
-        '.qwenpaw-dropdown:not(.qwenpaw-dropdown-hidden) '
-        '.qwenpaw-dropdown-menu-item'
+        ".qwenpaw-dropdown:not(.qwenpaw-dropdown-hidden) "
+        ".qwenpaw-dropdown-menu-item"
     )
 
     # Settings and model
-    MODEL_SELECTOR = '.qwenpaw-dropdown-trigger'
-    MODEL_OPTION = '.qwenpaw-dropdown-menu-item'
-    AGENT_SELECTOR = '.qwenpaw-select-selector'
+    MODEL_SELECTOR = ".qwenpaw-dropdown-trigger"
+    MODEL_OPTION = ".qwenpaw-dropdown-menu-item"
+    AGENT_SELECTOR = ".qwenpaw-select-selector"
 
     # --- Sidebar agent switcher (components/AgentSelector) ---
     # The antd Select sits inside a CSS-module wrapper whose hashed class
@@ -151,8 +155,8 @@ class ChatPage(BasePage):
         '[class*="agentSelector"] .qwenpaw-select-selection-item'
     )
     AGENT_SWITCHER_OPTION = (
-        '.qwenpaw-select-dropdown:not(.qwenpaw-select-dropdown-hidden) '
-        '.qwenpaw-select-item-option'
+        ".qwenpaw-select-dropdown:not(.qwenpaw-select-dropdown-hidden) "
+        ".qwenpaw-select-item-option"
     )
 
     # --- Slash-command suggestion popup (@ant-design/x Suggestion) ---
@@ -160,17 +164,17 @@ class ChatPage(BasePage):
     # Two nodes carry .qwenpaw-suggestion (inline content + the cascader
     # dropdown); anchor on the dropdown, excluding its hidden state.
     SUGGESTION_POPUP = (
-        '.qwenpaw-suggestion.qwenpaw-select-dropdown'
-        ':not(.qwenpaw-select-dropdown-hidden)'
+        ".qwenpaw-suggestion.qwenpaw-select-dropdown"
+        ":not(.qwenpaw-select-dropdown-hidden)"
     )
-    SUGGESTION_ITEM = '.qwenpaw-suggestion-item'
+    SUGGESTION_ITEM = ".qwenpaw-suggestion-item"
 
     # --- Sidebar session date groups — upstream #5643 ---
     # SidebarSessionList renders one <button class={styles.groupLabel}> per
     # non-empty bucket (Pinned / Today / Within 7 days / Within 30 days /
     # Earlier); clicking toggles collapse. "month" + "older" start collapsed.
     SIDEBAR_GROUP_LABEL = 'div[role="button"][class*="SessionGroupHeader"]'
-    SIDEBAR_DATE_LABEL = '[data-date-group]'
+    SIDEBAR_DATE_LABEL = "[data-date-group]"
     SIDEBAR_GROUP_CHEVRON = 'span[class*="groupChevron"]'
     SIDEBAR_GROUP_TEXTS = {
         "pinned": ("Pinned", "置顶"),
@@ -184,23 +188,23 @@ class ChatPage(BasePage):
     # antd <Alert type="info" banner> injected into the sender beforeUI slot
     # when this tab lost the qwenpaw:queue-owner:<sessionId> Web Lock. Appears
     # only after a 300ms ownershipResolved fallback timer.
-    QUEUE_BANNER = '.qwenpaw-alert-banner'
+    QUEUE_BANNER = ".qwenpaw-alert-banner"
     _QUEUE_BANNER_RE = re.compile(
-        r"This tab queues only|当前标签页仅入队"
+        r"This tab queues only|当前标签页仅入队",
     )
 
     # Action buttons
     COPY_BTN = 'span[title="复制"]'
 
     # Tool and skill details
-    TOOL_TOGGLE = '.qwenpaw-operate-card-header-arrow'
-    TOOL_DETAILS = '.qwenpaw-operate-card'
+    TOOL_TOGGLE = ".qwenpaw-operate-card-header-arrow"
+    TOOL_DETAILS = ".qwenpaw-operate-card"
 
     # Errors and toasts (SUCCESS_MESSAGE / ERROR_MESSAGE inherited from BasePage)
-    COPY_SUCCESS = '.qwenpaw-message-success'
+    COPY_SUCCESS = ".qwenpaw-message-success"
 
     # Drawer and dialog
-    DRAWER_CLOSE = '[class*=headerRight] button'
+    DRAWER_CLOSE = "[class*=headerRight] button"
     CONFIRM_BTN = 'button:has-text("确认"), button:has-text("OK"), .qwenpaw-btn-primary:has-text("确定")'
     CANCEL_BTN = 'button:has-text("取消"), button:has-text("Cancel")'
 
@@ -242,11 +246,11 @@ class ChatPage(BasePage):
     }"""
 
     # ========== Initialization ==========
-    
+
     def __init__(self, page: Page):
         super().__init__(page)
         logger.info("ChatPage initialized")
-    
+
     # ========== Page navigation ==========
 
     def open(self) -> "ChatPage":
@@ -258,22 +262,22 @@ class ChatPage(BasePage):
         # that's a strong signal that React has booted and the page is
         # interactive.
         self.page.locator(self.CHAT_INPUT).first.wait_for(
-            state="visible", timeout=self.timeout
+            state="visible",
+            timeout=self.timeout,
         )
         self.step_shot("open_chat_page")
         return self
-    
+
     def is_loaded(self) -> bool:
         """Check whether the page has finished loading."""
         try:
             # Check whether the input box or welcome text is present
-            return (
-                self.assert_visible(self.CHAT_INPUT, timeout=5000) or
-                self.assert_visible(self.WELCOME_TEXT, timeout=5000)
-            )
+            return self.assert_visible(
+                self.CHAT_INPUT, timeout=5000
+            ) or self.assert_visible(self.WELCOME_TEXT, timeout=5000)
         except Exception:
             return False
-    
+
     # ========== New chat ==========
 
     def create_new_chat(self) -> "ChatPage":
@@ -285,19 +289,21 @@ class ChatPage(BasePage):
         """
         logger.info("Creating new chat")
         # Reset send state (a new session does not need to wait for the previous AI response)
-        if hasattr(self, '_has_sent_message'):
+        if hasattr(self, "_has_sent_message"):
             del self._has_sent_message
         self._ai_count_before_send = 0
-        
+
         new_chat_btn = self.find(self.NEW_CHAT_BTN)
         if new_chat_btn.count() > 0:
             new_chat_btn.click()
             # Wait for page navigation and full load
             self.page.wait_for_load_state("networkidle")
-            self.page.locator(self.CHAT_INPUT).wait_for(state="visible", timeout=10000)
+            self.page.locator(self.CHAT_INPUT).wait_for(
+                state="visible", timeout=10000
+            )
         self.step_shot("create_new_chat_done")
         return self
-    
+
     def verify_welcome_screen(self) -> bool:
         """
         Verify the welcome screen is shown.
@@ -315,7 +321,7 @@ class ChatPage(BasePage):
         except Exception:
             pass
         return result
-    
+
     def get_quick_actions(self) -> List[Locator]:
         """Get the list of quick action buttons."""
         return self.find_all(self.QUICK_ACTIONS)
@@ -335,9 +341,9 @@ class ChatPage(BasePage):
             actions[index].click()
             logger.info(f"Clicked quick action at index {index}")
         return self
-    
+
     # ========== Send message ==========
-    
+
     def send_message(self, text: str) -> "ChatPage":
         """
         Send a message (strict-validation version).
@@ -374,7 +380,7 @@ class ChatPage(BasePage):
         user_count_before = self.page.locator(self.USER_MESSAGE).count()
         logger.info(
             f"[send_message] baseline: ai={self._ai_count_before_send}, "
-            f"user={user_count_before}"
+            f"user={user_count_before}",
         )
 
         # ---- Wait for the previous round to truly finish (dual signal: button recovered OR content stable >= 1.5s) ----
@@ -419,12 +425,12 @@ class ChatPage(BasePage):
             except (TimeoutError, AssertionError, Exception):
                 logger.warning(
                     "[send_message] previous AI round idle-check timeout (8s), "
-                    "proceeding anyway"
+                    "proceeding anyway",
                 )
             finally:
                 try:
                     self.page.evaluate(
-                        "() => { try { delete window.__qwenpaw_send_idle_cache__; } catch(e) {} }"
+                        "() => { try { delete window.__qwenpaw_send_idle_cache__; } catch(e) {} }",
                     )
                 except Exception:
                     pass
@@ -462,7 +468,9 @@ class ChatPage(BasePage):
             )
             logger.info("[send_message] user bubble appeared")
         except (TimeoutError, AssertionError, Exception):
-            logger.warning("[send_message] user bubble missing, retrying with Enter")
+            logger.warning(
+                "[send_message] user bubble missing, retrying with Enter"
+            )
             input_box = self.page.locator(self.CHAT_INPUT)
             input_box.focus()
             self.wait(200)
@@ -491,21 +499,27 @@ class ChatPage(BasePage):
                 timeout=3000,
             )
             self._send_triggered_round = True
-            logger.info("[send_message] send button became disabled (round started)")
+            logger.info(
+                "[send_message] send button became disabled (round started)"
+            )
         except (TimeoutError, AssertionError, Exception):
             # Not seeing disabled does not mean failure -- maybe the backend was too fast, or the frontend button state machine is buggy.
             # Delegate the "did AI actually reply" judgment fully to wait_for_ai_response.
-            self._send_triggered_round = True  # Default trust: the user bubble already appeared
+            self._send_triggered_round = (
+                True  # Default trust: the user bubble already appeared
+            )
             logger.info(
                 "[send_message] send button disabled-state not observed within 3s; "
-                "trusting user-bubble signal and delegating to wait_for_ai_response"
+                "trusting user-bubble signal and delegating to wait_for_ai_response",
             )
 
         # Screenshot: user message sent, AI about to reply
         self.step_shot("send_after_user_bubble")
         return self
 
-    def send_message_and_wait(self, text: str, timeout: int = 30000) -> "ChatPage":
+    def send_message_and_wait(
+        self, text: str, timeout: int = 30000
+    ) -> "ChatPage":
         """
         Send a message and wait for the AI reply.
         Args:
@@ -559,18 +573,20 @@ class ChatPage(BasePage):
 
         ai_locator = self.page.locator(self.AI_MESSAGE)
         count_before_send = getattr(
-            self, "_ai_count_before_send", ai_locator.count()
+            self,
+            "_ai_count_before_send",
+            ai_locator.count(),
         )
         logger.info(
             f"[wait_ai] baseline_count={count_before_send}, "
-            f"current_count={ai_locator.count()}"
+            f"current_count={ai_locator.count()}",
         )
 
         # ---- Gate 0: did send actually trigger a new round ----
         if not getattr(self, "_send_triggered_round", True):
             logger.error(
                 "[wait_ai] send_message never observed send-button=disabled, "
-                "no new round was triggered. Treat as failure."
+                "no new round was triggered. Treat as failure.",
             )
             return None
 
@@ -590,7 +606,7 @@ class ChatPage(BasePage):
         except (TimeoutError, AssertionError, Exception) as e:
             logger.error(
                 f"[wait_ai] gate-1 FAIL: new AI bubble never appeared "
-                f"({type(e).__name__})"
+                f"({type(e).__name__})",
             )
             return None
 
@@ -666,13 +682,13 @@ class ChatPage(BasePage):
             )
             try:
                 passed_via = self.page.evaluate(
-                    "() => window.__qwenpaw_wait_passed_via__ || 'unknown'"
+                    "() => window.__qwenpaw_wait_passed_via__ || 'unknown'",
                 )
             except Exception:
                 passed_via = "unknown"
             logger.info(
                 f"[wait_ai] gate-2/3 PASS via '{passed_via}' "
-                f"(streaming considered done)"
+                f"(streaming considered done)",
             )
         except (TimeoutError, AssertionError, Exception) as e:
             try:
@@ -682,7 +698,7 @@ class ChatPage(BasePage):
             logger.error(
                 f"[wait_ai] gate-2/3 FAIL within {stability_timeout}ms "
                 f"({type(e).__name__}). Neither button re-enabled nor content stabilized. "
-                f"Last bubble text: {last_text!r}"
+                f"Last bubble text: {last_text!r}",
             )
             # Failure screenshot for post-mortem
             self.step_shot("wait_ai_FAIL_gate23")
@@ -694,7 +710,7 @@ class ChatPage(BasePage):
                     "() => { try { "
                     "delete window.__qwenpaw_ai_stable_cache__; "
                     "delete window.__qwenpaw_wait_passed_via__; "
-                    "} catch(e) {} }"
+                    "} catch(e) {} }",
                 )
             except Exception:
                 pass
@@ -704,7 +720,7 @@ class ChatPage(BasePage):
         return ai_locator.last
 
     # ========== Message actions ==========
-    
+
     def copy_last_message(self) -> bool:
         """
         Copy the last AI message.
@@ -746,7 +762,9 @@ class ChatPage(BasePage):
         """
         return message_locator.inner_text()
 
-    def verify_message_contains(self, message_locator: Locator, expected_text: str) -> bool:
+    def verify_message_contains(
+        self, message_locator: Locator, expected_text: str
+    ) -> bool:
         """
         Verify the message contains the given text.
 
@@ -805,7 +823,9 @@ class ChatPage(BasePage):
         # Close any leftover dropdowns / popovers first to prevent button occlusion
         try:
             self.page.keyboard.press("Escape")
-            self.page.mouse.move(0, 0)  # Move the mouse away to avoid triggering other hovers
+            self.page.mouse.move(
+                0, 0
+            )  # Move the mouse away to avoid triggering other hovers
         except Exception:
             pass
         self.wait(300)
@@ -814,7 +834,9 @@ class ChatPage(BasePage):
         # is open — skip the toggle click to avoid closing it.
         existing = self.page.locator(self.SESSION_ITEM).first
         if existing.count() > 0 and existing.is_visible():
-            logger.info("[open_session_list] panel already open, skipping toggle")
+            logger.info(
+                "[open_session_list] panel already open, skipping toggle"
+            )
             self.step_shot("session_list_opened")
             return self
 
@@ -825,14 +847,16 @@ class ChatPage(BasePage):
         except (TimeoutError, Exception):
             logger.warning(
                 "[open_session_list] session list button not visible in 5s, "
-                "page may be in a stuck state, trying to recover by reloading"
+                "page may be in a stuck state, trying to recover by reloading",
             )
             try:
                 self.page.reload(wait_until="domcontentloaded", timeout=15000)
                 self.wait(1500)
                 session_btn_locator.wait_for(state="visible", timeout=10000)
             except Exception as e:
-                logger.warning(f"[open_session_list] reload-recovery also failed: {e}")
+                logger.warning(
+                    f"[open_session_list] reload-recovery also failed: {e}"
+                )
                 self.step_shot("open_session_list_btn_invisible_after_reload")
                 # Do not raise; let the upstream try/except handle it
                 return self
@@ -844,13 +868,17 @@ class ChatPage(BasePage):
             try:
                 session_btn_locator.click(force=True, timeout=5000)
             except Exception as e:
-                logger.warning(f"[open_session_list] force click also failed: {e}")
+                logger.warning(
+                    f"[open_session_list] force click also failed: {e}"
+                )
                 self.step_shot("open_session_list_click_failed")
                 return self
 
         # Wait for the session list drawer to finish rendering
         try:
-            self.page.locator(self.SESSION_ITEM).first.wait_for(state="visible", timeout=8000)
+            self.page.locator(self.SESSION_ITEM).first.wait_for(
+                state="visible", timeout=8000
+            )
         except (TimeoutError, Exception):
             logger.warning("Session list may be empty or slow to render")
         self.wait(500)
@@ -869,12 +897,12 @@ class ChatPage(BasePage):
         """
         logger.info("Closing session list")
         for container in (
-            '.qwenpaw-drawer',
+            ".qwenpaw-drawer",
             '[class*="historyPanel"]',
             '[class*="embeddedPanel"]',
         ):
             close_btn = self.page.locator(
-                f'{container} {self.DRAWER_CLOSE}'
+                f"{container} {self.DRAWER_CLOSE}",
             )
             if close_btn.count() > 0:
                 close_btn.last.click()
@@ -947,14 +975,15 @@ class ChatPage(BasePage):
         # antd keeps closed menus in the DOM with a ``-hidden`` modifier; the
         # open one is the menu WITHOUT it.
         open_menu_item = (
-            '.qwenpaw-dropdown:not(.qwenpaw-dropdown-hidden) '
-            '.qwenpaw-dropdown-menu-item'
+            ".qwenpaw-dropdown:not(.qwenpaw-dropdown-hidden) "
+            ".qwenpaw-dropdown-menu-item"
         )
 
         def _menu_visible(timeout: int) -> bool:
             try:
                 self.page.locator(open_menu_item).first.wait_for(
-                    state="visible", timeout=timeout
+                    state="visible",
+                    timeout=timeout,
                 )
                 return True
             except (TimeoutError, Exception):
@@ -973,9 +1002,9 @@ class ChatPage(BasePage):
                 if not target.is_visible():
                     self.page.locator(
                         '[class*="listWrapper"] [class*="scroll"], '
-                        '[class*="listWrapper"]'
+                        '[class*="listWrapper"]',
                     ).first.evaluate(
-                        "el => el.scrollTo({top: el.scrollHeight})"
+                        "el => el.scrollTo({top: el.scrollHeight})",
                     )
                     self.wait(500)
             except Exception as exc:
@@ -1016,7 +1045,7 @@ class ChatPage(BasePage):
                 more_btn.dispatch_event("click")
             except Exception as exc:
                 logger.warning(
-                    f"[_open_session_menu] dispatch click failed: {exc}"
+                    f"[_open_session_menu] dispatch click failed: {exc}",
                 )
             if _menu_visible(3000):
                 self.wait(200)
@@ -1024,7 +1053,7 @@ class ChatPage(BasePage):
 
             logger.warning(
                 f"[_open_session_menu] dropdown did not appear "
-                f"(attempt {attempt + 1})"
+                f"(attempt {attempt + 1})",
             )
 
         return False
@@ -1050,7 +1079,7 @@ class ChatPage(BasePage):
         rename_input = self.page.locator(self.SESSION_RENAME_INPUT).first
         if rename_input.count() == 0 or not rename_input.is_visible():
             rename_input = self.page.locator(
-                '[class*=listWrapper] input, .qwenpaw-drawer input'
+                "[class*=listWrapper] input, .qwenpaw-drawer input",
             ).first
         if rename_input.count() == 0 or not rename_input.is_visible():
             logger.warning("Rename input not found, skipping rename")
@@ -1065,7 +1094,6 @@ class ChatPage(BasePage):
         self.step_shot(f"rename_done_{new_name[:20]}")
         return self
 
-    
     def pin_session(self, index: int) -> "ChatPage":
         """Pin a session via more-menu → Pin."""
         logger.info(f"Pinning session at index {index}")
@@ -1105,9 +1133,9 @@ class ChatPage(BasePage):
 
         # A confirmation modal may appear; confirm it when present.
         confirm = self.page.locator(
-            '.qwenpaw-modal-confirm-btns button.qwenpaw-btn-dangerous, '
-            '.qwenpaw-modal button.qwenpaw-btn-dangerous, '
-            '.qwenpaw-modal-confirm-btns button.qwenpaw-btn-primary'
+            ".qwenpaw-modal-confirm-btns button.qwenpaw-btn-dangerous, "
+            ".qwenpaw-modal button.qwenpaw-btn-dangerous, "
+            ".qwenpaw-modal-confirm-btns button.qwenpaw-btn-primary",
         ).first
         try:
             if confirm.count() > 0 and confirm.is_visible(timeout=1500):
@@ -1119,7 +1147,7 @@ class ChatPage(BasePage):
         self.wait(800)
         logger.info(
             f"Session deleted (before: {sessions_before}, "
-            f"after: {self.get_session_count()})"
+            f"after: {self.get_session_count()})",
         )
         self.step_shot(f"delete_session_{index}_done")
         return self
@@ -1172,7 +1200,8 @@ class ChatPage(BasePage):
         """Click the approval Tag and wait for its dropdown to render."""
         self.get_approval_toggle().click()
         self.page.locator(self.APPROVAL_MENU_ITEM).first.wait_for(
-            state="visible", timeout=5000
+            state="visible",
+            timeout=5000,
         )
         self.wait(200)
         return self
@@ -1187,7 +1216,7 @@ class ChatPage(BasePage):
         self.open_approval_menu()
         item = self.page.locator(
             f'{self.APPROVAL_MENU_ITEM}:has-text("{en}"), '
-            f'{self.APPROVAL_MENU_ITEM}:has-text("{zh}")'
+            f'{self.APPROVAL_MENU_ITEM}:has-text("{zh}")',
         ).first
         item.click()
         self.wait(500)
@@ -1206,7 +1235,7 @@ class ChatPage(BasePage):
                     }
                 }
                 return out;
-            }"""
+            }""",
         )
 
     # ========== Sidebar date groups (upstream #5643) ==========
@@ -1226,7 +1255,7 @@ class ChatPage(BasePage):
         return self.page.locator(
             f'{self.SIDEBAR_DATE_LABEL}[data-date-group="{group}"], '
             f'{self.SIDEBAR_DATE_LABEL}:has-text("{en}"), '
-            f'{self.SIDEBAR_DATE_LABEL}:has-text("{zh}")'
+            f'{self.SIDEBAR_DATE_LABEL}:has-text("{zh}")',
         ).first
 
     def toggle_sidebar_user_group(self) -> "ChatPage":
@@ -1250,24 +1279,30 @@ class ChatPage(BasePage):
         under the sidebar group list (sibling of ``groupLabel`` buttons).
         """
         return self.page.locator(
-            f'div[role="button"][class*="item"]:has-text("{name}")'
+            f'div[role="button"][class*="item"]:has-text("{name}")',
         ).first
 
     # ========== Non-owner tab banner (upstream #5664) ==========
 
     def get_queue_banner(self) -> Locator:
         """The queue-only info banner in the sender area (non-owner tab)."""
-        return self.page.locator(self.QUEUE_BANNER).filter(
-            has_text=self._QUEUE_BANNER_RE
-        ).first
+        return (
+            self.page.locator(self.QUEUE_BANNER)
+            .filter(
+                has_text=self._QUEUE_BANNER_RE,
+            )
+            .first
+        )
 
     # ========== Model and Agent switching ==========
-    
+
     def open_model_selector(self) -> "ChatPage":
         """Open the model selector."""
         logger.info("Opening model selector")
         # The model selector lives in the right-side area of the header
-        header = self.page.locator('.qwenpaw-chat-anywhere-layout-right-header')
+        header = self.page.locator(
+            ".qwenpaw-chat-anywhere-layout-right-header"
+        )
         model_btn = header.locator(self.MODEL_SELECTOR).first
         model_btn.click()
         self.wait(500)
@@ -1286,7 +1321,11 @@ class ChatPage(BasePage):
         logger.info(f"Selecting model: {model_name}")
 
         # Find and select the model
-        model_option = self.page.locator(self.MODEL_OPTION).filter(has_text=model_name).first
+        model_option = (
+            self.page.locator(self.MODEL_OPTION)
+            .filter(has_text=model_name)
+            .first
+        )
         if model_option.count() > 0:
             model_option.click()
             self.wait(1000)
@@ -1311,7 +1350,9 @@ class ChatPage(BasePage):
 
     # ========== Skill invocation ==========
 
-    def invoke_skill(self, skill_name: str, input_text: str = "") -> "ChatPage":
+    def invoke_skill(
+        self, skill_name: str, input_text: str = ""
+    ) -> "ChatPage":
         """
         Invoke a skill.
 
@@ -1380,7 +1421,9 @@ class ChatPage(BasePage):
         """Dismiss the error message."""
         error = self.find(self.ERROR_MESSAGE)
         if error.count() > 0:
-            close_btn = error.locator('.qwenpaw-message-close, .qwenpaw-notification-close').first
+            close_btn = error.locator(
+                ".qwenpaw-message-close, .qwenpaw-notification-close"
+            ).first
             if close_btn.count() > 0:
                 close_btn.click()
                 self.wait(500)
@@ -1390,19 +1433,23 @@ class ChatPage(BasePage):
 
     def scroll_to_top(self) -> "ChatPage":
         """Scroll the message list to the top."""
-        self.page.evaluate("""() => {
+        self.page.evaluate(
+            """() => {
             const list = document.querySelector('.qwenpaw-bubble-list-scroll');
             if (list) list.scrollTop = 0;
-        }""")
+        }"""
+        )
         self.wait(500)
         return self
 
     def scroll_to_bottom(self) -> "ChatPage":
         """Scroll the message list to the bottom."""
-        self.page.evaluate("""() => {
+        self.page.evaluate(
+            """() => {
             const list = document.querySelector('.qwenpaw-bubble-list-scroll');
             if (list) list.scrollTop = list.scrollHeight;
-        }""")
+        }"""
+        )
         self.wait(500)
         return self
 
@@ -1486,7 +1533,9 @@ class ChatPage(BasePage):
         try:
             self.open_session_list()
         except Exception as e:
-            logger.warning(f"[cleanup] open_session_list failed, skip cleanup: {e}")
+            logger.warning(
+                f"[cleanup] open_session_list failed, skip cleanup: {e}"
+            )
             return self
 
         deleted_count = 0

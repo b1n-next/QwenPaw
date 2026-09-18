@@ -43,24 +43,24 @@ class AgentsPage(BasePage):
     BREADCRUMB = 'span[class*="breadcrumbCurrent"]:has-text("智能体")'
 
     # Agent list (table structure)
-    AGENT_TABLE = '.qwenpaw-table'
-    AGENT_LIST = '.qwenpaw-table-tbody'
-    AGENT_ITEM = '.qwenpaw-table-tbody tr.qwenpaw-table-row'
+    AGENT_TABLE = ".qwenpaw-table"
+    AGENT_LIST = ".qwenpaw-table-tbody"
+    AGENT_ITEM = ".qwenpaw-table-tbody tr.qwenpaw-table-row"
     # Column order: drag handle (1) | Name (2) | ID (3) | Backend (4) |
     # Description (5) | Workspace (6) | Model (7) | Actions (8). Upstream
     # #6397 inserted the Backend column after ID, shifting everything to
     # its right. Actions is declared ``fixed: "right"``, so anchor it on
     # the fixed-column class instead of a position that keeps drifting.
-    AGENT_NAME_CELL = 'td.qwenpaw-table-cell:nth-child(2)'
-    AGENT_ID_CELL = 'td.qwenpaw-table-cell:nth-child(3)'
-    AGENT_DESC_CELL = 'td.qwenpaw-table-cell:nth-child(5)'
-    AGENT_WORKSPACE_CELL = 'td.qwenpaw-table-cell:nth-child(6)'
-    AGENT_MODEL_CELL = 'td.qwenpaw-table-cell:nth-child(7)'
-    AGENT_ACTIONS_CELL = 'td.qwenpaw-table-cell-fix-right'
+    AGENT_NAME_CELL = "td.qwenpaw-table-cell:nth-child(2)"
+    AGENT_ID_CELL = "td.qwenpaw-table-cell:nth-child(3)"
+    AGENT_DESC_CELL = "td.qwenpaw-table-cell:nth-child(5)"
+    AGENT_WORKSPACE_CELL = "td.qwenpaw-table-cell:nth-child(6)"
+    AGENT_MODEL_CELL = "td.qwenpaw-table-cell:nth-child(7)"
+    AGENT_ACTIONS_CELL = "td.qwenpaw-table-cell-fix-right"
     # Post-#6198 the name cell shows an AgentStatusIndicator dot exposing a
     # ``data-status`` attribute (disabled/pending/starting/running/failed)
     # instead of a "Disabled" Tag.
-    AGENT_STATUS = '[data-status]'
+    AGENT_STATUS = "[data-status]"
 
     # Action buttons
     CREATE_AGENT_BTN = 'button:has-text("创建智能体"), button:has-text("Create Agent"), .qwenpaw-btn-primary'
@@ -73,36 +73,44 @@ class AgentsPage(BasePage):
     #   Copy   = antd CopyOutlined    -> .anticon-copy   (do not match)
     #   Toggle = lucide Eye/EyeOff    -> svg.lucide-eye / svg.lucide-eye-off
     #   Delete = antd DeleteOutlined  -> .anticon-delete (danger button)
-    EDIT_BTN = 'button:has(.anticon-edit)'
-    TOGGLE_BTN = 'button:has(svg.lucide-eye-off), button:has(svg.lucide-eye)'
-    DELETE_BTN = 'button.qwenpaw-btn-dangerous, button:has(.anticon-delete)'
-    ENABLE_TOGGLE = 'button:has(svg.lucide-eye-off), button:has(svg.lucide-eye)'
-    REFRESH_BTN = 'button:has(.anticon-reload), button:has(.spark-icon-spark-refresh-line)'
+    EDIT_BTN = "button:has(.anticon-edit)"
+    TOGGLE_BTN = "button:has(svg.lucide-eye-off), button:has(svg.lucide-eye)"
+    DELETE_BTN = "button.qwenpaw-btn-dangerous, button:has(.anticon-delete)"
+    ENABLE_TOGGLE = (
+        "button:has(svg.lucide-eye-off), button:has(svg.lucide-eye)"
+    )
+    REFRESH_BTN = "button:has(.anticon-reload), button:has(.spark-icon-spark-refresh-line)"
 
     # Create/edit form
     FORM_DIALOG = '.qwenpaw-modal, [role="dialog"]'
-    FORM_TITLE = '.qwenpaw-modal-header-title, .qwenpaw-spark-title'
+    FORM_TITLE = ".qwenpaw-modal-header-title, .qwenpaw-spark-title"
     FORM_NAME_INPUT = 'input#name, input[placeholder*="My Agent"]'
     FORM_DESC_INPUT = 'textarea#description, textarea[placeholder*="describe"]'
-    FORM_WORKSPACE_INPUT = 'input#workspace_dir'
-    FORM_SKILLS_SELECT = '.qwenpaw-form-item:has-text("Skills") .qwenpaw-select-selector'
+    FORM_WORKSPACE_INPUT = "input#workspace_dir"
+    FORM_SKILLS_SELECT = (
+        '.qwenpaw-form-item:has-text("Skills") .qwenpaw-select-selector'
+    )
     FORM_SUBMIT_BTN = '.qwenpaw-modal-footer button.qwenpaw-btn-primary, button:has-text("保存"), button:has-text("Save")'
     FORM_CANCEL_BTN = '.qwenpaw-modal-footer button.qwenpaw-btn-default, button:has-text("取消"), button:has-text("Cancel")'
 
     # Delete confirmation (Popconfirm bubble)
-    DELETE_CONFIRM_DIALOG = '.qwenpaw-popconfirm'
-    DELETE_CONFIRM_BTN = '.qwenpaw-popconfirm-buttons button.qwenpaw-btn-primary'
-    DELETE_CANCEL_BTN = '.qwenpaw-popconfirm-buttons button.qwenpaw-btn-default'
+    DELETE_CONFIRM_DIALOG = ".qwenpaw-popconfirm"
+    DELETE_CONFIRM_BTN = (
+        ".qwenpaw-popconfirm-buttons button.qwenpaw-btn-primary"
+    )
+    DELETE_CANCEL_BTN = (
+        ".qwenpaw-popconfirm-buttons button.qwenpaw-btn-default"
+    )
 
     # Agent detail
-    AGENT_DETAIL_TAB = '.qwenpaw-tabs-tab-btn'
-    AGENT_DETAIL_PANEL = '.qwenpaw-tabs-tabpane-active'
-    AGENT_FILES_LIST = '[class*=fileList], .qwenpaw-list'
-    AGENT_FILE_ITEM = '[class*=fileItem], .qwenpaw-list-item'
+    AGENT_DETAIL_TAB = ".qwenpaw-tabs-tab-btn"
+    AGENT_DETAIL_PANEL = ".qwenpaw-tabs-tabpane-active"
+    AGENT_FILES_LIST = "[class*=fileList], .qwenpaw-list"
+    AGENT_FILE_ITEM = "[class*=fileItem], .qwenpaw-list-item"
 
     # Empty state
-    EMPTY_STATE = '.qwenpaw-empty, [class*=empty]'
-    EMPTY_STATE_TEXT = '.qwenpaw-empty-description, .qwenpaw-empty-desc'
+    EMPTY_STATE = ".qwenpaw-empty, [class*=empty]"
+    EMPTY_STATE_TEXT = ".qwenpaw-empty-description, .qwenpaw-empty-desc"
 
     # Toast messages (inherited from BasePage, no redefinition needed)
 
@@ -123,11 +131,15 @@ class AgentsPage(BasePage):
     def wait_for_page_load(self, timeout: int = 10000):
         """Wait for the page to finish loading."""
         try:
-            self.page.locator(self.PAGE_HEADER).first.wait_for(state="visible", timeout=timeout)
+            self.page.locator(self.PAGE_HEADER).first.wait_for(
+                state="visible", timeout=timeout
+            )
             logger.info("Agents page loaded successfully")
         except TimeoutError:
             # Fall back to other possible titles
-            self.page.locator(self.BREADCRUMB).first.wait_for(state="visible", timeout=timeout)
+            self.page.locator(self.BREADCRUMB).first.wait_for(
+                state="visible", timeout=timeout
+            )
             logger.info("Agents page loaded (breadcrumb found)")
         return self
 
@@ -147,29 +159,42 @@ class AgentsPage(BasePage):
         for row in agent_rows:
             try:
                 name_cell = row.locator(self.AGENT_NAME_CELL).first
-                name_text = name_cell.inner_text() if name_cell.is_visible() else ""
+                name_text = (
+                    name_cell.inner_text() if name_cell.is_visible() else ""
+                )
                 # Post-#6198 status is an AgentStatusIndicator dot exposing a
                 # ``data-status`` attribute (no visible text) — read the attribute.
                 status_dot = name_cell.locator(self.AGENT_STATUS).first
                 status = (
                     (status_dot.get_attribute("data-status") or "").strip()
-                    if status_dot.count() > 0 else ""
+                    if status_dot.count() > 0
+                    else ""
                 )
                 clean_name = name_text.strip()
 
                 id_cell = row.locator(self.AGENT_ID_CELL).first
-                agent_id = id_cell.inner_text().strip() if id_cell.is_visible() else ""
+                agent_id = (
+                    id_cell.inner_text().strip()
+                    if id_cell.is_visible()
+                    else ""
+                )
 
                 desc_cell = row.locator(self.AGENT_DESC_CELL).first
-                desc = desc_cell.inner_text().strip() if desc_cell.is_visible() else ""
+                desc = (
+                    desc_cell.inner_text().strip()
+                    if desc_cell.is_visible()
+                    else ""
+                )
 
-                agents.append({
-                    "name": clean_name,
-                    "id": agent_id,
-                    "description": desc[:200],
-                    "status": status,
-                    "element": row
-                })
+                agents.append(
+                    {
+                        "name": clean_name,
+                        "id": agent_id,
+                        "description": desc[:200],
+                        "status": status,
+                        "element": row,
+                    }
+                )
             except Exception as e:
                 logger.debug(f"Failed to parse agent row: {e}")
                 continue
@@ -181,9 +206,13 @@ class AgentsPage(BasePage):
         """Return the agent count (waits for table data to load)."""
         # Wait for at least one row to appear so we do not return 0 before the table renders
         try:
-            self.page.locator(self.AGENT_ITEM).first.wait_for(state="visible", timeout=5000)
+            self.page.locator(self.AGENT_ITEM).first.wait_for(
+                state="visible", timeout=5000
+            )
         except Exception:
-            logger.debug("No agent rows found within timeout, table may be empty")
+            logger.debug(
+                "No agent rows found within timeout, table may be empty"
+            )
         count = self.page.locator(self.AGENT_ITEM).count()
         logger.info(f"Agent count: {count}")
         return count
@@ -224,7 +253,9 @@ class AgentsPage(BasePage):
         self.wait(500)
         return self
 
-    def fill_agent_form(self, name: str, description: str = "", language: str = "zh") -> "AgentsPage":
+    def fill_agent_form(
+        self, name: str, description: str = "", language: str = "zh"
+    ) -> "AgentsPage":
         """
         Fill in the agent form.
 
@@ -233,10 +264,14 @@ class AgentsPage(BasePage):
             description: Agent description.
             language: Language (kept for parameter compatibility, the form has no language picker).
         """
-        logger.info(f"Filling agent form: name={name}, description={description}")
+        logger.info(
+            f"Filling agent form: name={name}, description={description}"
+        )
 
         # Wait for the modal to load
-        self.page.locator(self.FORM_DIALOG).first.wait_for(state="visible", timeout=5000)
+        self.page.locator(self.FORM_DIALOG).first.wait_for(
+            state="visible", timeout=5000
+        )
         self.wait(500)
 
         # Fill in the name
@@ -270,7 +305,9 @@ class AgentsPage(BasePage):
             self.wait(500)
         return self
 
-    def create_agent(self, name: str, description: str = "", language: str = "zh") -> "AgentsPage":
+    def create_agent(
+        self, name: str, description: str = "", language: str = "zh"
+    ) -> "AgentsPage":
         """
         Create an agent (full flow).
 
@@ -305,7 +342,12 @@ class AgentsPage(BasePage):
             raise ValueError(f"Agent not found: {agent_name}")
         return self
 
-    def update_agent(self, agent_name: str, new_name: str = None, new_description: str = None) -> "AgentsPage":
+    def update_agent(
+        self,
+        agent_name: str,
+        new_name: str = None,
+        new_description: str = None,
+    ) -> "AgentsPage":
         """
         Update agent details.
 
@@ -352,7 +394,9 @@ class AgentsPage(BasePage):
         """Confirm deletion (Popconfirm bubble)."""
         logger.info("Confirming delete")
         # Wait for the Popconfirm to appear
-        self.page.locator(self.DELETE_CONFIRM_DIALOG).first.wait_for(state="visible", timeout=5000)
+        self.page.locator(self.DELETE_CONFIRM_DIALOG).first.wait_for(
+            state="visible", timeout=5000
+        )
         confirm_btn = self.page.locator(self.DELETE_CONFIRM_BTN).first
         confirm_btn.click()
         self.wait(1000)
@@ -403,7 +447,7 @@ class AgentsPage(BasePage):
                 expect(toggle_btn).to_be_enabled(timeout=20000)
             except (AssertionError, TimeoutError, Exception):
                 logger.warning(
-                    "[toggle] toggle still disabled after 20s; clicking anyway"
+                    "[toggle] toggle still disabled after 20s; clicking anyway",
                 )
             toggle_btn.click()
             self.wait(500)
@@ -529,10 +573,17 @@ class AgentsPage(BasePage):
             Agent list.
         """
         from utils.helpers import api_get
+
         response = api_get(api_context, "/api/agents")
         return response.get("agents", [])
 
-    def api_create_agent(self, api_context, name: str, description: str = "", language: str = "zh") -> Dict:
+    def api_create_agent(
+        self,
+        api_context,
+        name: str,
+        description: str = "",
+        language: str = "zh",
+    ) -> Dict:
         """
         Create an agent via API.
 
@@ -546,10 +597,11 @@ class AgentsPage(BasePage):
             Creation result.
         """
         from utils.helpers import api_post
+
         data = {
             "name": name,
             "description": description,
-            "language": language
+            "language": language,
         }
         return api_post(api_context, "/api/agents", data)
 
@@ -565,9 +617,12 @@ class AgentsPage(BasePage):
             Deletion result.
         """
         from utils.helpers import api_delete
+
         return api_delete(api_context, f"/api/agents/{agent_id}")
 
-    def api_toggle_agent(self, api_context, agent_id: str, enabled: bool) -> Dict:
+    def api_toggle_agent(
+        self, api_context, agent_id: str, enabled: bool
+    ) -> Dict:
         """
         Toggle agent status via API.
 
@@ -580,4 +635,7 @@ class AgentsPage(BasePage):
             Toggle result.
         """
         from utils.helpers import api_post
-        return api_post(api_context, f"/api/agents/{agent_id}/toggle", {"enabled": enabled})
+
+        return api_post(
+            api_context, f"/api/agents/{agent_id}/toggle", {"enabled": enabled}
+        )

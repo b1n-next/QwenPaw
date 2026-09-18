@@ -62,7 +62,9 @@ def _wait_session_ready(page) -> None:
         time.sleep(0.3)
 
 
-def _send_slash(chat_page: ChatPage, command: str, timeout: int = 30000) -> str:
+def _send_slash(
+    chat_page: ChatPage, command: str, timeout: int = 30000
+) -> str:
     """Type ``command`` into the chat input and return the new AI bubble text.
 
     Bypasses ``send_message_and_wait`` because that helper's button-state
@@ -120,7 +122,7 @@ def _send_slash(chat_page: ChatPage, command: str, timeout: int = 30000) -> str:
         page.screenshot(path=f"/tmp/qpe-slash-{slug}.png")
         pytest.fail(
             f"no AI bubble within {timeout}ms after sending {command!r} "
-            f"(input value at fail: {inp.input_value()!r})"
+            f"(input value at fail: {inp.input_value()!r})",
         )
 
     # Wait for content to settle: stop polling once .first innerText is
@@ -147,9 +149,9 @@ def _send_slash(chat_page: ChatPage, command: str, timeout: int = 30000) -> str:
 
 
 def _assert_any(text: str, *needles: str) -> None:
-    assert any(n in text for n in needles), (
-        f"expected any of {needles!r} in bubble, got: {text!r}"
-    )
+    assert any(
+        n in text for n in needles
+    ), f"expected any of {needles!r} in bubble, got: {text!r}"
 
 
 _XFAIL_FIRST_MSG_RERENDER = (
@@ -208,7 +210,9 @@ def test_slash_history_renders(clean_chat_page: ChatPage):
     text = _send_slash(chat, "/history")
     # The handler always responds with something — either history text
     # or an indicator block. Just assert we got a non-trivial bubble.
-    assert len(text.strip()) >= 5, f"unexpectedly short history bubble: {text!r}"
+    assert (
+        len(text.strip()) >= 5
+    ), f"unexpectedly short history bubble: {text!r}"
 
 
 @pytest.mark.slash_commands
@@ -281,17 +285,18 @@ def test_slash_unknown_does_not_crash(clean_chat_page: ChatPage):
     page.wait_for_timeout(3000)
 
     # UI smoke after probe: input box and sidebar still render.
-    assert page.locator("textarea").first.count() > 0, (
-        "textarea disappeared after unknown command — UI crashed"
-    )
-    assert page.locator('text=/Chat|Sessions|Channels/').first.count() > 0, (
-        "sidebar disappeared after unknown command — UI crashed"
-    )
+    assert (
+        page.locator("textarea").first.count() > 0
+    ), "textarea disappeared after unknown command — UI crashed"
+    assert (
+        page.locator("text=/Chat|Sessions|Channels/").first.count() > 0
+    ), "sidebar disappeared after unknown command — UI crashed"
 
 
 # ============================================================================
 # Sprint 5 additions
 # ============================================================================
+
 
 @pytest.mark.slash_commands
 @pytest.mark.p1
@@ -318,15 +323,15 @@ def test_slash_suggestion_popup_renders(clean_chat_page: ChatPage):
 
     items_text = page.locator(chat.SUGGESTION_POPUP).inner_text()
     for cmd in ("/new", "/clear", "/compact", "/skills"):
-        assert cmd in items_text, (
-            f"built-in {cmd} missing from suggestions: {items_text!r}"
-        )
+        assert (
+            cmd in items_text
+        ), f"built-in {cmd} missing from suggestions: {items_text!r}"
 
     # Typing a space after the command closes the popup.
     inp.fill("/new ")
     page.wait_for_timeout(600)
     assert not page.locator(
-        chat.SUGGESTION_POPUP
+        chat.SUGGESTION_POPUP,
     ).first.is_visible(), "popup should close once whitespace is typed"
 
     inp.fill("")

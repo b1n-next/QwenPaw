@@ -15,38 +15,42 @@ from typing import Optional
 @dataclass
 class BrowserConfig:
     """Browser configuration"""
+
     browser_type: str = "chromium"  # chromium, firefox, webkit
     headless: bool = True
     viewport_width: int = 1920
     viewport_height: int = 1080
     slow_mo: int = 0  # Slow motion mode (milliseconds), used for debugging
     timeout: int = 30000  # Default timeout (milliseconds)
-    args: list = field(default_factory=lambda: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        # Disable Chrome translation popup (the system under test has English UI;
-        # if Chrome detects a locale mismatch it pops up "Translate this page?",
-        # which obscures elements / hijacks focus)
-        "--disable-features=TranslateUI",
-        "--disable-translate",
-        # Disable other potentially interfering popups
-        "--disable-notifications",
-        "--disable-popup-blocking",
-        "--disable-infobars",
-        "--no-first-run",
-        "--no-default-browser-check",
-    ])
+    args: list = field(
+        default_factory=lambda: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-gpu",
+            # Disable Chrome translation popup (the system under test has English UI;
+            # if Chrome detects a locale mismatch it pops up "Translate this page?",
+            # which obscures elements / hijacks focus)
+            "--disable-features=TranslateUI",
+            "--disable-translate",
+            # Disable other potentially interfering popups
+            "--disable-notifications",
+            "--disable-popup-blocking",
+            "--disable-infobars",
+            "--no-first-run",
+            "--no-default-browser-check",
+        ],
+    )
 
 
 @dataclass
 class ServerConfig:
     """Server configuration"""
+
     base_url: str = "http://localhost:7077"
     api_base_url: str = ""  # Leave empty to use base_url + /api
 
-    model_key: str = ""     # Key for Model connection tests
+    model_key: str = ""  # Key for Model connection tests
     timeout: int = 30000
     retry_count: int = 3
     retry_delay: float = 1.0
@@ -55,6 +59,7 @@ class ServerConfig:
 @dataclass
 class TestConfig:
     """Test configuration"""
+
     user_id: str = "default"
     channel: str = "console"
     screenshot_on_fail: bool = True
@@ -66,14 +71,39 @@ class TestConfig:
 @dataclass
 class PathConfig:
     """Path configuration"""
-    base_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent)
-    tests_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent)
-    data_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "data")
-    reports_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "reports")
-    screenshots_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "reports" / "screenshots")
-    videos_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "reports" / "videos")
-    logs_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "reports" / "logs")
-    allure_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "reports" / "allure-results")
+
+    base_dir: Path = field(
+        default_factory=lambda: Path(__file__).parent.parent
+    )
+    tests_dir: Path = field(
+        default_factory=lambda: Path(__file__).parent.parent
+    )
+    data_dir: Path = field(
+        default_factory=lambda: Path(__file__).parent.parent / "data"
+    )
+    reports_dir: Path = field(
+        default_factory=lambda: Path(__file__).parent.parent / "reports"
+    )
+    screenshots_dir: Path = field(
+        default_factory=lambda: Path(__file__).parent.parent
+        / "reports"
+        / "screenshots"
+    )
+    videos_dir: Path = field(
+        default_factory=lambda: Path(__file__).parent.parent
+        / "reports"
+        / "videos"
+    )
+    logs_dir: Path = field(
+        default_factory=lambda: Path(__file__).parent.parent
+        / "reports"
+        / "logs"
+    )
+    allure_dir: Path = field(
+        default_factory=lambda: Path(__file__).parent.parent
+        / "reports"
+        / "allure-results"
+    )
 
 
 class Config:
@@ -90,28 +120,28 @@ class Config:
     - QWENPAW_CHANNEL: Channel name
     - PLAYWRIGHT_SLOW_MO: Slow motion delay (milliseconds)
     """
-    
+
     _instance: Optional["Config"] = None
-    
+
     def __new__(cls) -> "Config":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._initialized = False
         return cls._instance
-    
+
     def __init__(self):
         if self._initialized:
             return
-        
+
         self.browser = BrowserConfig()
         self.server = ServerConfig()
         self.test = TestConfig()
         self.paths = PathConfig()
-        
+
         self._load_from_env()
         self._ensure_directories()
         self._initialized = True
-    
+
     def _load_from_env(self):
         """Load configuration from environment variables"""
         # Server configuration
@@ -129,7 +159,10 @@ class Config:
                 self.server.timeout = timeout
             except ValueError:
                 import warnings
-                warnings.warn(f"Invalid QWENPAW_TIMEOUT value: '{os.getenv('QWENPAW_TIMEOUT')}', using default")
+
+                warnings.warn(
+                    f"Invalid QWENPAW_TIMEOUT value: '{os.getenv('QWENPAW_TIMEOUT')}', using default"
+                )
 
         if os.getenv("PLAYWRIGHT_SLOW_MO"):
             self.browser.slow_mo = int(os.getenv("PLAYWRIGHT_SLOW_MO"))
@@ -159,11 +192,11 @@ class Config:
             self.paths.data_dir,
         ]:
             dir_path.mkdir(parents=True, exist_ok=True)
-    
+
     @property
     def base_url(self) -> str:
         return self.server.base_url
-    
+
     @property
     def api_url(self) -> str:
         return self.server.api_base_url
@@ -197,7 +230,7 @@ class Config:
                 "e2e/scripts/start_test_server.sh, or run "
                 "`QWENPAW_WORKING_DIR=/tmp/qwenpaw-e2e-test-work-dir/working "
                 "pytest ...` against an isolated backend on the same "
-                "directory."
+                "directory.",
             )
         resolved = Path(explicit).expanduser().resolve()
         home = Path.home().resolve()
@@ -212,7 +245,7 @@ class Config:
                 f"home ({home}). Refusing to seed e2e fixtures into a "
                 "directory that may hold the developer's real QwenPaw "
                 "data. Point it at an isolated location such as "
-                "/tmp/qwenpaw-e2e-test-work-dir/working."
+                "/tmp/qwenpaw-e2e-test-work-dir/working.",
             )
         return resolved
 

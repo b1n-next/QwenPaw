@@ -31,7 +31,9 @@ class TestChatSessionArchiveBatchDeep:
 
     @pytest.mark.test_id("COV-CS-001")
     def test_session_archive_batch_deep(
-        self, clean_chat_page: ChatPage, request: pytest.FixtureRequest
+        self,
+        clean_chat_page: ChatPage,
+        request: pytest.FixtureRequest,
     ):
         test_name = request.node.name
 

@@ -11,7 +11,13 @@ import logging
 import pytest
 from pathlib import Path
 from typing import Generator, Optional
-from playwright.sync_api import sync_playwright, Page, Browser, BrowserContext, APIRequestContext
+from playwright.sync_api import (
+    sync_playwright,
+    Page,
+    Browser,
+    BrowserContext,
+    APIRequestContext,
+)
 from datetime import datetime
 
 from config.settings import config, get_config
@@ -23,9 +29,12 @@ logging.basicConfig(
     level=getattr(logging, config.test.log_level),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
-        logging.FileHandler(config.paths.logs_dir / f"test_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"),
+        logging.FileHandler(
+            config.paths.logs_dir
+            / f"test_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        ),
         logging.StreamHandler(),
-    ]
+    ],
 )
 
 logger = logging.getLogger(__name__)
@@ -34,6 +43,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # Session-scoped Fixtures
 # ============================================================================
+
 
 @pytest.fixture(scope="session")
 def playwright_context():
@@ -44,10 +54,10 @@ def playwright_context():
         Playwright instance
     """
     logger.info("Starting Playwright session")
-    
+
     with sync_playwright() as p:
         yield p
-    
+
     logger.info("Playwright session ended")
 
 
@@ -61,7 +71,9 @@ def browser(playwright_context):
     """
     cfg = config.browser
 
-    logger.info(f"Launching browser: {cfg.browser_type}, headless={cfg.headless}")
+    logger.info(
+        f"Launching browser: {cfg.browser_type}, headless={cfg.headless}"
+    )
 
     browser_kwargs = {
         "headless": cfg.headless,
@@ -78,17 +90,19 @@ def browser(playwright_context):
         browser = playwright_context.webkit.launch(**browser_kwargs)
     else:
         raise ValueError(f"Unsupported browser type: {cfg.browser_type}")
-    
+
     logger.info("Browser launched successfully")
-    
+
     yield browser
-    
+
     logger.info("Closing browser")
     browser.close()
 
 
 @pytest.fixture(scope="session")
-def api_context(playwright_context) -> Generator[APIRequestContext, None, None]:
+def api_context(
+    playwright_context,
+) -> Generator[APIRequestContext, None, None]:
     """
     Create an API request context.
 
@@ -108,7 +122,7 @@ def api_context(playwright_context) -> Generator[APIRequestContext, None, None]:
         extra_http_headers={
             "Content-Type": "application/json",
             "X-Agent-Id": "default",
-        }
+        },
     )
 
     yield api_request_context
@@ -120,8 +134,11 @@ def api_context(playwright_context) -> Generator[APIRequestContext, None, None]:
 # Function-scoped Fixtures
 # ============================================================================
 
+
 @pytest.fixture(scope="function")
-def browser_context(browser: Browser, request: pytest.FixtureRequest) -> Generator[BrowserContext, None, None]:
+def browser_context(
+    browser: Browser, request: pytest.FixtureRequest
+) -> Generator[BrowserContext, None, None]:
     """
     Create a browser context (one per test function)
 
@@ -154,7 +171,9 @@ def browser_context(browser: Browser, request: pytest.FixtureRequest) -> Generat
         record_video_size={
             "width": config.browser.viewport_width,
             "height": config.browser.viewport_height,
-        } if video_dir else None,
+        }
+        if video_dir
+        else None,
     )
 
     # Pre-dismiss the "Try Desktop Mode" onboarding tour (v2.1.0-beta+).
@@ -166,17 +185,19 @@ def browser_context(browser: Browser, request: pytest.FixtureRequest) -> Generat
         try {
             localStorage.setItem('qwenpaw.desktop-mode-hint.dismissed', '1');
         } catch (e) {}
-        """
+        """,
     )
 
     yield context
-    
+
     logger.info(f"Closing browser context for test: {test_name}")
     context.close()
 
 
 @pytest.fixture(scope="function")
-def page(browser_context: BrowserContext, request: pytest.FixtureRequest) -> Generator[Page, None, None]:
+def page(
+    browser_context: BrowserContext, request: pytest.FixtureRequest
+) -> Generator[Page, None, None]:
     """
     Create a page instance (one per test function)
 
@@ -210,7 +231,10 @@ def page(browser_context: BrowserContext, request: pytest.FixtureRequest) -> Gen
         pass
 
     # Capture console logs
-    page.on("console", lambda msg: logger.debug(f"Browser console: {msg.type} - {msg.text}"))
+    page.on(
+        "console",
+        lambda msg: logger.debug(f"Browser console: {msg.type} - {msg.text}"),
+    )
     page.on("pageerror", lambda err: logger.error(f"Page error: {err}"))
 
     yield page
@@ -219,28 +243,38 @@ def page(browser_context: BrowserContext, request: pytest.FixtureRequest) -> Gen
     # may not trigger the pytest_runtest_makereport hook, so the node may lack the
     # rep_call attribute. getattr avoids AttributeError polluting teardown.)
     rep_call = getattr(request.node, "rep_call", None)
-    if config.test.screenshot_on_fail and rep_call is not None and rep_call.failed:
+    if (
+        config.test.screenshot_on_fail
+        and rep_call is not None
+        and rep_call.failed
+    ):
         try:
-            screenshot_path = config.paths.screenshots_dir / f"{test_name}_failure.png"
+            screenshot_path = (
+                config.paths.screenshots_dir / f"{test_name}_failure.png"
+            )
             page.screenshot(path=str(screenshot_path), full_page=True)
             logger.info(f"Screenshot saved: {screenshot_path}")
 
             # Save video
             if config.test.video_on_fail and page.video:
-                video_path = config.paths.videos_dir / f"{test_name}_failure.webm"
+                video_path = (
+                    config.paths.videos_dir / f"{test_name}_failure.webm"
+                )
                 page.video.save_as(str(video_path))
                 logger.info(f"Video saved: {video_path}")
         except Exception as e:
             logger.warning(f"Failed to capture screenshot/video: {e}")
 
     page.close()
-    
+
     logger.info(f"Page closed for test: {test_name}")
 
 
 # Hook to track test call state
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
-def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo) -> None:
+def pytest_runtest_makereport(
+    item: pytest.Item, call: pytest.CallInfo
+) -> None:
     """Track test execution state, used for screenshot-on-failure"""
     outcome = yield
     rep = outcome.get_result()
@@ -310,6 +344,7 @@ def authenticated_page(page: Page) -> Page:
 # Data Fixtures
 # ============================================================================
 
+
 @pytest.fixture(scope="function")
 def test_file(tmp_path: Path) -> Path:
     """
@@ -351,7 +386,7 @@ def large_test_file(tmp_path: Path) -> Path:
 
     # Create an 11MB file (exceeds the 10MB limit)
     chunk = "A" * (1024 * 1024)  # 1MB
-    with open(large_file, 'w', encoding='utf-8') as f:
+    with open(large_file, "w", encoding="utf-8") as f:
         for _ in range(11):
             f.write(chunk)
 
@@ -394,6 +429,7 @@ def test_user_data() -> dict:
 # Utility Fixtures
 # ============================================================================
 
+
 @pytest.fixture(scope="function")
 def retry_on_failure(request: pytest.FixtureRequest):
     """
@@ -413,9 +449,12 @@ def retry_on_failure(request: pytest.FixtureRequest):
                 return test_func(*args, **kwargs)
             except Exception as e:
                 last_exception = e
-                logger.warning(f"Attempt {attempt + 1}/{max_retries} failed: {e}")
+                logger.warning(
+                    f"Attempt {attempt + 1}/{max_retries} failed: {e}"
+                )
                 if attempt < max_retries - 1:
                     import time
+
                     time.sleep(config.server.retry_delay)
 
         raise last_exception

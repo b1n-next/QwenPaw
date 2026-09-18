@@ -70,7 +70,7 @@ class TestMemoryDailyDeep:
         clean_chat_page.open()
         clean_chat_page.create_new_chat()
         clean_chat_page.send_message(
-            f"What did I previously say about {keyword}? Quote it."
+            f"What did I previously say about {keyword}? Quote it.",
         )
         ai = clean_chat_page.wait_for_ai_response(timeout=90000)
         assert ai is not None, "AI response timed out"
@@ -80,7 +80,7 @@ class TestMemoryDailyDeep:
         if last_ai is not None:
             text = last_ai.inner_text()
             logger.info(
-                f"Recall hit: {keyword in text or '7331' in text}"
+                f"Recall hit: {keyword in text or '7331' in text}",
             )
 
         log_test_step("5. Open memory config tab and save unchanged")
@@ -106,7 +106,10 @@ class TestMemoryConfigDeep:
 
     @pytest.mark.test_id("COV-MM-002")
     def test_memory_config_round_trip(
-        self, memory_page: MemoryPage, api_context, request: pytest.FixtureRequest
+        self,
+        memory_page: MemoryPage,
+        api_context,
+        request: pytest.FixtureRequest,
     ):
         test_name = request.node.name
 

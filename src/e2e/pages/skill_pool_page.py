@@ -51,8 +51,8 @@ class SkillPoolPage(BasePage):
     AUTOMATION_BUTTON = '[class*="automationButton"]'
 
     # Edit drawer (PoolSkillDrawer.tsx)
-    DRAWER = '.qwenpaw-drawer'
-    DRAWER_TITLE = '.qwenpaw-drawer-title'
+    DRAWER = ".qwenpaw-drawer"
+    DRAWER_TITLE = ".qwenpaw-drawer-title"
     AUTO_SYNC_SWITCH = '.qwenpaw-drawer [data-testid="auto-sync-switch"]'
     # Target-agent multi-select is rendered ONLY after the switch is ON; anchor
     # on its placeholder text (unique) so we don't match other selects.
@@ -85,7 +85,8 @@ class SkillPoolPage(BasePage):
         self.goto()
         try:
             self.page.locator(self.PAGE_CONTAINER).first.wait_for(
-                state="visible", timeout=self.timeout
+                state="visible",
+                timeout=self.timeout,
             )
         except Exception:
             logger.warning("skillsPage container not visible within timeout")
@@ -101,7 +102,7 @@ class SkillPoolPage(BasePage):
     def find_card_by_name(self, name: str) -> Optional[Locator]:
         """Return the skill card whose text contains ``name`` (or None)."""
         card = self.page.locator(
-            f'{self.SKILL_CARD}:has-text("{name}")'
+            f'{self.SKILL_CARD}:has-text("{name}")',
         ).first
         return card if card.count() > 0 else None
 
@@ -120,7 +121,8 @@ class SkillPoolPage(BasePage):
         card.scroll_into_view_if_needed(timeout=5000)
         card.click()
         self.page.locator(self.DRAWER).first.wait_for(
-            state="visible", timeout=self.timeout
+            state="visible",
+            timeout=self.timeout,
         )
         self.wait(400)
         return self
@@ -160,7 +162,9 @@ class SkillPoolPage(BasePage):
             data={"name": name, "content": body, "enable": True},
         )
         ok = resp.ok or resp.status in (400, 409)
-        logger.info("seed_pool_skill(%s) -> HTTP %s (ok=%s)", name, resp.status, ok)
+        logger.info(
+            "seed_pool_skill(%s) -> HTTP %s (ok=%s)", name, resp.status, ok
+        )
         return ok
 
     @staticmethod

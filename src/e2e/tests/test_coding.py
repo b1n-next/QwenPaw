@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 # CODE-001: Enter and exit Coding Mode (URL round-trip)
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.p0
 @pytest.mark.coding
@@ -58,32 +59,34 @@ class TestEnterAndExitCodingMode:
         coding_page.page.goto(coding_page.CODING_URL)
         coding_page.page.wait_for_load_state("domcontentloaded")
         coding_page.page.wait_for_timeout(3000)
-        assert not coding_page.is_in_coding_mode(), (
-            "IDE rail should be absent while Coding Mode is off"
-        )
+        assert (
+            not coding_page.is_in_coding_mode()
+        ), "IDE rail should be absent while Coding Mode is off"
 
         log_test_step("2. Enable Coding Mode via API and verify IDE rail")
         coding_page.api_set_coding_mode(api_context, True)
         coding_page.page.reload()
         coding_page.page.wait_for_timeout(3000)
-        assert coding_page.verify_ide_layout_visible(), (
-            "Coding Mode IDE surface did not render after enabling"
-        )
+        assert (
+            coding_page.verify_ide_layout_visible()
+        ), "Coding Mode IDE surface did not render after enabling"
 
         log_test_step("3. Verify mode signal")
-        assert coding_page.is_in_coding_mode(), (
-            "Expected Coding Mode IDE surface to be active"
-        )
+        assert (
+            coding_page.is_in_coding_mode()
+        ), "Expected Coding Mode IDE surface to be active"
 
         log_test_step("4. Disable Coding Mode and verify rail gone")
         coding_page.api_set_coding_mode(api_context, False)
         coding_page.page.reload()
         coding_page.page.wait_for_timeout(3000)
-        assert not coding_page.is_in_coding_mode(), (
-            "Expected IDE rail to disappear after disabling Coding Mode"
-        )
+        assert (
+            not coding_page.is_in_coding_mode()
+        ), "Expected IDE rail to disappear after disabling Coding Mode"
 
-        log_test_step("5. Verify tool call permission checks (coverage extension)")
+        log_test_step(
+            "5. Verify tool call permission checks (coverage extension)"
+        )
         # Re-enable coding mode to check tool permissions
         coding_page.api_set_coding_mode(api_context, True)
         coding_page.page.reload()
@@ -96,12 +99,14 @@ class TestEnterAndExitCodingMode:
         try:
             truncation_marker = coding_page.page.locator(
                 '[class*="truncated"], [class*="truncation"], '
-                'text="... (truncated)", text="...（已截断）"'
+                'text="... (truncated)", text="...（已截断）"',
             )
             if truncation_marker.count() > 0:
                 logger.info("Tool result truncation marker visible")
             else:
-                logger.info("Truncation marker not visible (tool output may be short)")
+                logger.info(
+                    "Truncation marker not visible (tool output may be short)"
+                )
         except Exception as e:
             logger.warning(f"Truncation check failed: {e}")
 
@@ -112,6 +117,7 @@ class TestEnterAndExitCodingMode:
 # ============================================================================
 # CODE-002: Create empty project and open
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p0
@@ -143,13 +149,13 @@ class TestCreateEmptyProjectAndOpen:
             coding_page.page.goto(coding_page.CODING_URL)
             coding_page.page.wait_for_load_state("domcontentloaded")
             coding_page.page.wait_for_timeout(3000)
-            assert coding_page.verify_ide_layout_visible(), (
-                "IDE shell did not render after creating project"
-            )
+            assert (
+                coding_page.verify_ide_layout_visible()
+            ), "IDE shell did not render after creating project"
 
             log_test_result(test_name, True, 0)
             logger.info(
-                f"Test {test_name} passed (project: {project_name})"
+                f"Test {test_name} passed (project: {project_name})",
             )
         finally:
             coding_page.api_set_coding_mode(api_context, False)
@@ -158,6 +164,7 @@ class TestCreateEmptyProjectAndOpen:
 # ============================================================================
 # CODE-003: Open existing directory (no copy)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -193,9 +200,9 @@ class TestOpenExistingDirectory:
         active_path = bound.get("path") or coding_page.api_get_coding_project(
             api_context,
         ).get("path")
-        assert active_path == seed["path"], (
-            f"Expected active path {seed['path']}, got {active_path}"
-        )
+        assert (
+            active_path == seed["path"]
+        ), f"Expected active path {seed['path']}, got {active_path}"
 
         log_test_step("2. Enable Coding Mode and assert IDE renders")
         coding_page.api_set_coding_mode(api_context, True)
@@ -203,9 +210,9 @@ class TestOpenExistingDirectory:
             coding_page.page.goto(coding_page.CODING_URL)
             coding_page.page.wait_for_load_state("domcontentloaded")
             coding_page.page.wait_for_timeout(3000)
-            assert coding_page.verify_ide_layout_visible(), (
-                "IDE surface did not render after opening existing directory"
-            )
+            assert (
+                coding_page.verify_ide_layout_visible()
+            ), "IDE surface did not render after opening existing directory"
             log_test_result(test_name, True, 0)
             logger.info(f"Test {test_name} passed (path: {active_path})")
         finally:
@@ -215,6 +222,7 @@ class TestOpenExistingDirectory:
 # ============================================================================
 # CODE-004: Chat in Coding Mode (LLM round-trip, requires_llm)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.requires_llm
@@ -255,29 +263,29 @@ class TestChatInCodingMode:
             coding_page.page.goto(coding_page.CODING_URL)
             coding_page.page.wait_for_load_state("domcontentloaded")
             coding_page.page.wait_for_timeout(3000)
-            assert coding_page.verify_ide_layout_visible(), (
-                "IDE surface did not render"
-            )
+            assert (
+                coding_page.verify_ide_layout_visible()
+            ), "IDE surface did not render"
 
             log_test_step("3. Send a question that mentions README.md")
             coding_page.open_chat()
             coding_page.page.wait_for_timeout(3000)
             chat_input = coding_page.page.locator(
-                '.qwenpaw-sender textarea:visible, .qwenpaw-sender [role="textbox"]:visible'
+                '.qwenpaw-sender textarea:visible, .qwenpaw-sender [role="textbox"]:visible',
             ).first
             expect(chat_input).to_be_visible(timeout=coding_page.timeout)
             chat_input.fill(
                 "What does README.md say in this project? "
-                "Reply in one short sentence."
+                "Reply in one short sentence.",
             )
             send_btn = coding_page.page.locator(
-                "button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary"
+                "button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary",
             ).first
             send_btn.click()
 
             log_test_step("4. Wait for at least one AI bubble to appear")
             ai_bubble = coding_page.page.locator(
-                ".qwenpaw-bubble.qwenpaw-bubble-start"
+                ".qwenpaw-bubble.qwenpaw-bubble-start",
             ).first
             expect(ai_bubble).to_be_visible(timeout=120000)
 
@@ -290,6 +298,7 @@ class TestChatInCodingMode:
 # ============================================================================
 # CODE-005: File tree click → editor tab
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -328,13 +337,13 @@ class TestFileTreeOpenTab:
             coding_page.page.goto(coding_page.CODING_URL)
             coding_page.page.wait_for_load_state("domcontentloaded")
             coding_page.page.wait_for_timeout(3000)
-            assert coding_page.verify_ide_layout_visible(), (
-                "IDE surface did not render"
-            )
+            assert (
+                coding_page.verify_ide_layout_visible()
+            ), "IDE surface did not render"
 
             log_test_step("3. Editor empty hint should be visible initially")
             empty_hint = coding_page.page.locator(
-                coding_page.EDITOR_EMPTY_HINT
+                coding_page.EDITOR_EMPTY_HINT,
             )
             try:
                 expect(empty_hint.first).to_be_visible(timeout=10000)
@@ -345,17 +354,17 @@ class TestFileTreeOpenTab:
                 logger.info("Editor empty hint not visible; continuing")
 
             log_test_step(
-                f"4. Click '{seed_filename}' in the file tree"
+                f"4. Click '{seed_filename}' in the file tree",
             )
             tree_node = coding_page.page.locator(
-                f'button[class*="treeRow"]:has(span:text-is("{seed_filename}"))'
+                f'button[class*="treeRow"]:has(span:text-is("{seed_filename}"))',
             ).first
             expect(tree_node).to_be_visible(timeout=15000)
             tree_node.click()
 
             log_test_step("5. A tab matching the file name should open")
             tab = coding_page.page.locator(
-                f'{coding_page.EDITOR_TAB}:has-text("{seed_filename}")'
+                f'{coding_page.EDITOR_TAB}:has-text("{seed_filename}")',
             ).first
             expect(tab).to_be_visible(timeout=15000)
 

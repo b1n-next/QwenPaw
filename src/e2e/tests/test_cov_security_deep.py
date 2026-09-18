@@ -31,7 +31,9 @@ class TestSecurityGuardsDeep:
 
     @pytest.mark.test_id("COV-SEC-001")
     def test_tool_and_file_guard_deep(
-        self, security_page: SecurityPage, request: pytest.FixtureRequest
+        self,
+        security_page: SecurityPage,
+        request: pytest.FixtureRequest,
     ):
         test_name = request.node.name
 

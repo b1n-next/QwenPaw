@@ -37,7 +37,10 @@ _MARKET_PLUGINS = [
         "view_count": 100,
         "details_url": None,
         "locales": {
-            "en": {"description": "Compatible test plugin", "category": "tools"},
+            "en": {
+                "description": "Compatible test plugin",
+                "category": "tools",
+            },
             "zh": {"description": "兼容性测试插件", "category": "tools"},
         },
         "qwenpaw_compat_labels": ["2.x"],
@@ -54,7 +57,10 @@ _MARKET_PLUGINS = [
         "view_count": 10,
         "details_url": None,
         "locales": {
-            "en": {"description": "Incompatible test plugin", "category": "tools"},
+            "en": {
+                "description": "Incompatible test plugin",
+                "category": "tools",
+            },
             "zh": {"description": "不兼容测试插件", "category": "tools"},
         },
         "qwenpaw_compat_labels": ["1.x"],
@@ -78,7 +84,7 @@ def register(page: Page) -> None:
                         "total": len(_MARKET_PLUGINS),
                         "plugins": _MARKET_PLUGINS,
                     },
-                }
+                },
             ),
         )
 
@@ -102,7 +108,7 @@ def register(page: Page) -> None:
                     "description": "mocked install",
                     "loaded": True,
                     "message": "",
-                }
+                },
             ),
         )
 

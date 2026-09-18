@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 # Screenshots and recording
 # ============================================================================
 
+
 def take_screenshot(page: Page, name: str, full_page: bool = True) -> str:
     """
     Take a screenshot.
@@ -74,7 +75,12 @@ def save_video(page: Page, name: str) -> Optional[str]:
 # API helpers
 # ============================================================================
 
-def api_get(api_context: APIRequestContext, endpoint: str, params: Optional[Dict] = None) -> Dict:
+
+def api_get(
+    api_context: APIRequestContext,
+    endpoint: str,
+    params: Optional[Dict] = None,
+) -> Dict:
     """
     Send a GET request.
 
@@ -90,12 +96,16 @@ def api_get(api_context: APIRequestContext, endpoint: str, params: Optional[Dict
     logger.info(f"GET {endpoint}")
 
     response = api_context.get(endpoint, params=params)
-    assert response.ok, f"API request failed: {response.status} {response.status_text}"
+    assert (
+        response.ok
+    ), f"API request failed: {response.status} {response.status_text}"
 
     return response.json()
 
 
-def api_post(api_context: APIRequestContext, endpoint: str, data: Optional[Dict] = None) -> Dict:
+def api_post(
+    api_context: APIRequestContext, endpoint: str, data: Optional[Dict] = None
+) -> Dict:
     """
     Send a POST request.
 
@@ -111,7 +121,9 @@ def api_post(api_context: APIRequestContext, endpoint: str, data: Optional[Dict]
     logger.info(f"POST {endpoint}, data: {data}")
 
     response = api_context.post(endpoint, data=data)
-    assert response.ok, f"API request failed: {response.status} {response.status_text}"
+    assert (
+        response.ok
+    ), f"API request failed: {response.status} {response.status_text}"
 
     return response.json()
 
@@ -130,7 +142,9 @@ def api_delete(api_context: APIRequestContext, endpoint: str) -> Dict:
     logger.info(f"DELETE {endpoint}")
 
     response = api_context.delete(endpoint)
-    assert response.ok, f"DELETE {endpoint} failed: {response.status} {response.status_text}"
+    assert (
+        response.ok
+    ), f"DELETE {endpoint} failed: {response.status} {response.status_text}"
 
     return response.json()
 
@@ -139,7 +153,10 @@ def api_delete(api_context: APIRequestContext, endpoint: str) -> Dict:
 # Waiting and retries
 # ============================================================================
 
-def wait_for_condition(condition_func, timeout: int = 30000, interval: int = 500) -> Any:
+
+def wait_for_condition(
+    condition_func, timeout: int = 30000, interval: int = 500
+) -> Any:
     """
     Wait for a condition to be satisfied.
 
@@ -160,7 +177,9 @@ def wait_for_condition(condition_func, timeout: int = 30000, interval: int = 500
     while time.time() - start_time < timeout_sec:
         result = condition_func()
         if result:
-            logger.debug(f"Condition met after {time.time() - start_time:.2f}s")
+            logger.debug(
+                f"Condition met after {time.time() - start_time:.2f}s"
+            )
             return result
 
         time.sleep(interval / 1000)
@@ -168,7 +187,9 @@ def wait_for_condition(condition_func, timeout: int = 30000, interval: int = 500
     raise TimeoutError(f"Condition not met within {timeout}ms")
 
 
-def retry_operation(operation_func, max_retries: int = 3, delay: float = 1.0) -> Any:
+def retry_operation(
+    operation_func, max_retries: int = 3, delay: float = 1.0
+) -> Any:
     """
     Retry an operation.
 
@@ -204,6 +225,7 @@ def retry_operation(operation_func, max_retries: int = 3, delay: float = 1.0) ->
 # ============================================================================
 # File operations
 # ============================================================================
+
 
 def create_test_file(tmp_path: Path, filename: str, content: str) -> Path:
     """
@@ -259,7 +281,10 @@ def load_json_data(filename: str) -> Dict:
 # Assertion helpers
 # ============================================================================
 
-def assert_element_visible(page: Page, selector: str, timeout: int = 5000) -> bool:
+
+def assert_element_visible(
+    page: Page, selector: str, timeout: int = 5000
+) -> bool:
     """
     Assert that an element is visible.
 
@@ -280,7 +305,9 @@ def assert_element_visible(page: Page, selector: str, timeout: int = 5000) -> bo
         return False
 
 
-def assert_text_contains(page: Page, selector: str, expected_text: str, timeout: int = 5000) -> bool:
+def assert_text_contains(
+    page: Page, selector: str, expected_text: str, timeout: int = 5000
+) -> bool:
     """
     Assert that text contains the expected substring.
 
@@ -303,7 +330,9 @@ def assert_text_contains(page: Page, selector: str, expected_text: str, timeout:
         return False
 
 
-def assert_count(page: Page, selector: str, expected_count: int, timeout: int = 5000) -> bool:
+def assert_count(
+    page: Page, selector: str, expected_count: int, timeout: int = 5000
+) -> bool:
     """
     Assert the number of matching elements.
 
@@ -329,6 +358,7 @@ def assert_count(page: Page, selector: str, expected_count: int, timeout: int = 
 # ============================================================================
 # Logging and reporting
 # ============================================================================
+
 
 def log_test_step(step_name: str, details: Optional[str] = None):
     """
@@ -394,6 +424,7 @@ Pass rate: {pass_rate:.1f}%
 # Misc utilities
 # ============================================================================
 
+
 def generate_unique_id(prefix: str = "test") -> str:
     """
     Generate a unique ID.
@@ -420,7 +451,7 @@ def sanitize_filename(filename: str) -> str:
     """
     illegal_chars = '<>:"/\\|？*'
     for char in illegal_chars:
-        filename = filename.replace(char, '_')
+        filename = filename.replace(char, "_")
     return filename
 
 

@@ -52,10 +52,14 @@ class ToolsPage(BasePage):
         self.wait_for_page_loaded()
         return self
 
-    def wait_for_page_loaded(self, timeout: Optional[int] = None) -> "ToolsPage":
+    def wait_for_page_loaded(
+        self, timeout: Optional[int] = None
+    ) -> "ToolsPage":
         """Wait for the page to finish loading."""
         timeout = timeout or self.timeout
-        expect(self.page.locator(self.PAGE_LOAD_INDICATOR).first).to_be_visible(timeout=timeout)
+        expect(
+            self.page.locator(self.PAGE_LOAD_INDICATOR).first
+        ).to_be_visible(timeout=timeout)
         return self
 
     # ========== Tool list operations ==========
@@ -69,7 +73,9 @@ class ToolsPage(BasePage):
     def get_tool_name(self, card: Locator) -> str:
         """Return the tool name."""
         # Try to get the tool name from the card title
-        title_element = card.locator('.ant-card-meta-title, .qwenpaw-card-meta-title, h3, h4, [class*="title"]').first
+        title_element = card.locator(
+            '.ant-card-meta-title, .qwenpaw-card-meta-title, h3, h4, [class*="title"]'
+        ).first
         if title_element.count() > 0:
             return title_element.inner_text()
 
@@ -91,23 +97,32 @@ class ToolsPage(BasePage):
             return switch.evaluate(
                 "el => el.classList.contains('qwenpaw-switch-checked') || "
                 "el.classList.contains('ant-switch-checked') || "
-                "el.getAttribute('aria-checked') === 'true'"
+                "el.getAttribute('aria-checked') === 'true'",
             )
         return False
 
     # ========== Assertion methods ==========
 
-    def assert_tool_count(self, expected_count: int, timeout: Optional[int] = None) -> "ToolsPage":
+    def assert_tool_count(
+        self, expected_count: int, timeout: Optional[int] = None
+    ) -> "ToolsPage":
         """Assert the tool card count."""
         expect(self.page.locator(self.TOOL_CARD)).to_have_count(
-            expected_count, timeout=timeout or self.timeout
+            expected_count,
+            timeout=timeout or self.timeout,
         )
         return self
 
-    def assert_tool_exists(self, tool_name: str, timeout: Optional[int] = None) -> "ToolsPage":
+    def assert_tool_exists(
+        self, tool_name: str, timeout: Optional[int] = None
+    ) -> "ToolsPage":
         """Assert the tool exists."""
-        tool_card = self.page.locator(self.TOOL_CARD).filter(
-            has_text=tool_name
-        ).first
+        tool_card = (
+            self.page.locator(self.TOOL_CARD)
+            .filter(
+                has_text=tool_name,
+            )
+            .first
+        )
         expect(tool_card).to_be_visible(timeout=timeout or self.timeout)
         return self

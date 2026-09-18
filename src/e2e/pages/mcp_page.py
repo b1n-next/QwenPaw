@@ -49,8 +49,8 @@ class McpPage(BasePage):
     BREADCRUMB_SELECTOR = 'span[class*="breadcrumbCurrent"]:has-text("MCP")'
 
     # Create dialog
-    MODAL_CONTENT_SELECTOR = '.qwenpaw-modal-content'
-    MODAL_TITLE_SELECTOR = '.qwenpaw-spark-modal-title'
+    MODAL_CONTENT_SELECTOR = ".qwenpaw-modal-content"
+    MODAL_TITLE_SELECTOR = ".qwenpaw-spark-modal-title"
 
     # ========== Navigation methods ==========
 
@@ -64,7 +64,9 @@ class McpPage(BasePage):
     def wait_for_page_loaded(self, timeout: Optional[int] = None) -> "McpPage":
         """Wait for the page to finish loading."""
         timeout = timeout or self.timeout
-        expect(self.page.locator(self.PAGE_LOAD_INDICATOR).first).to_be_visible(timeout=timeout)
+        expect(
+            self.page.locator(self.PAGE_LOAD_INDICATOR).first
+        ).to_be_visible(timeout=timeout)
         return self
 
     # ========== MCP card methods ==========
@@ -104,7 +106,9 @@ class McpPage(BasePage):
         """Click the Create Client button."""
         create_btn = self.page.locator(self.CREATE_BTN_SELECTOR).first
         expect(create_btn).to_be_visible(timeout=5000)
-        assert not create_btn.is_disabled(), "Create Client button should not be disabled"
+        assert (
+            not create_btn.is_disabled()
+        ), "Create Client button should not be disabled"
         create_btn.click()
         logger.info("Clicked Create Client button")
         return self
@@ -122,18 +126,24 @@ class McpPage(BasePage):
     def assert_mcp_cards_exist(self, min_count: int = 1) -> "McpPage":
         """Assert that MCP cards are present."""
         cards = self.get_mcp_cards()
-        assert len(cards) >= min_count, f"Expected at least {min_count} MCP client(s), got {len(cards)}"
+        assert (
+            len(cards) >= min_count
+        ), f"Expected at least {min_count} MCP client(s), got {len(cards)}"
         return self
 
     def assert_create_button_visible(self) -> "McpPage":
         """Assert that the Create button is visible."""
         create_btn = self.page.locator(self.CREATE_BTN_SELECTOR).first
         expect(create_btn).to_be_visible(timeout=5000)
-        assert not create_btn.is_disabled(), "Create Client button should not be disabled"
+        assert (
+            not create_btn.is_disabled()
+        ), "Create Client button should not be disabled"
         return self
 
     def assert_breadcrumb(self, expected_text: str = "MCP") -> "McpPage":
         """Assert the breadcrumb text."""
         breadcrumb_text = self.get_breadcrumb()
-        assert expected_text in breadcrumb_text, f"Breadcrumb should contain '{expected_text}', got '{breadcrumb_text}'"
+        assert (
+            expected_text in breadcrumb_text
+        ), f"Breadcrumb should contain '{expected_text}', got '{breadcrumb_text}'"
         return self

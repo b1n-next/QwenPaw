@@ -61,7 +61,7 @@ def _build_sessions() -> list:
                 "pinned": pinned,
                 "archived_at": None,
                 "archived": False,
-            }
+            },
         )
     return sessions
 

@@ -36,7 +36,9 @@ class BackupsPage(BasePage):
     # ========== Selector definitions ==========
 
     # Page container and loading markers
-    PAGE_CONTAINER = 'div[class*="backups"], div[class*="Backups"], [class*="backup"]'
+    PAGE_CONTAINER = (
+        'div[class*="backups"], div[class*="Backups"], [class*="backup"]'
+    )
     PAGE_LOAD_INDICATOR = '.qwenpaw-table, [class*="backup"]'
     BREADCRUMB_PARENT = 'span[class*="breadcrumbParent"]'
     BREADCRUMB_CURRENT = 'span[class*="breadcrumbCurrent"]'
@@ -48,12 +50,16 @@ class BackupsPage(BasePage):
     EMPTY_STATE = ".qwenpaw-empty, [class*='empty']"
 
     # Action buttons
-    CREATE_BACKUP_BUTTON = 'button:has-text("Create Backup"), button:has-text("创建备份")'
+    CREATE_BACKUP_BUTTON = (
+        'button:has-text("Create Backup"), button:has-text("创建备份")'
+    )
     IMPORT_BUTTON = 'button:has-text("Import"), button:has-text("导入")'
     SEARCH_INPUT = '.qwenpaw-input-search input, input[placeholder*="search"], input[placeholder*="搜索"], input[placeholder*="Search"]'
 
     # Row-level actions
-    EXPORT_BUTTON = 'button:has-text("Export"), button:has-text("导出"), [class*="export"]'
+    EXPORT_BUTTON = (
+        'button:has-text("Export"), button:has-text("导出"), [class*="export"]'
+    )
     RESTORE_BUTTON = 'button:has-text("Restore"), button:has-text("恢复")'
     DELETE_BUTTON = 'button:has-text("Delete"), button:has-text("删除")'
 
@@ -66,25 +72,31 @@ class BackupsPage(BasePage):
 
     # Create backup modal
     CREATE_MODAL = '.qwenpaw-modal:has-text("Create Backup"), .qwenpaw-modal:has-text("创建备份")'
-    FULL_BACKUP_OPTION = 'label:has-text("Full"), label:has-text("全量"), [data-value="full"]'
+    FULL_BACKUP_OPTION = (
+        'label:has-text("Full"), label:has-text("全量"), [data-value="full"]'
+    )
     PARTIAL_BACKUP_OPTION = 'label:has-text("Partial"), label:has-text("部分"), [data-value="partial"]'
     BACKUP_NAME_INPUT = 'input[placeholder*="name"], input[placeholder*="名称"], .qwenpaw-modal input.qwenpaw-input'
     AGENT_SELECT = '.qwenpaw-modal [class*="agent"] .qwenpaw-select, .qwenpaw-modal [class*="Agent"]'
     PROGRESS_BAR = '.qwenpaw-progress, [class*="progress"]'
 
     # Restore backup modal
-    RESTORE_MODAL = '.qwenpaw-modal:has-text("Restore"), .qwenpaw-modal:has-text("恢复")'
+    RESTORE_MODAL = (
+        '.qwenpaw-modal:has-text("Restore"), .qwenpaw-modal:has-text("恢复")'
+    )
     FULL_RESTORE_OPTION = 'label:has-text("Full"), label:has-text("全量恢复")'
     CUSTOM_RESTORE_OPTION = 'label:has-text("Custom"), label:has-text("自定义")'
-    PRE_RESTORE_CONFIRM = '.qwenpaw-modal:has-text("snapshot"), .qwenpaw-modal:has-text("快照")'
+    PRE_RESTORE_CONFIRM = (
+        '.qwenpaw-modal:has-text("snapshot"), .qwenpaw-modal:has-text("快照")'
+    )
 
     # Import conflict modal
     CONFLICT_MODAL = '.qwenpaw-modal:has-text("conflict"), .qwenpaw-modal:has-text("冲突"), .qwenpaw-modal:has-text("Conflict")'
     OVERWRITE_BUTTON = 'button:has-text("Overwrite"), button:has-text("覆盖")'
 
     # Toast messages
-    SUCCESS_TOAST = '.qwenpaw-message-success, .qwenpaw-notification-success'
-    ERROR_TOAST = '.qwenpaw-message-error, .qwenpaw-notification-error'
+    SUCCESS_TOAST = ".qwenpaw-message-success, .qwenpaw-notification-success"
+    ERROR_TOAST = ".qwenpaw-message-error, .qwenpaw-notification-error"
 
     # Generic switch and loading
     SWITCH = ".qwenpaw-switch"
@@ -106,7 +118,9 @@ class BackupsPage(BasePage):
         self.wait_for_page_loaded()
         return self
 
-    def wait_for_page_loaded(self, timeout: Optional[int] = None) -> "BackupsPage":
+    def wait_for_page_loaded(
+        self, timeout: Optional[int] = None
+    ) -> "BackupsPage":
         """Wait for the page to finish loading."""
         timeout = timeout or self.timeout
         self.page.wait_for_load_state("networkidle", timeout=timeout)
@@ -117,7 +131,9 @@ class BackupsPage(BasePage):
 
     def get_breadcrumb_text(self) -> str:
         """Return the breadcrumb text."""
-        breadcrumb = self.page.locator('[class*="breadcrumb"], [class*="Breadcrumb"]').first
+        breadcrumb = self.page.locator(
+            '[class*="breadcrumb"], [class*="Breadcrumb"]'
+        ).first
         if breadcrumb.is_visible(timeout=3000):
             return breadcrumb.inner_text().strip()
         return ""
@@ -160,7 +176,11 @@ class BackupsPage(BasePage):
     def get_table_headers(self) -> List[str]:
         """Return the table header texts."""
         headers = self.page.locator(self.BACKUP_TABLE_HEADER).all()
-        return [header.inner_text().strip() for header in headers if header.inner_text().strip()]
+        return [
+            header.inner_text().strip()
+            for header in headers
+            if header.inner_text().strip()
+        ]
 
     # ========== Create backup ==========
 
@@ -316,7 +336,8 @@ class BackupsPage(BasePage):
         """Wait for the success toast to appear."""
         try:
             self.page.locator(self.SUCCESS_TOAST).first.wait_for(
-                state="visible", timeout=timeout or 10000
+                state="visible",
+                timeout=timeout or 10000,
             )
             return True
         except Exception:
@@ -326,7 +347,8 @@ class BackupsPage(BasePage):
         """Wait for the error toast to appear."""
         try:
             self.page.locator(self.ERROR_TOAST).first.wait_for(
-                state="visible", timeout=timeout or 5000
+                state="visible",
+                timeout=timeout or 5000,
             )
             return True
         except Exception:
@@ -334,18 +356,23 @@ class BackupsPage(BasePage):
 
     # ========== Assertion methods ==========
 
-    def assert_page_loaded(self, timeout: Optional[int] = None) -> "BackupsPage":
+    def assert_page_loaded(
+        self, timeout: Optional[int] = None
+    ) -> "BackupsPage":
         """Assert that the page has loaded."""
         timeout = timeout or self.timeout
         page_indicator = self.page.locator(
-            f'{self.CREATE_BACKUP_BUTTON}, {self.BACKUP_TABLE}, {self.EMPTY_STATE}'
+            f"{self.CREATE_BACKUP_BUTTON}, {self.BACKUP_TABLE}, {self.EMPTY_STATE}",
         ).first
         expect(page_indicator).to_be_visible(timeout=timeout)
         return self
 
-    def assert_backup_count(self, expected: int, timeout: Optional[int] = None) -> "BackupsPage":
+    def assert_backup_count(
+        self, expected: int, timeout: Optional[int] = None
+    ) -> "BackupsPage":
         """Assert the backup count."""
         expect(self.page.locator(self.BACKUP_TABLE_ROW)).to_have_count(
-            expected, timeout=timeout or self.timeout
+            expected,
+            timeout=timeout or self.timeout,
         )
         return self

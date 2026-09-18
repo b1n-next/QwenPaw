@@ -83,9 +83,13 @@ class TestSkillHubDeep:
         log_test_step("7. Toggle first skill enable state")
         cards = skills_page.get_skill_cards()
         if cards:
-            switch = cards[0].locator(
-                '[class*="switch"], [role="switch"]'
-            ).first
+            switch = (
+                cards[0]
+                .locator(
+                    '[class*="switch"], [role="switch"]',
+                )
+                .first
+            )
             if switch.count() > 0:
                 initial = skills_page.is_skill_enabled(cards[0])
                 skills_page.toggle_skill(cards[0])

@@ -33,9 +33,9 @@ class BasePage:
     PAGE_URL: str = ""
 
     # Generic selectors (subclasses may override)
-    SUCCESS_MESSAGE = '.ant-message-success, .qwenpaw-message-success, .qwenpaw-notification-success'
-    ERROR_MESSAGE = '.ant-message-error, .qwenpaw-message-error, .qwenpaw-notification-error'
-    LOADING_SPINNER = '.ant-spin, .qwenpaw-spin, [class*=loading]'
+    SUCCESS_MESSAGE = ".ant-message-success, .qwenpaw-message-success, .qwenpaw-notification-success"
+    ERROR_MESSAGE = ".ant-message-error, .qwenpaw-message-error, .qwenpaw-notification-error"
+    LOADING_SPINNER = ".ant-spin, .qwenpaw-spin, [class*=loading]"
 
     def __init__(self, page: Page):
         self.page = page
@@ -160,7 +160,12 @@ class BasePage:
 
     # ========== Wait methods ==========
 
-    def wait_for_element(self, selector: str, timeout: Optional[int] = None, state: str = "visible") -> Locator:
+    def wait_for_element(
+        self,
+        selector: str,
+        timeout: Optional[int] = None,
+        state: str = "visible",
+    ) -> Locator:
         """
         Wait for an element to reach the given state.
 
@@ -185,13 +190,16 @@ class BasePage:
             timeout: Timeout in milliseconds.
         """
         import json
+
         safe_text = json.dumps(text)
         self.page.wait_for_function(
             f"document.body.innerText.includes({safe_text})",
-            timeout=timeout or self.timeout
+            timeout=timeout or self.timeout,
         )
 
-    def wait_for_url(self, url_pattern: str, timeout: Optional[int] = None) -> None:
+    def wait_for_url(
+        self, url_pattern: str, timeout: Optional[int] = None
+    ) -> None:
         """
         Wait for the URL to match a pattern.
 
@@ -203,7 +211,9 @@ class BasePage:
 
     def wait_for_loading(self, timeout: Optional[int] = None) -> None:
         """Wait for the page to finish loading."""
-        self.page.wait_for_load_state("networkidle", timeout=timeout or self.timeout)
+        self.page.wait_for_load_state(
+            "networkidle", timeout=timeout or self.timeout
+        )
 
     def wait(self, milliseconds: int) -> None:
         """
@@ -216,7 +226,9 @@ class BasePage:
 
     # ========== Action methods ==========
 
-    def click(self, selector: str, timeout: Optional[int] = None) -> "BasePage":
+    def click(
+        self, selector: str, timeout: Optional[int] = None
+    ) -> "BasePage":
         """
         Click an element.
 
@@ -248,7 +260,9 @@ class BasePage:
         logger.debug(f"Filled {selector} with: {value[:50]}...")
         return self
 
-    def type_slowly(self, selector: str, value: str, delay: int = 50) -> "BasePage":
+    def type_slowly(
+        self, selector: str, value: str, delay: int = 50
+    ) -> "BasePage":
         """
         Type slowly (useful for testing input events).
 
@@ -330,7 +344,9 @@ class BasePage:
 
     # ========== Assertion helpers ==========
 
-    def assert_visible(self, selector: str, timeout: Optional[int] = None) -> bool:
+    def assert_visible(
+        self, selector: str, timeout: Optional[int] = None
+    ) -> bool:
         """
         Assert that an element is visible.
 
@@ -342,12 +358,16 @@ class BasePage:
             Whether the element is visible.
         """
         try:
-            expect(self.find(selector)).to_be_visible(timeout=timeout or self.timeout)
+            expect(self.find(selector)).to_be_visible(
+                timeout=timeout or self.timeout
+            )
             return True
         except (TimeoutError, AssertionError, Exception):
             return False
 
-    def assert_text(self, selector: str, expected_text: str, timeout: Optional[int] = None) -> bool:
+    def assert_text(
+        self, selector: str, expected_text: str, timeout: Optional[int] = None
+    ) -> bool:
         """
         Assert element text content.
 
@@ -360,12 +380,16 @@ class BasePage:
             Whether the text matches.
         """
         try:
-            expect(self.find(selector)).to_contain_text(expected_text, timeout=timeout or self.timeout)
+            expect(self.find(selector)).to_contain_text(
+                expected_text, timeout=timeout or self.timeout
+            )
             return True
         except TimeoutError:
             return False
 
-    def assert_count(self, selector: str, expected_count: int, timeout: Optional[int] = None) -> bool:
+    def assert_count(
+        self, selector: str, expected_count: int, timeout: Optional[int] = None
+    ) -> bool:
         """
         Assert the number of matching elements.
 
@@ -378,12 +402,16 @@ class BasePage:
             Whether the count matches.
         """
         try:
-            expect(self.page.locator(selector)).to_have_count(expected_count, timeout=timeout or self.timeout)
+            expect(self.page.locator(selector)).to_have_count(
+                expected_count, timeout=timeout or self.timeout
+            )
             return True
         except TimeoutError:
             return False
 
-    def assert_url(self, expected_url: str, timeout: Optional[int] = None) -> bool:
+    def assert_url(
+        self, expected_url: str, timeout: Optional[int] = None
+    ) -> bool:
         """
         Assert the current URL.
 
@@ -395,7 +423,9 @@ class BasePage:
             Whether the URL matches.
         """
         try:
-            expect(self.page).to_have_url(expected_url, timeout=timeout or self.timeout)
+            expect(self.page).to_have_url(
+                expected_url, timeout=timeout or self.timeout
+            )
             return True
         except TimeoutError:
             return False
@@ -438,9 +468,14 @@ class BasePage:
         """
         try:
             from datetime import datetime as _dt
-            test_name = getattr(self.page, "_qwenpaw_test_name", None) or "unknown_test"
+
+            test_name = (
+                getattr(self.page, "_qwenpaw_test_name", None)
+                or "unknown_test"
+            )
             # Sanitise: keep only alphanumerics, dash, and underscore
             import re as _re
+
             safe_test = _re.sub(r"[^A-Za-z0-9_\-]", "_", test_name)[:80]
             safe_action = _re.sub(r"[^A-Za-z0-9_\-]", "_", action)[:60]
 

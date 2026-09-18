@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 # CS-001: Long conversation triggers context compression
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.requires_llm
 @pytest.mark.p1
@@ -87,7 +88,7 @@ class TestLongConversationCompression:
         log_test_step("4. Verify compression log appears")
         # Check for compression indicator in chat metadata
         compression_log = clean_chat_page.page.locator(
-            '[class*="compression"], [class*="compact"]'
+            '[class*="compression"], [class*="compact"]',
         )
         # Compression may or may not be visible; log but don't fail
         if compression_log.count() > 0:
@@ -97,7 +98,7 @@ class TestLongConversationCompression:
 
         log_test_step("5. Send follow-up question referencing early messages")
         clean_chat_page.send_message(
-            "What was the first number I asked you to count to?"
+            "What was the first number I asked you to count to?",
         )
         ai_response = clean_chat_page.wait_for_ai_response(timeout=30000)
         assert ai_response is not None, "Follow-up AI response timed out"
@@ -107,8 +108,9 @@ class TestLongConversationCompression:
         if last_ai_msg is not None:
             response_text = last_ai_msg.inner_text()
             # AI should remember the first message asked to count to 1
-            assert "1" in response_text or "one" in response_text.lower(), \
-                "AI lost context after compression"
+            assert (
+                "1" in response_text or "one" in response_text.lower()
+            ), "AI lost context after compression"
         else:
             logger.warning("Could not get last AI message")
 
@@ -125,6 +127,7 @@ class TestLongConversationCompression:
 # ============================================================================
 # CS-002: Manual fold + prune + truncate
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.requires_llm
@@ -172,7 +175,7 @@ class TestManualFoldPruneTruncate:
         log_test_step("2. Send message triggering tool call with long output")
         # Use a tool that returns long output (e.g., file read, web search)
         clean_chat_page.send_message(
-            "Read the file /etc/hosts and show me all lines"
+            "Read the file /etc/hosts and show me all lines",
         )
         ai_response = clean_chat_page.wait_for_ai_response(timeout=60000)
         assert ai_response is not None, "AI response timed out"
@@ -184,7 +187,7 @@ class TestManualFoldPruneTruncate:
         # Look for fold button on tool result card
         fold_btn = clean_chat_page.page.locator(
             'button:has-text("Fold"), button:has-text("折叠"), '
-            '[class*="fold-btn"]'
+            '[class*="fold-btn"]',
         ).first
         if fold_btn.count() > 0 and fold_btn.is_visible():
             fold_btn.click()
@@ -196,7 +199,7 @@ class TestManualFoldPruneTruncate:
         log_test_step("5. Verify folded state")
         # Check for collapsed indicator
         folded_indicator = clean_chat_page.page.locator(
-            '[class*="folded"], [class*="collapsed"]'
+            '[class*="folded"], [class*="collapsed"]',
         )
         if folded_indicator.count() > 0:
             logger.info("Folded state visible")
@@ -215,7 +218,7 @@ class TestManualFoldPruneTruncate:
 
         log_test_step("8. Send message with very long output")
         clean_chat_page.send_message(
-            "Generate a list of 1000 numbers, one per line"
+            "Generate a list of 1000 numbers, one per line",
         )
         ai_response = clean_chat_page.wait_for_ai_response(timeout=60000)
         assert ai_response is not None, "Long output response timed out"
@@ -223,16 +226,16 @@ class TestManualFoldPruneTruncate:
         log_test_step("9. Verify truncation marker appears")
         # Look for truncation indicator
         truncation_marker = clean_chat_page.page.locator(
-            '[class*="truncated"], [class*="truncation"]'
+            '[class*="truncated"], [class*="truncation"]',
         )
         if truncation_marker.count() == 0:
             # Try text-based locator
             truncation_marker = clean_chat_page.page.locator(
-                'text="... (truncated)"'
+                'text="... (truncated)"',
             )
         if truncation_marker.count() == 0:
             truncation_marker = clean_chat_page.page.locator(
-                'text="...（已截断）"'
+                'text="...（已截断）"',
             )
         if truncation_marker.count() > 0:
             logger.info("Truncation marker visible")

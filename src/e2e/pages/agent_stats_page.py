@@ -46,8 +46,12 @@ class AgentStatsPage(BasePage):
     DATE_PICKER_PANEL = ".qwenpaw-picker-panel, .qwenpaw-picker-dropdown"
 
     # Summary cards
-    SUMMARY_CARD = '[class*="summaryCard"], [class*="SummaryCard"], .qwenpaw-card'
-    SUMMARY_CARD_TITLE = '[class*="cardTitle"], [class*="title"], .qwenpaw-statistic-title'
+    SUMMARY_CARD = (
+        '[class*="summaryCard"], [class*="SummaryCard"], .qwenpaw-card'
+    )
+    SUMMARY_CARD_TITLE = (
+        '[class*="cardTitle"], [class*="title"], .qwenpaw-statistic-title'
+    )
     SUMMARY_CARD_VALUE = '[class*="cardValue"], [class*="value"], .qwenpaw-statistic-content-value'
 
     # Chart container
@@ -79,7 +83,9 @@ class AgentStatsPage(BasePage):
         self.wait_for_page_loaded()
         return self
 
-    def wait_for_page_loaded(self, timeout: Optional[int] = None) -> "AgentStatsPage":
+    def wait_for_page_loaded(
+        self, timeout: Optional[int] = None
+    ) -> "AgentStatsPage":
         """Wait for the page to finish loading."""
         timeout = timeout or self.timeout
         self.page.wait_for_load_state("networkidle", timeout=timeout)
@@ -90,7 +96,9 @@ class AgentStatsPage(BasePage):
 
     def get_breadcrumb_text(self) -> str:
         """Return the breadcrumb text."""
-        breadcrumb = self.page.locator('[class*="breadcrumb"], [class*="Breadcrumb"]').first
+        breadcrumb = self.page.locator(
+            '[class*="breadcrumb"], [class*="Breadcrumb"]'
+        ).first
         if breadcrumb.is_visible(timeout=3000):
             return breadcrumb.inner_text().strip()
         return ""
@@ -138,7 +146,7 @@ class AgentStatsPage(BasePage):
     def get_card_title(self, card: Locator) -> str:
         """Return the card title."""
         title_el = card.locator(
-            '[class*="title"], .qwenpaw-statistic-title, h3, h4, span'
+            '[class*="title"], .qwenpaw-statistic-title, h3, h4, span',
         ).first
         if title_el.is_visible(timeout=3000):
             return title_el.inner_text().strip()
@@ -148,7 +156,7 @@ class AgentStatsPage(BasePage):
         """Return the card value."""
         value_el = card.locator(
             '[class*="value"], .qwenpaw-statistic-content-value, '
-            '[class*="number"], [class*="count"]'
+            '[class*="number"], [class*="count"]',
         ).first
         if value_el.is_visible(timeout=3000):
             return value_el.inner_text().strip()
@@ -210,18 +218,23 @@ class AgentStatsPage(BasePage):
 
     # ========== Assertion methods ==========
 
-    def assert_page_loaded(self, timeout: Optional[int] = None) -> "AgentStatsPage":
+    def assert_page_loaded(
+        self, timeout: Optional[int] = None
+    ) -> "AgentStatsPage":
         """Assert that the page has loaded."""
         timeout = timeout or self.timeout
         page_indicator = self.page.locator(
-            f'{self.SUMMARY_CARD}, {self.EMPTY_STATE}, {self.DATE_RANGE_PICKER}'
+            f"{self.SUMMARY_CARD}, {self.EMPTY_STATE}, {self.DATE_RANGE_PICKER}",
         ).first
         expect(page_indicator).to_be_visible(timeout=timeout)
         return self
 
-    def assert_card_count(self, expected: int, timeout: Optional[int] = None) -> "AgentStatsPage":
+    def assert_card_count(
+        self, expected: int, timeout: Optional[int] = None
+    ) -> "AgentStatsPage":
         """Assert the summary card count."""
         expect(self.page.locator(self.SUMMARY_CARD)).to_have_count(
-            expected, timeout=timeout or self.timeout
+            expected,
+            timeout=timeout or self.timeout,
         )
         return self

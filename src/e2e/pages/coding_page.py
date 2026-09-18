@@ -57,8 +57,7 @@ class CodingPage(BasePage):
         'button[aria-label="进入编程模式"]'
     )
     TOGGLE_EXIT = (
-        'button[aria-label="Exit Coding Mode"], '
-        'button[aria-label="退出编程模式"]'
+        'button[aria-label="Exit Coding Mode"], ' 'button[aria-label="退出编程模式"]'
     )
 
     # Experimental confirmation modal (first activation only)
@@ -80,22 +79,20 @@ class CodingPage(BasePage):
         '.ant-tabs-tab:has-text("New Project"), '
         '.ant-tabs-tab:has-text("新建项目")'
     )
-    PROJECT_NEW_NAME_INPUT = '.ant-modal-content input.ant-input'
+    PROJECT_NEW_NAME_INPUT = ".ant-modal-content input.ant-input"
     PROJECT_NEW_CREATE_BTN = (
         '.ant-modal-content button.ant-btn-primary:has-text("Create Project"), '
         '.ant-modal-content button.ant-btn-primary:has-text("创建项目")'
     )
-    PROJECT_MODAL_CLOSE = '.ant-modal-close'
+    PROJECT_MODAL_CLOSE = ".ant-modal-close"
 
     # Coding Mode IDE shell — class names are CSS Modules hashed, so we
     # anchor on the always-present "Chat" header (also bilingual).
-    IDE_CHAT_HEADER_TEXT = 'text=/^(Chat|聊天)$/'
+    IDE_CHAT_HEADER_TEXT = "text=/^(Chat|聊天)$/"
     IDE_TOOLTIP_EXPLORER = '[role="tooltip"]:has-text("Explorer")'
 
     # TabbedEditor placeholder text (shown when no tab is open).
-    EDITOR_EMPTY_HINT = (
-        'text=/^(Select a file to open|选择一个文件以打开)$/'
-    )
+    EDITOR_EMPTY_HINT = "text=/^(Select a file to open|选择一个文件以打开)$/"
     # Open tabs in TabbedEditor render as ``role="tab"``.
     EDITOR_TAB = '[role="tab"]'
 
@@ -125,7 +122,9 @@ class CodingPage(BasePage):
         if force_default_agent:
             self._install_default_agent_init_script()
         logger.info("Open chat page (Coding toggle host)")
-        self.page.goto(self.PAGE_URL, wait_until="commit", timeout=self.timeout)
+        self.page.goto(
+            self.PAGE_URL, wait_until="commit", timeout=self.timeout
+        )
         self.page.wait_for_load_state("domcontentloaded", timeout=self.timeout)
         return self
 
@@ -193,7 +192,7 @@ class CodingPage(BasePage):
         return (
             self.page.locator(
                 'button[aria-label*="navigator"], '
-                'button[aria-label*="Source control"]'
+                'button[aria-label*="Source control"]',
             ).count()
             > 0
         )
@@ -219,7 +218,9 @@ class CodingPage(BasePage):
     def open_new_project_tab(self) -> None:
         """Switch the project-select modal to the 'New Project' tab."""
         logger.info("Switch project modal to 'New Project' tab")
-        self.page.locator(self.PROJECT_TAB_NEW).first.click(timeout=self.timeout)
+        self.page.locator(self.PROJECT_TAB_NEW).first.click(
+            timeout=self.timeout
+        )
 
     def fill_new_project_name(self, name: str) -> None:
         """Type a project name into the 'New Project' tab."""
@@ -294,7 +295,7 @@ class CodingPage(BasePage):
         # the Exit toggle appears instead — a reliable signal the IDE shell
         # mounted, and independent of whether a session id is appended.
         expect(
-            self.page.locator(self.TOGGLE_EXIT).first
+            self.page.locator(self.TOGGLE_EXIT).first,
         ).to_be_visible(timeout=timeout)
 
     def exit_coding_mode(self, timeout_ms: Optional[int] = None) -> None:
@@ -307,7 +308,7 @@ class CodingPage(BasePage):
         # Exiting navigates back to ``/chat/<sessionId>``; anchor on the
         # Enter toggle reappearing rather than a ``**/chat`` glob.
         expect(
-            self.page.locator(self.TOGGLE_ENTER).first
+            self.page.locator(self.TOGGLE_ENTER).first,
         ).to_be_visible(timeout=timeout)
 
     # ========== Assertions ==========
@@ -324,8 +325,8 @@ class CodingPage(BasePage):
             expect(
                 self.page.locator(
                     'button[aria-label*="navigator"], '
-                    'button[aria-label*="Source control"]'
-                ).first
+                    'button[aria-label*="Source control"]',
+                ).first,
             ).to_be_visible(timeout=5000)
             return True
         except (TimeoutError, AssertionError):
@@ -346,9 +347,7 @@ class CodingPage(BasePage):
             data={"name": name},
             headers=self._agent_headers(),
         )
-        assert resp.ok, (
-            f"Project create failed [{resp.status}]: {resp.text()}"
-        )
+        assert resp.ok, f"Project create failed [{resp.status}]: {resp.text()}"
         body = resp.json()
         assert "path" in body, f"Unexpected create response: {body}"
         return body
@@ -360,9 +359,9 @@ class CodingPage(BasePage):
             data={"path": path},
             headers=self._agent_headers(),
         )
-        assert resp.ok, (
-            f"Project activate failed [{resp.status}]: {resp.text()}"
-        )
+        assert (
+            resp.ok
+        ), f"Project activate failed [{resp.status}]: {resp.text()}"
         return resp.json()
 
     def api_set_coding_mode(self, api_context, enabled: bool) -> dict:
@@ -372,9 +371,9 @@ class CodingPage(BasePage):
             data={"enabled": enabled},
             headers=self._agent_headers(),
         )
-        assert resp.ok, (
-            f"Coding Mode toggle failed [{resp.status}]: {resp.text()}"
-        )
+        assert (
+            resp.ok
+        ), f"Coding Mode toggle failed [{resp.status}]: {resp.text()}"
         return resp.json()
 
     def api_get_coding_project(self, api_context) -> dict:
@@ -383,9 +382,9 @@ class CodingPage(BasePage):
             "/api/workspace/project-directory",
             headers=self._agent_headers(),
         )
-        assert resp.ok, (
-            f"Coding project read failed [{resp.status}]: {resp.text()}"
-        )
+        assert (
+            resp.ok
+        ), f"Coding project read failed [{resp.status}]: {resp.text()}"
         return resp.json()
 
     def api_save_code_file(
@@ -402,6 +401,4 @@ class CodingPage(BasePage):
             data={"content": content},
             headers=self._agent_headers(),
         )
-        assert resp.ok, (
-            f"Code-file save failed [{resp.status}]: {resp.text()}"
-        )
+        assert resp.ok, f"Code-file save failed [{resp.status}]: {resp.text()}"

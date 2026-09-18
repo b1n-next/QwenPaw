@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # PL-001: Skill installation and runtime loading
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.requires_llm
 @pytest.mark.p1
@@ -78,10 +79,12 @@ class TestSkillInstallationAndLoading:
         log_test_step("2. Find an available skill")
         # Look for skill cards in the pool
         skill_card = clean_chat_page.page.locator(
-            '[class*="skill-card"], [class*="SkillCard"]'
+            '[class*="skill-card"], [class*="SkillCard"]',
         ).first
         if skill_card.count() == 0:
-            logger.warning("No skill cards found; skipping skill installation test")
+            logger.warning(
+                "No skill cards found; skipping skill installation test"
+            )
             log_test_result(test_name, True, 0)
             return
 
@@ -90,7 +93,7 @@ class TestSkillInstallationAndLoading:
 
         log_test_step("3. Install the skill")
         install_btn = skill_card.locator(
-            'button:has-text("Install"), button:has-text("安装")'
+            'button:has-text("Install"), button:has-text("安装")',
         ).first
         if install_btn.count() > 0 and install_btn.is_visible():
             install_btn.click()
@@ -105,7 +108,7 @@ class TestSkillInstallationAndLoading:
         # Navigate to installed skills or check current page
         installed_indicator = clean_chat_page.page.locator(
             '[class*="installed"], [class*="Installed"], '
-            'text="Installed", text="已安装"'
+            'text="Installed", text="已安装"',
         )
         if installed_indicator.count() > 0:
             logger.info("Skill marked as installed")
@@ -128,12 +131,14 @@ class TestSkillInstallationAndLoading:
         # Look for tool call indicator in the response
         tool_call_indicator = clean_chat_page.page.locator(
             '[class*="tool-call"], [class*="ToolCall"], '
-            '[class*="skill-invocation"]'
+            '[class*="skill-invocation"]',
         )
         if tool_call_indicator.count() > 0:
             logger.info("Tool call / skill invocation visible")
         else:
-            logger.info("Tool call indicator not visible (skill may not auto-trigger)")
+            logger.info(
+                "Tool call indicator not visible (skill may not auto-trigger)"
+            )
 
         log_test_step("8. Return to Skill Pool page")
         clean_chat_page.page.goto(f"{config.base_url}/skill-pool")
@@ -142,7 +147,7 @@ class TestSkillInstallationAndLoading:
 
         log_test_step("9. Uninstall the skill")
         uninstall_btn = clean_chat_page.page.locator(
-            'button:has-text("Uninstall"), button:has-text("卸载")'
+            'button:has-text("Uninstall"), button:has-text("卸载")',
         ).first
         if uninstall_btn.count() > 0 and uninstall_btn.is_visible():
             uninstall_btn.click()
@@ -165,6 +170,7 @@ class TestSkillInstallationAndLoading:
 # ============================================================================
 # PL-002: Skill pool browsing and filtering
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p2
@@ -207,7 +213,7 @@ class TestSkillPoolBrowsing:
 
         log_test_step("2. Verify skill cards are displayed")
         skill_cards = clean_chat_page.page.locator(
-            '[class*="skill-card"], [class*="SkillCard"]'
+            '[class*="skill-card"], [class*="SkillCard"]',
         )
         card_count = skill_cards.count()
         assert card_count >= 0, "Skill cards should be present (may be 0)"
@@ -221,7 +227,7 @@ class TestSkillPoolBrowsing:
         # Look for filter tabs
         filter_tab = clean_chat_page.page.locator(
             '[class*="filter-tab"], [class*="FilterTab"], '
-            'button:has-text("All"), button:has-text("全部")'
+            'button:has-text("All"), button:has-text("全部")',
         ).first
         if filter_tab.count() > 0 and filter_tab.is_visible():
             filter_tab.click()
@@ -233,7 +239,7 @@ class TestSkillPoolBrowsing:
         log_test_step("4. Search for a skill by name")
         search_input = clean_chat_page.page.locator(
             'input[placeholder*="Search"], input[placeholder*="搜索"], '
-            '[class*="search-input"]'
+            '[class*="search-input"]',
         ).first
         if search_input.count() > 0 and search_input.is_visible():
             search_input.fill("test")
@@ -255,7 +261,7 @@ class TestSkillPoolBrowsing:
         # Look for detail view elements
         detail_view = clean_chat_page.page.locator(
             '[class*="skill-detail"], [class*="SkillDetail"], '
-            '[class*="description"]'
+            '[class*="description"]',
         )
         if detail_view.count() > 0:
             logger.info("Skill detail view visible")

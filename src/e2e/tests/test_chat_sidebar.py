@@ -35,6 +35,7 @@ logger = logging.getLogger(__name__)
 # SIDEBAR-001 P1 — sidebar session date grouping (upstream #5643)
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.p1
 @pytest.mark.chat_sidebar
@@ -60,14 +61,16 @@ class TestSidebarDateGroups:
         """
         test_name = request.node.name
 
-        log_test_step("1. Mock the sidebar list with 5 crafted-timestamp sessions")
+        log_test_step(
+            "1. Mock the sidebar list with 5 crafted-timestamp sessions"
+        )
         sidebar_sessions.register(page)
         # SidebarSessionList only mounts in the sidebar's *simple* mode
         # (Sidebar.tsx: isSimpleExpanded branch); the default is "full"
         # nav mode, so pin simple mode before the app boots.
         page.add_init_script(
             "try { localStorage.setItem('qwenpaw_sidebar_mode', 'simple'); }"
-            " catch (e) {}"
+            " catch (e) {}",
         )
         chat = ChatPage(page)
         chat.open()
@@ -75,30 +78,30 @@ class TestSidebarDateGroups:
         log_test_step("2. Date headers render for the crafted buckets")
         for group in ("pinned", "today", "week"):
             expect(chat.get_sidebar_group_header(group)).to_be_visible(
-                timeout=chat.timeout
+                timeout=chat.timeout,
             )
 
         log_test_step("3. Expanded group shows its sessions")
         expect(
-            chat.get_sidebar_session_by_name(sidebar_sessions.PINNED_NAME)
+            chat.get_sidebar_session_by_name(sidebar_sessions.PINNED_NAME),
         ).to_be_visible(timeout=chat.timeout)
         expect(
-            chat.get_sidebar_session_by_name(sidebar_sessions.TODAY_NAME)
+            chat.get_sidebar_session_by_name(sidebar_sessions.TODAY_NAME),
         ).to_be_visible(timeout=chat.timeout)
         expect(
-            chat.get_sidebar_session_by_name(sidebar_sessions.WEEK_NAME)
+            chat.get_sidebar_session_by_name(sidebar_sessions.WEEK_NAME),
         ).to_be_visible(timeout=chat.timeout)
 
         log_test_step("4. Collapsing the user group hides its sessions")
         chat.toggle_sidebar_user_group()
         expect(
-            chat.get_sidebar_session_by_name(sidebar_sessions.TODAY_NAME)
+            chat.get_sidebar_session_by_name(sidebar_sessions.TODAY_NAME),
         ).not_to_be_visible(timeout=5000)
 
         log_test_step("5. Expanding again restores them")
         chat.toggle_sidebar_user_group()
         expect(
-            chat.get_sidebar_session_by_name(sidebar_sessions.TODAY_NAME)
+            chat.get_sidebar_session_by_name(sidebar_sessions.TODAY_NAME),
         ).to_be_visible(timeout=chat.timeout)
 
         log_test_result(test_name, True, 0)
@@ -108,6 +111,7 @@ class TestSidebarDateGroups:
 # ============================================================================
 # MULTITAB-001 P2 — non-owner tab queue banner (upstream #5664)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p2
@@ -124,7 +128,9 @@ class TestMultiTabQueueBanner:
     ) -> None:
         test_name = request.node.name
 
-        log_test_step("1. Seed a chat via API so both tabs share one session id")
+        log_test_step(
+            "1. Seed a chat via API so both tabs share one session id"
+        )
         seed = api_context.post(
             "/api/chats",
             data={
@@ -135,7 +141,9 @@ class TestMultiTabQueueBanner:
             },
         )
         if not seed.ok:
-            pytest.skip(f"chat seed failed ({seed.status}); cannot test banner")
+            pytest.skip(
+                f"chat seed failed ({seed.status}); cannot test banner"
+            )
         chat_id = (seed.json() or {}).get("id")
         if not chat_id:
             pytest.skip("chat seed returned no id; cannot test banner")
@@ -147,7 +155,7 @@ class TestMultiTabQueueBanner:
             chat1 = ChatPage(page)
             page.goto(session_url, wait_until="commit", timeout=chat1.timeout)
             expect(page.locator(chat1.CHAT_INPUT).first).to_be_visible(
-                timeout=chat1.timeout
+                timeout=chat1.timeout,
             )
             # Give tab 1 time to win the ownership Web Lock (300ms resolve
             # timer + lock acquisition).
@@ -158,7 +166,7 @@ class TestMultiTabQueueBanner:
             chat2 = ChatPage(page2)
             page2.goto(session_url, wait_until="commit", timeout=chat2.timeout)
             expect(page2.locator(chat2.CHAT_INPUT).first).to_be_visible(
-                timeout=chat2.timeout
+                timeout=chat2.timeout,
             )
 
             log_test_step("4. Tab 2 shows the queue-only info banner")
@@ -167,7 +175,9 @@ class TestMultiTabQueueBanner:
             log_test_step("5. Tab 1 (owner) shows no banner")
             expect(chat1.get_queue_banner()).not_to_be_visible(timeout=3000)
 
-            log_test_step("6. Closing tab 2 releases nothing it owned; owner keeps clean")
+            log_test_step(
+                "6. Closing tab 2 releases nothing it owned; owner keeps clean"
+            )
             page2.close()
             page2 = None
             expect(chat1.get_queue_banner()).not_to_be_visible(timeout=3000)

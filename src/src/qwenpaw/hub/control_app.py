@@ -441,7 +441,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
         network = model_networks[record.provisioner]
         values["QWENPAW_HUB_MODEL_URL"] = network.url(model_listener.port)
         values["QWENPAW_HUB_MODEL_TOKEN"] = governance_catalog.issue_token(
-            record
+            record,
         )
         return values
 

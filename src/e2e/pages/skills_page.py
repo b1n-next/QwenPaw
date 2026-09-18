@@ -41,7 +41,7 @@ class SkillsPage(BasePage):
 
     # Skill card selectors
     SKILL_CARD_SELECTOR = ".qwenpaw-card"
-    SWITCH_SELECTOR = '.qwenpaw-switch'
+    SWITCH_SELECTOR = ".qwenpaw-switch"
 
     # Search input
     SEARCH_INPUT = 'input[placeholder*="搜索"], input[placeholder*="Search"], .ant-input-search input, .qwenpaw-input-search input'
@@ -55,10 +55,14 @@ class SkillsPage(BasePage):
         self.wait_for_page_loaded()
         return self
 
-    def wait_for_page_loaded(self, timeout: Optional[int] = None) -> "SkillsPage":
+    def wait_for_page_loaded(
+        self, timeout: Optional[int] = None
+    ) -> "SkillsPage":
         """Wait for the page to finish loading."""
         timeout = timeout or self.timeout
-        expect(self.page.locator(self.PAGE_LOAD_INDICATOR).first).to_be_visible(timeout=timeout)
+        expect(
+            self.page.locator(self.PAGE_LOAD_INDICATOR).first
+        ).to_be_visible(timeout=timeout)
         return self
 
     # ========== Skill list methods ==========
@@ -72,7 +76,9 @@ class SkillsPage(BasePage):
     def get_skill_name(self, card: Locator) -> str:
         """Return the skill name for a card."""
         # Try to read the title from the card
-        title_element = card.locator('.ant-card-meta-title, .qwenpaw-card-meta-title, h3, h4, [class*="title"]').first
+        title_element = card.locator(
+            '.ant-card-meta-title, .qwenpaw-card-meta-title, h3, h4, [class*="title"]'
+        ).first
         if title_element.count() > 0:
             return title_element.inner_text()
 
@@ -94,7 +100,7 @@ class SkillsPage(BasePage):
             return switch.evaluate(
                 "el => el.classList.contains('qwenpaw-switch-checked') || "
                 "el.classList.contains('ant-switch-checked') || "
-                "el.getAttribute('aria-checked') === 'true'"
+                "el.getAttribute('aria-checked') === 'true'",
             )
         return False
 
@@ -110,17 +116,26 @@ class SkillsPage(BasePage):
 
     # ========== Assertion methods ==========
 
-    def assert_skill_count(self, expected_count: int, timeout: Optional[int] = None) -> "SkillsPage":
+    def assert_skill_count(
+        self, expected_count: int, timeout: Optional[int] = None
+    ) -> "SkillsPage":
         """Assert the number of skill cards."""
         expect(self.page.locator(self.SKILL_CARD_SELECTOR)).to_have_count(
-            expected_count, timeout=timeout or self.timeout
+            expected_count,
+            timeout=timeout or self.timeout,
         )
         return self
 
-    def assert_skill_exists(self, skill_name: str, timeout: Optional[int] = None) -> "SkillsPage":
+    def assert_skill_exists(
+        self, skill_name: str, timeout: Optional[int] = None
+    ) -> "SkillsPage":
         """Assert that a skill exists."""
-        skill_card = self.page.locator(self.SKILL_CARD_SELECTOR).filter(
-            has_text=skill_name
-        ).first
+        skill_card = (
+            self.page.locator(self.SKILL_CARD_SELECTOR)
+            .filter(
+                has_text=skill_name,
+            )
+            .first
+        )
         expect(skill_card).to_be_visible(timeout=timeout or self.timeout)
         return self

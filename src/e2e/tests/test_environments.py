@@ -63,7 +63,7 @@ ENV_PAGE_CONTAINER = 'div[class*="__page__"]'
 # `styles.sectionHeading` wraps `<h2>title</h2><span>count</span>`.
 SECTION_HEADING = 'div[class*="__sectionHeading__"]'
 CUSTOM_SECTION_HEADING = f'{SECTION_HEADING}:has-text("Custom variables")'
-CUSTOM_COUNT_SELECTOR = f'{CUSTOM_SECTION_HEADING} span'
+CUSTOM_COUNT_SELECTOR = f"{CUSTOM_SECTION_HEADING} span"
 # `styles.row` — one variable row (shared by all three sections).
 ROW_SELECTOR = 'div[class*="__row__"]'
 # `styles.identity` holds the key `<code>`; `styles.valueText` holds the
@@ -85,9 +85,9 @@ ADD_VARIABLE_BTN = 'button:has-text("Add Variable")'
 # dialog then triggers another one), so an unscoped `.first` could resolve to
 # a stale hidden node left over from the previous interaction and make a
 # `to_be_visible()` assertion fail for a reason unrelated to the product.
-MODAL = '.qwenpaw-modal:visible, .ant-modal:visible'
-MODAL_TITLE = '.qwenpaw-modal:visible .qwenpaw-modal-title, .ant-modal:visible .ant-modal-title'
-MODAL_FOOTER = '.qwenpaw-modal:visible .qwenpaw-modal-footer, .ant-modal:visible .ant-modal-footer'
+MODAL = ".qwenpaw-modal:visible, .ant-modal:visible"
+MODAL_TITLE = ".qwenpaw-modal:visible .qwenpaw-modal-title, .ant-modal:visible .ant-modal-title"
+MODAL_FOOTER = ".qwenpaw-modal:visible .qwenpaw-modal-footer, .ant-modal:visible .ant-modal-footer"
 # Modal form inputs.  Key placeholder is the literal "VARIABLE_NAME"
 # (index.tsx passes it as a plain string, not through i18n); the Value
 # placeholder comes from `environments.valuePlaceholder` = "value", with
@@ -108,8 +108,8 @@ MODAL_VALUE_INPUT = (
 # one.  `modal_ok_button()` below walks the candidates in the intended
 # priority instead.
 MODAL_OK_CANDIDATES = (
-    '.qwenpaw-modal:visible .qwenpaw-modal-footer button.qwenpaw-btn-primary',
-    '.ant-modal:visible .ant-modal-footer button.ant-btn-primary',
+    ".qwenpaw-modal:visible .qwenpaw-modal-footer button.qwenpaw-btn-primary",
+    ".ant-modal:visible .ant-modal-footer button.ant-btn-primary",
     '.qwenpaw-modal:visible button:has-text("Apply now")',
     '.ant-modal:visible button:has-text("Apply now")',
 )
@@ -120,18 +120,18 @@ MODAL_CANCEL_CANDIDATES = (
     '.ant-modal:visible .ant-modal-footer button:has-text("Cancel")',
     '.qwenpaw-modal:visible button:has-text("Cancel")',
     '.ant-modal:visible button:has-text("Cancel")',
-    '.qwenpaw-modal:visible .qwenpaw-modal-close',
-    '.ant-modal:visible .ant-modal-close',
+    ".qwenpaw-modal:visible .qwenpaw-modal-close",
+    ".ant-modal:visible .ant-modal-close",
 )
 # `Modal.confirm` is a static antd call; design's ConfigProvider feeds it the
 # same prefix through `holderRender`, which is the anchor already proven green
 # in this suite (e2e/pages/chat_page.py `.qwenpaw-modal-confirm-btns`).
 # Same `:visible` rationale as above, and even more so here: a static confirm
 # dialog is created fresh per call.
-CONFIRM_MODAL = '.qwenpaw-modal-confirm:visible, .ant-modal-confirm:visible'
-CONFIRM_TITLE = '.qwenpaw-modal-confirm-title, .ant-modal-confirm-title'
-CONFIRM_CONTENT = '.qwenpaw-modal-confirm-content, .ant-modal-confirm-content'
-CONFIRM_BTNS = '.qwenpaw-modal-confirm-btns, .ant-modal-confirm-btns'
+CONFIRM_MODAL = ".qwenpaw-modal-confirm:visible, .ant-modal-confirm:visible"
+CONFIRM_TITLE = ".qwenpaw-modal-confirm-title, .ant-modal-confirm-title"
+CONFIRM_CONTENT = ".qwenpaw-modal-confirm-content, .ant-modal-confirm-content"
+CONFIRM_BTNS = ".qwenpaw-modal-confirm-btns, .ant-modal-confirm-btns"
 # Row action buttons carry aria-labels from `common.*`: Edit / Delete / Reset.
 EDIT_BTN_BY_LABEL = 'button[aria-label="Edit"]'
 DELETE_BTN_BY_LABEL = 'button[aria-label="Delete"]'
@@ -141,15 +141,11 @@ SHOW_VALUE_BTN_BY_LABEL = 'button[aria-label="Show value"]'
 SEARCH_INPUT = 'input[aria-label="Search variables"]'
 # Toasts come from `useAppMessage()` (antd App context) with the same prefix.
 MESSAGE_NOTICE = (
-    '.qwenpaw-message-notice-content, .qwenpaw-message-custom-content, '
-    '.ant-message-notice-content, .ant-message-custom-content'
+    ".qwenpaw-message-notice-content, .qwenpaw-message-custom-content, "
+    ".ant-message-notice-content, .ant-message-custom-content"
 )
-MESSAGE_ERROR = (
-    '.qwenpaw-message-error, .ant-message-error'
-)
-MESSAGE_SUCCESS = (
-    '.qwenpaw-message-success, .ant-message-success'
-)
+MESSAGE_ERROR = ".qwenpaw-message-error, .ant-message-error"
+MESSAGE_SUCCESS = ".qwenpaw-message-success, .ant-message-success"
 # New-version validation copy.  `environments.keyRequired` ("Key is required")
 # is no longer referenced by this page: an empty key falls through the same
 # regex gate as a malformed one and reports "Invalid key format".
@@ -162,6 +158,7 @@ MSG_APPLIED = "Environment variable applied"
 # Helpers
 # ============================================================================
 
+
 def navigate_to_environments(page: Page, timeout: int = 15000):
     """Open the Environments page and wait until the catalogue has rendered.
 
@@ -171,7 +168,9 @@ def navigate_to_environments(page: Page, timeout: int = 15000):
     """
     page.goto(ENVIRONMENTS_URL)
     page.wait_for_load_state("domcontentloaded")
-    expect(page.locator(ENV_PAGE_CONTAINER).first).to_be_visible(timeout=timeout)
+    expect(page.locator(ENV_PAGE_CONTAINER).first).to_be_visible(
+        timeout=timeout
+    )
     expect(page.locator(SECTION_HEADING).first).to_be_visible(timeout=timeout)
     expect(page.locator(ADD_VARIABLE_BTN).first).to_be_visible(timeout=timeout)
 
@@ -182,9 +181,13 @@ def row_for_key(page: Page, key: str):
     Positional anchors are unusable after #7538 (three sections share
     `styles.row`), so rows are addressed by their key text.
     """
-    return page.locator(ROW_SELECTOR).filter(
-        has=page.locator(f'{IDENTITY_CODE}:text-is("{key}")')
-    ).first
+    return (
+        page.locator(ROW_SELECTOR)
+        .filter(
+            has=page.locator(f'{IDENTITY_CODE}:text-is("{key}")'),
+        )
+        .first
+    )
 
 
 def get_custom_var_count(page: Page) -> int:
@@ -200,7 +203,9 @@ def get_custom_var_count(page: Page) -> int:
     try:
         return int(raw)
     except ValueError:
-        raise AssertionError(f"Custom variables count is not an integer: {raw!r}")
+        raise AssertionError(
+            f"Custom variables count is not an integer: {raw!r}"
+        )
 
 
 def get_env_row_count(page: Page) -> int:
@@ -333,14 +338,16 @@ def confirm_button(page: Page, ok: bool = True) -> Locator:
         if ok:
             for style in ("dangerous", "primary"):
                 candidates.append(
-                    dialog.locator(f"{buttons_scope} button.{prefix}-btn-{style}")
+                    dialog.locator(
+                        f"{buttons_scope} button.{prefix}-btn-{style}"
+                    ),
                 )
         else:
             candidates.append(
                 dialog.locator(
                     f"{buttons_scope} button:not(.{prefix}-btn-primary)"
-                    f":not(.{prefix}-btn-dangerous)"
-                )
+                    f":not(.{prefix}-btn-dangerous)",
+                ),
             )
     for candidate in candidates:
         try:
@@ -442,6 +449,7 @@ def add_variable_via_ui(page: Page, api_context, key: str, value: str):
 # ENV-001: Page load + list display + empty state
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.p0
 @pytest.mark.envs
@@ -459,7 +467,9 @@ class TestEnvironmentListDisplay:
     """
 
     @pytest.mark.test_id("ENV-001")
-    def test_environment_list_display(self, page: Page, request: pytest.FixtureRequest):
+    def test_environment_list_display(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Verify the environment variable list renders correctly."""
         test_name = request.node.name
 
@@ -471,26 +481,36 @@ class TestEnvironmentListDisplay:
         log_test_step("2. Verify breadcrumb")
         try:
             breadcrumb_settings = page.locator(
-                'span[class*="breadcrumbParent"]:has-text("Settings")'
+                'span[class*="breadcrumbParent"]:has-text("Settings")',
             ).first
             expect(breadcrumb_settings).to_be_visible(timeout=5000)
             breadcrumb_current = page.locator(
-                'span[class*="breadcrumbCurrent"]:has-text("Environment Variables")'
+                'span[class*="breadcrumbCurrent"]:has-text("Environment Variables")',
             ).first
             expect(breadcrumb_current).to_be_visible(timeout=5000)
             logger.info("Breadcrumb verification passed")
         except Exception:
-            logger.warning("Breadcrumb verification skipped (possible locale mismatch)")
+            logger.warning(
+                "Breadcrumb verification skipped (possible locale mismatch)"
+            )
 
         # Step 3: Verify the three section headings and their counts
         log_test_step("3. Verify section headings and counts")
-        for heading_text in ("Custom variables", "Live settings", "Read-only settings"):
-            heading = page.locator(SECTION_HEADING).filter(has_text=heading_text).first
+        for heading_text in (
+            "Custom variables",
+            "Live settings",
+            "Read-only settings",
+        ):
+            heading = (
+                page.locator(SECTION_HEADING)
+                .filter(has_text=heading_text)
+                .first
+            )
             expect(heading).to_be_visible(timeout=5000)
             count_text = heading.locator("span").first.inner_text().strip()
-            assert count_text.isdigit(), (
-                f"{heading_text} heading count should be numeric, got {count_text!r}"
-            )
+            assert (
+                count_text.isdigit()
+            ), f"{heading_text} heading count should be numeric, got {count_text!r}"
             logger.info(f"Section '{heading_text}' count = {count_text}")
 
         count_text = get_count_text(page)
@@ -528,6 +548,7 @@ class TestEnvironmentListDisplay:
 # ENV-002: Add env var + cancel add + Key required validation
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.p0
 @pytest.mark.envs
@@ -549,7 +570,10 @@ class TestAddEnvironment:
 
     @pytest.mark.test_id("ENV-002")
     def test_add_environment_success(
-        self, page: Page, request: pytest.FixtureRequest, api_context
+        self,
+        page: Page,
+        request: pytest.FixtureRequest,
+        api_context,
     ):
         """Verify adding an env var succeeds."""
         test_name = request.node.name
@@ -587,12 +611,12 @@ class TestAddEnvironment:
 
             filled_key = key_input.input_value()
             filled_value = value_input.input_value()
-            assert filled_key == test_key, (
-                f"Key not filled correctly: expected {test_key}, got {filled_key}"
-            )
-            assert filled_value == test_value, (
-                f"Value not filled correctly: expected {test_value}, got {filled_value}"
-            )
+            assert (
+                filled_key == test_key
+            ), f"Key not filled correctly: expected {test_key}, got {filled_key}"
+            assert (
+                filled_value == test_value
+            ), f"Value not filled correctly: expected {test_value}, got {filled_value}"
             logger.info(f"Filled successfully: {test_key}={test_value}")
 
             # Step 5: Apply now -> the variable is written and listed
@@ -605,19 +629,21 @@ class TestAddEnvironment:
             new_row = row_for_key(page, test_key)
             expect(new_row).to_be_visible(timeout=10000)
             new_count = get_custom_var_count(page)
-            assert new_count == initial_count + 1, (
-                f"Custom count did not increase: {initial_count} -> {new_count}"
+            assert (
+                new_count == initial_count + 1
+            ), f"Custom count did not increase: {initial_count} -> {new_count}"
+            logger.info(
+                f"Variable listed, custom count {initial_count} -> {new_count}"
             )
-            logger.info(f"Variable listed, custom count {initial_count} -> {new_count}")
 
             # Step 7: Verify the persisted value through the API.
             # The row shows "••••••••" until "Show value" is clicked, so the
             # API is the only place the real value can be asserted.
             log_test_step("7. Verify persisted value via API")
             persisted = api_env_value(api_context, test_key)
-            assert persisted == test_value, (
-                f"Persisted value mismatch: expected {test_value}, got {persisted!r}"
-            )
+            assert (
+                persisted == test_value
+            ), f"Persisted value mismatch: expected {test_value}, got {persisted!r}"
             logger.info(f"API confirms {test_key}={persisted}")
 
             log_test_result(test_name, True, 0)
@@ -633,6 +659,7 @@ class TestAddEnvironment:
 # exclusive; nightly shards by single tier (integration and pX).
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.p2
 @pytest.mark.envs
@@ -642,7 +669,9 @@ class TestAddEnvironmentP2:
     @pytest.mark.integration
     @pytest.mark.p2
     @pytest.mark.test_id("ENV-002-CANCEL")
-    def test_add_environment_cancel(self, page: Page, request: pytest.FixtureRequest):
+    def test_add_environment_cancel(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Verify cancelling the editor Modal writes nothing.
 
         The pre-#7538 version approximated "cancel" by reloading the page
@@ -674,11 +703,11 @@ class TestAddEnvironmentP2:
         # Step 5: Nothing was written
         log_test_step("5. Verify nothing was written")
         after_count = get_custom_var_count(page)
-        assert after_count == initial_count, (
-            f"Cancel should not change the count: {initial_count} -> {after_count}"
-        )
+        assert (
+            after_count == initial_count
+        ), f"Cancel should not change the count: {initial_count} -> {after_count}"
         expect(
-            row_for_key(page, "E2E_CANCEL_SHOULD_NOT_EXIST")
+            row_for_key(page, "E2E_CANCEL_SHOULD_NOT_EXIST"),
         ).to_have_count(0, timeout=3000)
 
         # Step 6: Reload — still nothing persisted
@@ -698,7 +727,9 @@ class TestAddEnvironmentP2:
     @pytest.mark.integration
     @pytest.mark.p2
     @pytest.mark.test_id("ENV-002-VALIDATION")
-    def test_add_environment_key_required(self, page: Page, request: pytest.FixtureRequest):
+    def test_add_environment_key_required(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Verify an empty Key is rejected.
 
         #7538 dropped the dedicated `environments.keyRequired` message: an
@@ -737,13 +768,15 @@ class TestAddEnvironmentP2:
         try:
             expect_toast(page, MSG_INVALID_KEY_FORMAT, timeout=5000)
             rejected = True
-            logger.info(f"Validation message detected: {MSG_INVALID_KEY_FORMAT}")
+            logger.info(
+                f"Validation message detected: {MSG_INVALID_KEY_FORMAT}"
+            )
         except Exception:
             error_toast = page.locator(MESSAGE_ERROR).first
             if error_toast.count() > 0 and error_toast.is_visible():
                 rejected = True
                 logger.info(
-                    f"Error toast detected: {error_toast.inner_text().strip()!r}"
+                    f"Error toast detected: {error_toast.inner_text().strip()!r}",
                 )
         assert rejected, "Empty Key should be rejected with an error indicator"
 
@@ -763,6 +796,7 @@ class TestAddEnvironmentP2:
 # ============================================================================
 # ENV-003: Edit env var + update validation
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p0
@@ -785,7 +819,10 @@ class TestEditEnvironment:
 
     @pytest.mark.test_id("ENV-003")
     def test_edit_environment(
-        self, page: Page, request: pytest.FixtureRequest, api_context
+        self,
+        page: Page,
+        request: pytest.FixtureRequest,
+        api_context,
     ):
         """Verify editing an env var."""
         test_name = request.node.name
@@ -803,9 +840,9 @@ class TestEditEnvironment:
             # Step 2: Create the variable under test
             log_test_step("2. Create the variable through the UI")
             add_variable_via_ui(page, api_context, test_key, test_value)
-            assert api_env_value(api_context, test_key) == test_value, (
-                "Precondition failed: created variable is not persisted"
-            )
+            assert (
+                api_env_value(api_context, test_key) == test_value
+            ), "Precondition failed: created variable is not persisted"
             logger.info(f"Created {test_key}={test_value}")
 
             # Step 3: Open the row editor
@@ -814,7 +851,9 @@ class TestEditEnvironment:
             edit_btn = row.locator(EDIT_BTN_BY_LABEL).first
             expect(edit_btn).to_be_visible(timeout=5000)
             edit_btn.click()
-            expect(page.locator(MODAL_KEY_INPUT).first).to_be_visible(timeout=10000)
+            expect(page.locator(MODAL_KEY_INPUT).first).to_be_visible(
+                timeout=10000
+            )
             modal_title = page.locator(MODAL_TITLE).first
             expect(modal_title).to_contain_text("Edit variable", timeout=5000)
             logger.info("Editor Modal opened with title 'Edit variable'")
@@ -826,9 +865,9 @@ class TestEditEnvironment:
                 f"Key should be pre-filled with {test_key}, "
                 f"got {key_input.input_value()!r}"
             )
-            assert key_input.is_disabled(), (
-                "Key input should be disabled when editing an existing variable"
-            )
+            assert (
+                key_input.is_disabled()
+            ), "Key input should be disabled when editing an existing variable"
             logger.info("Key input is locked as expected")
 
             # Step 5: Change the Value and apply
@@ -841,9 +880,9 @@ class TestEditEnvironment:
             )
             value_input.fill(edited_value)
             page.wait_for_timeout(300)
-            assert value_input.input_value() == edited_value, (
-                f"Value not updated in the input: got {value_input.input_value()!r}"
-            )
+            assert (
+                value_input.input_value() == edited_value
+            ), f"Value not updated in the input: got {value_input.input_value()!r}"
             click_modal_ok(page)
             expect_modal_closed(page)
             logger.info("Edit applied")
@@ -852,9 +891,9 @@ class TestEditEnvironment:
             log_test_step("6. Verify the edited value persisted")
             expect(row_for_key(page, test_key)).to_be_visible(timeout=10000)
             persisted = api_env_value(api_context, test_key)
-            assert persisted == edited_value, (
-                f"Value incorrect after edit: expected {edited_value}, got {persisted!r}"
-            )
+            assert (
+                persisted == edited_value
+            ), f"Value incorrect after edit: expected {edited_value}, got {persisted!r}"
             logger.info(f"Edit verified: {test_key}={persisted}")
 
             # Step 7: The variable was updated, not duplicated
@@ -876,6 +915,7 @@ class TestEditEnvironment:
 # ============================================================================
 # ENV-004: Delete env var + confirmation flow
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p0
@@ -899,7 +939,10 @@ class TestDeleteEnvironment:
 
     @pytest.mark.test_id("ENV-004")
     def test_delete_environment(
-        self, page: Page, request: pytest.FixtureRequest, api_context
+        self,
+        page: Page,
+        request: pytest.FixtureRequest,
+        api_context,
     ):
         """Verify deleting an env var."""
         test_name = request.node.name
@@ -920,19 +963,29 @@ class TestDeleteEnvironment:
             add_variable_via_ui(page, api_context, test_key, test_value)
             add_variable_via_ui(page, api_context, keep_key, test_value)
             after_add = get_custom_var_count(page)
-            assert after_add == initial_count + 2, (
-                f"Expected {initial_count + 2} custom variables, got {after_add}"
-            )
+            assert (
+                after_add == initial_count + 2
+            ), f"Expected {initial_count + 2} custom variables, got {after_add}"
             logger.info(f"Created 2 variables, count = {after_add}")
 
             # Step 3: Cancel the confirm dialog — nothing should be deleted
             log_test_step("3. Open delete confirm and cancel it")
             row = row_for_key(page, test_key)
             row.locator(DELETE_BTN_BY_LABEL).first.click()
-            expect(page.locator(CONFIRM_MODAL).first).to_be_visible(timeout=10000)
-            confirm_title = page.locator(CONFIRM_MODAL).first.locator(CONFIRM_TITLE).first
-            expect(confirm_title).to_contain_text("Delete Variable", timeout=5000)
-            confirm_body = page.locator(CONFIRM_MODAL).first.locator(CONFIRM_CONTENT).first
+            expect(page.locator(CONFIRM_MODAL).first).to_be_visible(
+                timeout=10000
+            )
+            confirm_title = (
+                page.locator(CONFIRM_MODAL).first.locator(CONFIRM_TITLE).first
+            )
+            expect(confirm_title).to_contain_text(
+                "Delete Variable", timeout=5000
+            )
+            confirm_body = (
+                page.locator(CONFIRM_MODAL)
+                .first.locator(CONFIRM_CONTENT)
+                .first
+            )
             expect(confirm_body).to_contain_text(test_key, timeout=5000)
             logger.info("Confirm dialog shows the variable name")
 
@@ -941,12 +994,14 @@ class TestDeleteEnvironment:
                 cancel_btn.click()
                 page.wait_for_timeout(800)
                 expect(row_for_key(page, test_key)).to_be_visible(timeout=5000)
-                assert get_custom_var_count(page) == after_add, (
-                    "Cancelling the confirm dialog must not delete the variable"
-                )
+                assert (
+                    get_custom_var_count(page) == after_add
+                ), "Cancelling the confirm dialog must not delete the variable"
                 logger.info("Cancel path verified: variable survived")
             else:
-                logger.warning("Cancel button not found, closing dialog via Escape")
+                logger.warning(
+                    "Cancel button not found, closing dialog via Escape"
+                )
                 page.keyboard.press("Escape")
                 page.wait_for_timeout(800)
 
@@ -964,7 +1019,7 @@ class TestDeleteEnvironment:
                 f"got {after_delete_count}"
             )
             logger.info(
-                f"Delete succeeded, count {count_before_delete} -> {after_delete_count}"
+                f"Delete succeeded, count {count_before_delete} -> {after_delete_count}",
             )
 
             # Step 6: The kept variable is untouched
@@ -974,7 +1029,9 @@ class TestDeleteEnvironment:
             # Step 7: The API agrees
             log_test_step("7. Verify deletion through the API")
             keys = api_list_env_keys(api_context)
-            assert test_key not in keys, f"{test_key} should be deleted, API still has it"
+            assert (
+                test_key not in keys
+            ), f"{test_key} should be deleted, API still has it"
             assert keep_key in keys, f"{keep_key} should still exist"
             logger.info("API confirms the deletion")
 
@@ -992,6 +1049,7 @@ class TestDeleteEnvironment:
 # ============================================================================
 # ENV-005: Multiple variables in sequence + row addressing + persistence
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -1025,7 +1083,10 @@ class TestEnvVarMultiRowAndCheckbox:
 
     @pytest.mark.test_id("ENV-005")
     def test_env_var_multi_row_and_checkbox(
-        self, page: Page, request: pytest.FixtureRequest, api_context
+        self,
+        page: Page,
+        request: pytest.FixtureRequest,
+        api_context,
     ):
         """Verify sequential multi-variable add, per-key addressing and delete."""
         test_name = request.node.name
@@ -1069,13 +1130,21 @@ class TestEnvVarMultiRowAndCheckbox:
             expect(row_one).to_be_visible(timeout=5000)
             expect(row_two).to_be_visible(timeout=5000)
             for row, key in ((row_one, key_one), (row_two, key_two)):
-                shown_key = row.locator(IDENTITY_CODE).first.inner_text().strip()
-                assert shown_key == key, f"Row key mismatch: expected {key}, got {shown_key}"
+                shown_key = (
+                    row.locator(IDENTITY_CODE).first.inner_text().strip()
+                )
+                assert (
+                    shown_key == key
+                ), f"Row key mismatch: expected {key}, got {shown_key}"
                 for label in ("Edit", "Delete"):
-                    expect(row.locator(f'button[aria-label="{label}"]').first).to_be_visible(
-                        timeout=5000
+                    expect(
+                        row.locator(f'button[aria-label="{label}"]').first
+                    ).to_be_visible(
+                        timeout=5000,
                     )
-            logger.info("Both rows are individually addressable with Edit/Delete actions")
+            logger.info(
+                "Both rows are individually addressable with Edit/Delete actions"
+            )
 
             # Step 5: Reveal the masked value of the first variable
             log_test_step("5. Reveal the masked value")
@@ -1088,11 +1157,13 @@ class TestEnvVarMultiRowAndCheckbox:
                 show_btn.click()
                 page.wait_for_timeout(500)
                 revealed = masked.inner_text().strip()
-                assert revealed == value_one, (
-                    f"Revealed value mismatch: expected {value_one}, got {revealed!r}"
-                )
+                assert (
+                    revealed == value_one
+                ), f"Revealed value mismatch: expected {value_one}, got {revealed!r}"
                 logger.info(f"Value after reveal: {revealed}")
-                hide_btn = row_one.locator('button[aria-label="Hide value"]').first
+                hide_btn = row_one.locator(
+                    'button[aria-label="Hide value"]'
+                ).first
                 if hide_btn.count() > 0 and hide_btn.is_visible():
                     hide_btn.click()
                     page.wait_for_timeout(300)
@@ -1133,7 +1204,7 @@ class TestEnvVarMultiRowAndCheckbox:
             log_test_result(test_name, True, 0)
             logger.info(
                 f"Test {test_name} passed - sequential add, per-key addressing, "
-                f"value reveal, delete and reload verified"
+                f"value reveal, delete and reload verified",
             )
         finally:
             log_test_step("Cleanup: delete test variables")
@@ -1144,6 +1215,7 @@ class TestEnvVarMultiRowAndCheckbox:
 # ============================================================================
 # ENV-006: Env var save persistence validation
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -1168,7 +1240,10 @@ class TestEnvVarSaveAndPersist:
 
     @pytest.mark.test_id("ENV-006")
     def test_env_var_save_and_persist(
-        self, page: Page, request: pytest.FixtureRequest, api_context
+        self,
+        page: Page,
+        request: pytest.FixtureRequest,
+        api_context,
     ):
         """Verify env var save and persistence."""
         test_name = request.node.name
@@ -1221,17 +1296,19 @@ class TestEnvVarSaveAndPersist:
                 success_msg = page.locator(MESSAGE_SUCCESS).first
                 if success_msg.count() > 0 and success_msg.is_visible():
                     logger.info(
-                        f"Success indicator visible: {success_msg.inner_text().strip()!r}"
+                        f"Success indicator visible: {success_msg.inner_text().strip()!r}",
                     )
                 else:
-                    logger.info("No obvious success indicator detected, continuing")
+                    logger.info(
+                        "No obvious success indicator detected, continuing"
+                    )
 
             # Step 5: The variable is listed
             log_test_step("5. Verify the variable is listed")
             expect(row_for_key(page, test_key)).to_be_visible(timeout=10000)
-            assert get_custom_var_count(page) == initial_count + 1, (
-                "Custom count should have increased by one"
-            )
+            assert (
+                get_custom_var_count(page) == initial_count + 1
+            ), "Custom count should have increased by one"
 
             # Step 6: Reload
             log_test_step("6. Reload page")
@@ -1253,9 +1330,9 @@ class TestEnvVarSaveAndPersist:
             # Step 8: The value persisted (API, because the UI masks it)
             log_test_step("8. Verify the persisted value via API")
             persisted = api_env_value(api_context, test_key)
-            assert persisted == test_value, (
-                f"Value mismatch after reload: expected {test_value}, got {persisted!r}"
-            )
+            assert (
+                persisted == test_value
+            ), f"Value mismatch after reload: expected {test_value}, got {persisted!r}"
             logger.info(f"Persisted value verified: {test_key}={persisted}")
 
             # Step 9: Reveal it in the UI as well
@@ -1265,16 +1342,26 @@ class TestEnvVarSaveAndPersist:
             if show_btn.count() > 0 and show_btn.is_visible():
                 show_btn.click()
                 page.wait_for_timeout(500)
-                revealed = row.locator('div[class*="__valueText__"] code').first.inner_text().strip()
-                assert revealed == test_value, (
-                    f"Revealed value mismatch: expected {test_value}, got {revealed!r}"
+                revealed = (
+                    row.locator('div[class*="__valueText__"] code')
+                    .first.inner_text()
+                    .strip()
                 )
-                logger.info(f"UI reveal matches the persisted value: {revealed}")
+                assert (
+                    revealed == test_value
+                ), f"Revealed value mismatch: expected {test_value}, got {revealed!r}"
+                logger.info(
+                    f"UI reveal matches the persisted value: {revealed}"
+                )
             else:
-                logger.info("Show value action not present, relying on API assertion")
+                logger.info(
+                    "Show value action not present, relying on API assertion"
+                )
 
             # Step 10: Delete it and verify the removal persists
-            log_test_step("10. Delete the variable and verify removal persists")
+            log_test_step(
+                "10. Delete the variable and verify removal persists"
+            )
             delete_variable_via_ui(page, test_key)
             expect(row_for_key(page, test_key)).to_have_count(0, timeout=10000)
             data_saved = False
@@ -1283,12 +1370,12 @@ class TestEnvVarSaveAndPersist:
             page.wait_for_load_state("domcontentloaded")
             navigate_to_environments(page)
             final_count = get_custom_var_count(page)
-            assert final_count == initial_count, (
-                f"Count should be back to {initial_count} after delete, got {final_count}"
-            )
-            assert test_key not in api_list_env_keys(api_context), (
-                f"{test_key} should be gone from the API after deletion"
-            )
+            assert (
+                final_count == initial_count
+            ), f"Count should be back to {initial_count} after delete, got {final_count}"
+            assert test_key not in api_list_env_keys(
+                api_context
+            ), f"{test_key} should be gone from the API after deletion"
             logger.info("Deletion persisted across reload")
 
             log_test_result(test_name, True, 0)
@@ -1297,12 +1384,15 @@ class TestEnvVarSaveAndPersist:
             if data_saved:
                 log_test_step("Cleanup: delete test variable")
                 cleanup_env_var(page, api_context, test_key)
-        logger.info(f"Test {test_name} passed - env var save and persistence verified")
+        logger.info(
+            f"Test {test_name} passed - env var save and persistence verified"
+        )
 
 
 # ============================================================================
 # ENV-007: Key format validation
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p2
@@ -1326,7 +1416,10 @@ class TestEnvVarKeyValidation:
 
     @pytest.mark.test_id("ENV-007")
     def test_env_var_key_format_validation(
-        self, page: Page, request: pytest.FixtureRequest, api_context
+        self,
+        page: Page,
+        request: pytest.FixtureRequest,
+        api_context,
     ):
         """Verify env var Key format validation."""
         test_name = request.node.name
@@ -1347,7 +1440,9 @@ class TestEnvVarKeyValidation:
 
         rejected_keys = []
         # Step 3-5: Each invalid Key must be rejected
-        for index, invalid_key in enumerate(("123invalid", "has space", "has-dash"), start=3):
+        for index, invalid_key in enumerate(
+            ("123invalid", "has space", "has-dash"), start=3
+        ):
             log_test_step(f"{index}. Test invalid Key: {invalid_key!r}")
             key_input.fill(invalid_key)
             page.wait_for_timeout(300)
@@ -1367,15 +1462,15 @@ class TestEnvVarKeyValidation:
                     has_error = True
                     logger.info(
                         f"Error toast for {invalid_key!r}: "
-                        f"{error_toast.inner_text().strip()!r}"
+                        f"{error_toast.inner_text().strip()!r}",
                     )
             logger.info(f"Rejected {invalid_key!r}: {has_error}")
             if has_error:
                 rejected_keys.append(invalid_key)
 
-        assert rejected_keys, (
-            "No invalid Key was rejected — the format gate did not fire"
-        )
+        assert (
+            rejected_keys
+        ), "No invalid Key was rejected — the format gate did not fire"
         logger.info(f"Rejected keys: {rejected_keys}")
 
         # Step 6: The Key input keeps the last rejected value (nothing was sent)
@@ -1384,9 +1479,9 @@ class TestEnvVarKeyValidation:
             f"Key input should still hold the last rejected value, "
             f"got {key_input.input_value()!r}"
         )
-        assert get_custom_var_count(page) == initial_count, (
-            "Rejected Keys must not create variables"
-        )
+        assert (
+            get_custom_var_count(page) == initial_count
+        ), "Rejected Keys must not create variables"
 
         # Step 7: A valid Key is accepted
         log_test_step("7. Test valid Key")
@@ -1401,18 +1496,21 @@ class TestEnvVarKeyValidation:
         log_test_step("8. Delete the valid test variable")
         delete_variable_via_ui(page, valid_key)
         expect(row_for_key(page, valid_key)).to_have_count(0, timeout=10000)
-        assert get_custom_var_count(page) == initial_count, (
-            "Count should be back to the initial value after cleanup"
-        )
+        assert (
+            get_custom_var_count(page) == initial_count
+        ), "Count should be back to the initial value after cleanup"
         logger.info("Test variable deleted")
 
         log_test_result(test_name, True, 0)
-        logger.info(f"Test {test_name} passed - Key format validation verified")
+        logger.info(
+            f"Test {test_name} passed - Key format validation verified"
+        )
 
 
 # ============================================================================
 # ENV-008: Bulk create/filter/delete of several variables
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -1444,7 +1542,10 @@ class TestBatchOperations:
 
     @pytest.mark.test_id("ENV-008")
     def test_batch_operations(
-        self, page: Page, request: pytest.FixtureRequest, api_context
+        self,
+        page: Page,
+        request: pytest.FixtureRequest,
+        api_context,
     ):
         """Verify bulk create + search filter + bulk delete of env vars."""
         test_name = request.node.name
@@ -1481,19 +1582,21 @@ class TestBatchOperations:
             expect(row_for_key(page, keys[1])).to_have_count(0, timeout=5000)
             expect(row_for_key(page, keys[2])).to_have_count(0, timeout=5000)
             filtered_count = get_custom_var_count(page)
-            assert filtered_count == 1, (
-                f"Search filter should leave 1 custom variable, got {filtered_count}"
+            assert (
+                filtered_count == 1
+            ), f"Search filter should leave 1 custom variable, got {filtered_count}"
+            logger.info(
+                f"Search filter works: {keys[0]} only, count = {filtered_count}"
             )
-            logger.info(f"Search filter works: {keys[0]} only, count = {filtered_count}")
 
             log_test_step("5. Clear the filter and verify all rows return")
             search_input.fill("")
             page.wait_for_timeout(800)
             for key in keys:
                 expect(row_for_key(page, key)).to_be_visible(timeout=5000)
-            assert get_custom_var_count(page) == initial_count + 3, (
-                "Clearing the filter should restore the full list"
-            )
+            assert (
+                get_custom_var_count(page) == initial_count + 3
+            ), "Clearing the filter should restore the full list"
             logger.info("Filter cleared, all rows restored")
 
             log_test_step("6. Delete the three variables one by one")
@@ -1508,18 +1611,24 @@ class TestBatchOperations:
                     f"{count_before} -> {count_after}"
                 )
                 deleted += 1
-            assert deleted == 3, f"Expected to delete 3 variables, deleted {deleted}"
+            assert (
+                deleted == 3
+            ), f"Expected to delete 3 variables, deleted {deleted}"
 
             final_count = get_custom_var_count(page)
             assert final_count == initial_count, (
                 f"Count incorrect after bulk delete: expected {initial_count}, "
                 f"got {final_count}"
             )
-            logger.info(f"Bulk delete verified, count restored to {final_count}")
+            logger.info(
+                f"Bulk delete verified, count restored to {final_count}"
+            )
 
             remaining = api_list_env_keys(api_context)
             for key in keys:
-                assert key not in remaining, f"{key} should be gone from the API"
+                assert (
+                    key not in remaining
+                ), f"{key} should be gone from the API"
             logger.info("API confirms all three variables were removed")
 
             log_test_result(test_name, True, 0)
@@ -1532,6 +1641,7 @@ class TestBatchOperations:
 # ============================================================================
 # ENV-009: API operation validation
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -1547,7 +1657,9 @@ class TestEnvironmentAPI:
     """
 
     @pytest.mark.test_id("ENV-009")
-    def test_environment_api(self, page: Page, request: pytest.FixtureRequest, api_context):
+    def test_environment_api(
+        self, page: Page, request: pytest.FixtureRequest, api_context
+    ):
         """Verify env var API."""
         test_name = request.node.name
         test_key = None
@@ -1570,7 +1682,7 @@ class TestEnvironmentAPI:
             # PUT /api/envs expects body as dict; each key-value pair becomes one env var
             put_response = api_context.put(
                 f"{config.base_url}/api/envs",
-                data={test_key: test_value}
+                data={test_key: test_value},
             )
             logger.info(f"API add status code: {put_response.status}")
             assert put_response.ok, f"API add failed: {put_response.status}"
@@ -1606,16 +1718,21 @@ class TestEnvironmentAPI:
                         remaining_dict = {}
                     cleanup_response = api_context.put(
                         f"{config.base_url}/api/envs",
-                        data=remaining_dict
+                        data=remaining_dict,
                     )
-                    logger.info(f"Cleanup status code: {cleanup_response.status}")
+                    logger.info(
+                        f"Cleanup status code: {cleanup_response.status}"
+                    )
                 except Exception as cleanup_error:
-                    logger.warning(f"Cleanup of test variable failed: {cleanup_error}")
+                    logger.warning(
+                        f"Cleanup of test variable failed: {cleanup_error}"
+                    )
 
 
 # ============================================================================
 # ENV-P1-005: Key duplicate conflict detection
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -1644,7 +1761,10 @@ class TestEnvKeyDuplicateDetection:
 
     @pytest.mark.test_id("ENV-P1-005")
     def test_env_key_duplicate_detection(
-        self, page: Page, request: pytest.FixtureRequest, api_context
+        self,
+        page: Page,
+        request: pytest.FixtureRequest,
+        api_context,
     ):
         """Test env var Key duplicate conflict detection."""
         test_name = request.node.name
@@ -1658,7 +1778,9 @@ class TestEnvKeyDuplicateDetection:
 
         try:
             log_test_step("2. Create the first variable")
-            add_variable_via_ui(page, api_context, duplicate_key, duplicate_value)
+            add_variable_via_ui(
+                page, api_context, duplicate_key, duplicate_value
+            )
             logger.info(f"First variable created: {duplicate_key}")
 
             log_test_step("3. Submit the same Key again")
@@ -1680,14 +1802,18 @@ class TestEnvKeyDuplicateDetection:
             try:
                 expect_toast(page, MSG_DUPLICATE_KEY, timeout=6000)
                 detected = True
-                logger.info(f"Duplicate rejection detected: {MSG_DUPLICATE_KEY}")
+                logger.info(
+                    f"Duplicate rejection detected: {MSG_DUPLICATE_KEY}"
+                )
             except Exception:
                 error_toast = page.locator(MESSAGE_ERROR).first
                 if error_toast.count() > 0 and error_toast.is_visible():
                     toast_text = error_toast.inner_text().strip()
                     logger.info(f"Error toast detected: {toast_text!r}")
                     detected = "uplicate" in toast_text
-            assert detected, "Duplicate Key should be rejected with an error message"
+            assert (
+                detected
+            ), "Duplicate Key should be rejected with an error message"
 
             log_test_step("5. Verify a lower-cased duplicate is rejected too")
             key_input.fill(duplicate_key.lower())
@@ -1710,23 +1836,27 @@ class TestEnvKeyDuplicateDetection:
                 f"{duplicate_key} should exist exactly once, API has "
                 f"{keys.count(duplicate_key)}"
             )
-            assert api_env_value(api_context, duplicate_key) == duplicate_value, (
-                "The rejected duplicate must not have overwritten the original value"
-            )
+            assert (
+                api_env_value(api_context, duplicate_key) == duplicate_value
+            ), "The rejected duplicate must not have overwritten the original value"
             logger.info("No duplicate written, original value intact")
 
             log_test_step("7. Verify the page is still healthy")
             page_content = page.locator("body").inner_text()
             assert len(page_content) > 0, "Page content should not be empty"
-            expect(page.locator(ADD_VARIABLE_BTN).first).to_be_visible(timeout=5000)
+            expect(page.locator(ADD_VARIABLE_BTN).first).to_be_visible(
+                timeout=5000
+            )
             logger.info("Page remained healthy after the rejected duplicates")
 
             log_test_step("8. Delete the test variable through the UI")
             delete_variable_via_ui(page, duplicate_key)
-            expect(row_for_key(page, duplicate_key)).to_have_count(0, timeout=10000)
-            assert get_custom_var_count(page) == initial_count, (
-                "Count should be back to the initial value after cleanup"
+            expect(row_for_key(page, duplicate_key)).to_have_count(
+                0, timeout=10000
             )
+            assert (
+                get_custom_var_count(page) == initial_count
+            ), "Count should be back to the initial value after cleanup"
             logger.info("Test variable deleted")
 
             log_test_result(test_name, True, 0)

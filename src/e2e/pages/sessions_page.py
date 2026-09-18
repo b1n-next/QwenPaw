@@ -36,27 +36,35 @@ class SessionsPage(BasePage):
     # ========== Selector definitions ==========
 
     # Page-loaded indicator (the page has no h1; use the table as the load-complete marker)
-    PAGE_LOAD_INDICATOR = '.ant-table, .qwenpaw-table, table'
+    PAGE_LOAD_INDICATOR = ".ant-table, .qwenpaw-table, table"
 
     # Filter bar
-    FILTER_USER_ID_INPUT = 'input[placeholder*="User ID" i], input[placeholder*="用户" i]'
-    FILTER_CHANNEL_SELECT = '.ant-select[data-placeholder*="Channel" i], .qwenpaw-select'
+    FILTER_USER_ID_INPUT = (
+        'input[placeholder*="User ID" i], input[placeholder*="用户" i]'
+    )
+    FILTER_CHANNEL_SELECT = (
+        '.ant-select[data-placeholder*="Channel" i], .qwenpaw-select'
+    )
     FILTER_RESET_BTN = 'button:has-text("Reset"), button:has-text("重置")'
 
     # Session table
-    SESSION_TABLE = '.ant-table, .qwenpaw-table, table'
-    SESSION_ROW = '.ant-table-tbody tr, .qwenpaw-table-tbody tr, table tbody tr'
-    SESSION_TABLE_ROW = '.ant-table-tbody tr, .qwenpaw-table-tbody tr, table tbody tr'
-    SESSION_ROW_SELECTED = '.ant-table-tbody tr.ant-table-row-selected, .qwenpaw-table-tbody tr.qwenpaw-table-row-selected'
+    SESSION_TABLE = ".ant-table, .qwenpaw-table, table"
+    SESSION_ROW = (
+        ".ant-table-tbody tr, .qwenpaw-table-tbody tr, table tbody tr"
+    )
+    SESSION_TABLE_ROW = (
+        ".ant-table-tbody tr, .qwenpaw-table-tbody tr, table tbody tr"
+    )
+    SESSION_ROW_SELECTED = ".ant-table-tbody tr.ant-table-row-selected, .qwenpaw-table-tbody tr.qwenpaw-table-row-selected"
 
     # Table columns
-    SESSION_ID_COL = 'td:nth-child(1)'
-    SESSION_NAME_COL = 'td:nth-child(2)'
-    SESSION_SESSIONID_COL = 'td:nth-child(3)'
-    SESSION_USERID_COL = 'td:nth-child(4)'
-    SESSION_CHANNEL_COL = 'td:nth-child(5)'
-    SESSION_CREATEDAT_COL = 'td:nth-child(6)'
-    SESSION_UPDATEDAT_COL = 'td:nth-child(7)'
+    SESSION_ID_COL = "td:nth-child(1)"
+    SESSION_NAME_COL = "td:nth-child(2)"
+    SESSION_SESSIONID_COL = "td:nth-child(3)"
+    SESSION_USERID_COL = "td:nth-child(4)"
+    SESSION_CHANNEL_COL = "td:nth-child(5)"
+    SESSION_CREATEDAT_COL = "td:nth-child(6)"
+    SESSION_UPDATEDAT_COL = "td:nth-child(7)"
 
     # Action buttons
     # Note: the system under test uses fixed="right" for the Action column in antd Table,
@@ -81,32 +89,36 @@ class SessionsPage(BasePage):
         '.ant-table-cell-fix-right button:has-text("Delete"), '
         '.ant-table-cell-fix-right button:has-text("删除")'
     )
-    BATCH_DELETE_BTN = 'button:has-text("Batch Delete"), button:has-text("批量删除")'
+    BATCH_DELETE_BTN = (
+        'button:has-text("Batch Delete"), button:has-text("批量删除")'
+    )
 
     # Pagination
-    PAGINATION = '.ant-pagination'
-    PAGINATION_NEXT = '.ant-pagination-next'
-    PAGINATION_PREV = '.ant-pagination-prev'
+    PAGINATION = ".ant-pagination"
+    PAGINATION_NEXT = ".ant-pagination-next"
+    PAGINATION_PREV = ".ant-pagination-prev"
 
     # Edit drawer
-    SESSION_DRAWER = '[class*=drawer], .ant-drawer, .qwenpaw-drawer'
-    DRAWER_TITLE = '[class*=drawer] .ant-drawer-header-title, .ant-drawer-title, .qwenpaw-drawer-title'
-    DRAWER_CLOSE = '.ant-drawer-close, .qwenpaw-drawer-close'
+    SESSION_DRAWER = "[class*=drawer], .ant-drawer, .qwenpaw-drawer"
+    DRAWER_TITLE = "[class*=drawer] .ant-drawer-header-title, .ant-drawer-title, .qwenpaw-drawer-title"
+    DRAWER_CLOSE = ".ant-drawer-close, .qwenpaw-drawer-close"
 
     # Form fields
     FORM_NAME_INPUT = 'input[name="name"], input[placeholder*="Name" i], input[placeholder*="名称" i]'
     FORM_USERID_INPUT = 'input[name="user_id"], input[placeholder*="User ID" i], input[placeholder*="用户" i]'
-    FORM_CHANNEL_SELECT = '.ant-select[name="channel"], .qwenpaw-select[name="channel"]'
+    FORM_CHANNEL_SELECT = (
+        '.ant-select[name="channel"], .qwenpaw-select[name="channel"]'
+    )
     FORM_SUBMIT_BTN = '[class*=drawer] button.ant-btn-primary, [class*=drawer] button.qwenpaw-btn-primary, button:has-text("Save"), button:has-text("保存")'
     FORM_CANCEL_BTN = '[class*=drawer] button:has-text("Cancel"), [class*=drawer] button:has-text("取消")'
 
     # Confirmation dialog
-    CONFIRM_MODAL = '.ant-modal, .qwenpaw-modal'
+    CONFIRM_MODAL = ".ant-modal, .qwenpaw-modal"
     CONFIRM_OK_BTN = '.ant-modal .ant-btn-primary, .qwenpaw-modal .qwenpaw-btn-primary, button:has-text("OK"), button:has-text("确认"), button:has-text("确定")'
     CONFIRM_CANCEL_BTN = '.ant-modal .ant-btn:not(.ant-btn-primary), .qwenpaw-modal .qwenpaw-btn:not(.qwenpaw-btn-primary), button:has-text("Cancel"), button:has-text("取消")'
 
     # Empty state
-    EMPTY_STATE = '.ant-empty, [class*=empty]'
+    EMPTY_STATE = ".ant-empty, [class*=empty]"
 
     # Message toast and loading state (inherited from BasePage; no need to redefine here)
 
@@ -124,13 +136,17 @@ class SessionsPage(BasePage):
         self.wait_for_page_loaded()
         return self
 
-    def wait_for_page_loaded(self, timeout: Optional[int] = None) -> "SessionsPage":
+    def wait_for_page_loaded(
+        self, timeout: Optional[int] = None
+    ) -> "SessionsPage":
         """Wait for the page to finish loading."""
         timeout = timeout or self.timeout
         logger.info("Waiting for Sessions page to load")
 
         # Wait for the table to appear (the page has no h1)
-        expect(self.page.locator(self.PAGE_LOAD_INDICATOR).first).to_be_visible(timeout=timeout)
+        expect(
+            self.page.locator(self.PAGE_LOAD_INDICATOR).first
+        ).to_be_visible(timeout=timeout)
 
         return self
 
@@ -187,13 +203,21 @@ class SessionsPage(BasePage):
             dict of session fields
         """
         return {
-            'id': row.locator(self.SESSION_ID_COL).first.inner_text(),
-            'name': row.locator(self.SESSION_NAME_COL).first.inner_text(),
-            'session_id': row.locator(self.SESSION_SESSIONID_COL).first.inner_text(),
-            'user_id': row.locator(self.SESSION_USERID_COL).first.inner_text(),
-            'channel': row.locator(self.SESSION_CHANNEL_COL).first.inner_text(),
-            'created_at': row.locator(self.SESSION_CREATEDAT_COL).first.inner_text(),
-            'updated_at': row.locator(self.SESSION_UPDATEDAT_COL).first.inner_text(),
+            "id": row.locator(self.SESSION_ID_COL).first.inner_text(),
+            "name": row.locator(self.SESSION_NAME_COL).first.inner_text(),
+            "session_id": row.locator(
+                self.SESSION_SESSIONID_COL
+            ).first.inner_text(),
+            "user_id": row.locator(self.SESSION_USERID_COL).first.inner_text(),
+            "channel": row.locator(
+                self.SESSION_CHANNEL_COL
+            ).first.inner_text(),
+            "created_at": row.locator(
+                self.SESSION_CREATEDAT_COL
+            ).first.inner_text(),
+            "updated_at": row.locator(
+                self.SESSION_UPDATEDAT_COL
+            ).first.inner_text(),
         }
 
     # ========== Filtering ==========
@@ -209,7 +233,9 @@ class SessionsPage(BasePage):
         """Filter by Channel."""
         logger.info(f"Filtering by channel: {channel}")
         self.page.locator(self.FILTER_CHANNEL_SELECT).first.click()
-        self.page.locator(f'.ant-select-option:has-text("{channel}")').first.click()
+        self.page.locator(
+            f'.ant-select-option:has-text("{channel}")'
+        ).first.click()
         self.wait_for_loading()
         return self
 
@@ -230,7 +256,9 @@ class SessionsPage(BasePage):
             column_name: column name (ID, Name, CreatedAt, etc.)
         """
         logger.info(f"Sorting by {column_name}")
-        sort_btn = self.page.locator(f'.ant-table-column-sorters:has-text("{column_name}")').first
+        sort_btn = self.page.locator(
+            f'.ant-table-column-sorters:has-text("{column_name}")'
+        ).first
         sort_btn.click()
         self.wait_for_loading()
         return self
@@ -253,16 +281,24 @@ class SessionsPage(BasePage):
             raise Exception(f"Session not found: {session_id}")
         return self
 
-    def wait_for_drawer_open(self, timeout: Optional[int] = None) -> "SessionsPage":
+    def wait_for_drawer_open(
+        self, timeout: Optional[int] = None
+    ) -> "SessionsPage":
         """Wait for the edit drawer to open."""
         timeout = timeout or self.timeout
-        expect(self.page.locator(self.SESSION_DRAWER)).to_be_visible(timeout=timeout)
+        expect(self.page.locator(self.SESSION_DRAWER)).to_be_visible(
+            timeout=timeout
+        )
         return self
 
-    def wait_for_drawer_close(self, timeout: Optional[int] = None) -> "SessionsPage":
+    def wait_for_drawer_close(
+        self, timeout: Optional[int] = None
+    ) -> "SessionsPage":
         """Wait for the edit drawer to close."""
         timeout = timeout or self.timeout
-        expect(self.page.locator(self.SESSION_DRAWER)).to_be_hidden(timeout=timeout)
+        expect(self.page.locator(self.SESSION_DRAWER)).to_be_hidden(
+            timeout=timeout
+        )
         return self
 
     def fill_session_name(self, name: str) -> "SessionsPage":
@@ -278,7 +314,9 @@ class SessionsPage(BasePage):
     def select_channel(self, channel: str) -> "SessionsPage":
         """Select Channel."""
         self.page.locator(self.FORM_CHANNEL_SELECT).first.click()
-        self.page.locator(f'.ant-select-option:has-text("{channel}")').first.click()
+        self.page.locator(
+            f'.ant-select-option:has-text("{channel}")'
+        ).first.click()
         return self
 
     def save_session(self) -> "SessionsPage":
@@ -357,14 +395,18 @@ class SessionsPage(BasePage):
     def verify_session_count(self, expected_count: int) -> bool:
         """Verify the number of sessions."""
         actual_count = self.get_session_count()
-        logger.info(f"Session count: {actual_count}, expected: {expected_count}")
+        logger.info(
+            f"Session count: {actual_count}, expected: {expected_count}"
+        )
         return actual_count == expected_count
 
     def verify_filter_result(self, expected_count: int) -> bool:
         """Verify the filter result."""
         return self.get_session_count() == expected_count
 
-    def verify_session_data(self, session_id: str, expected_data: Dict[str, str]) -> bool:
+    def verify_session_data(
+        self, session_id: str, expected_data: Dict[str, str]
+    ) -> bool:
         """Verify session data."""
         row = self.find_session_row(session_id)
         if not row:
@@ -373,7 +415,9 @@ class SessionsPage(BasePage):
         actual_data = self.get_session_data(row)
         for key, expected_value in expected_data.items():
             if key in actual_data and actual_data[key] != expected_value:
-                logger.error(f"{key}: expected {expected_value}, got {actual_data[key]}")
+                logger.error(
+                    f"{key}: expected {expected_value}, got {actual_data[key]}"
+                )
                 return False
 
         return True
@@ -381,7 +425,9 @@ class SessionsPage(BasePage):
     def wait_for_success_message(self, timeout: int = 5000) -> bool:
         """Wait for a success message."""
         try:
-            expect(self.page.locator(self.SUCCESS_MESSAGE)).to_be_visible(timeout=timeout)
+            expect(self.page.locator(self.SUCCESS_MESSAGE)).to_be_visible(
+                timeout=timeout
+            )
             return True
         except TimeoutError:
             return False
@@ -389,7 +435,9 @@ class SessionsPage(BasePage):
     def wait_for_error_message(self, timeout: int = 5000) -> bool:
         """Wait for an error message."""
         try:
-            expect(self.page.locator(self.ERROR_MESSAGE)).to_be_visible(timeout=timeout)
+            expect(self.page.locator(self.ERROR_MESSAGE)).to_be_visible(
+                timeout=timeout
+            )
             return True
         except TimeoutError:
             return False

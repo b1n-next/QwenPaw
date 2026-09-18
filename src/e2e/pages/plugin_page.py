@@ -45,8 +45,7 @@ class PluginPage(BasePage):
         '[class*="breadcrumbCurrent"]:has-text("插件管理")'
     )
     INSTALL_BTN = (
-        'button:has-text("Install Plugin"), '
-        'button:has-text("安装插件")'
+        'button:has-text("Install Plugin"), ' 'button:has-text("安装插件")'
     )
     TAB_INSTALLED = (
         '.qwenpaw-tabs-tab:has-text("Installed"), '
@@ -75,7 +74,7 @@ class PluginPage(BasePage):
         '[class*="cardActions"] button:has-text("安装")'
     )
     # Modal.confirm for incompatible installs
-    COMPAT_MODAL = '.qwenpaw-modal-confirm'
+    COMPAT_MODAL = ".qwenpaw-modal-confirm"
     COMPAT_MODAL_TITLE = (
         '.qwenpaw-modal-confirm-title:has-text("Compatibility Warning"), '
         '.qwenpaw-modal-confirm-title:has-text("兼容性警告")'
@@ -86,9 +85,7 @@ class PluginPage(BasePage):
     )
 
     # Empty-state text inside the installed table
-    EMPTY_INSTALLED = (
-        'text=/(No plugins installed|暂无已安装插件)/'
-    )
+    EMPTY_INSTALLED = "text=/(No plugins installed|暂无已安装插件)/"
 
     # localStorage agent storage — see CodingPage for the rationale.
     AGENT_ID_DEFAULT = "default"
@@ -128,7 +125,9 @@ class PluginPage(BasePage):
         if force_default_agent:
             self._install_default_agent_init_script()
         logger.info("Open Plugin Manager page")
-        self.page.goto(self.PAGE_URL, wait_until="commit", timeout=self.timeout)
+        self.page.goto(
+            self.PAGE_URL, wait_until="commit", timeout=self.timeout
+        )
         # Wait until SPA chunks have settled — the Plugin Manager page
         # is route-split, so domcontentloaded fires too early.
         try:

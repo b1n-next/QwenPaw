@@ -79,6 +79,7 @@ def _ensure_at_least_one_tool_enabled(
 # TOOL-001: Page display + global toggle + tool card verification
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.p0
 @pytest.mark.tools
@@ -95,7 +96,9 @@ class TestToolsPageDisplayAndGlobalToggle:
     """
 
     @pytest.mark.test_id("TOOL-001")
-    def test_tools_page_display_and_global_toggle(self, page: Page, request: pytest.FixtureRequest):
+    def test_tools_page_display_and_global_toggle(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Verify built-in tools page display and global toggle."""
         test_name = request.node.name
 
@@ -114,24 +117,40 @@ class TestToolsPageDisplayAndGlobalToggle:
 
             # 2. Verify breadcrumb
             log_test_step("2. Verify breadcrumb")
-            breadcrumb = page.locator('[class*="breadcrumb"], [class*="Breadcrumb"]').first
+            breadcrumb = page.locator(
+                '[class*="breadcrumb"], [class*="Breadcrumb"]'
+            ).first
             if breadcrumb.is_visible():
                 breadcrumb_text = breadcrumb.inner_text().strip()
                 logger.info(f"Breadcrumb text: {breadcrumb_text}")
-                assert "Workspace" in breadcrumb_text, "Breadcrumb should contain Workspace"
-                assert "Built-in Tools" in breadcrumb_text or "Tools" in breadcrumb_text, "Breadcrumb should contain Built-in Tools"
+                assert (
+                    "Workspace" in breadcrumb_text
+                ), "Breadcrumb should contain Workspace"
+                assert (
+                    "Built-in Tools" in breadcrumb_text
+                    or "Tools" in breadcrumb_text
+                ), "Breadcrumb should contain Built-in Tools"
                 logger.info("Breadcrumb verified")
             else:
-                logger.warning("Breadcrumb element not found, skipping verification")
+                logger.warning(
+                    "Breadcrumb element not found, skipping verification"
+                )
 
             # 3. Verify the global enable/disable switch
             log_test_step("3. Verify the global enable/disable switch")
-            global_switch = page.locator('button.qwenpaw-switch[role="switch"]')
-            assert global_switch.count() > 0 and global_switch.first.is_visible(), \
-                "Global toggle switch should be visible"
-            initial_aria_checked = global_switch.first.get_attribute('aria-checked')
-            initial_enabled = initial_aria_checked == 'true'
-            logger.info(f"Global toggle initial state: {'enabled' if initial_enabled else 'disabled'}, aria-checked={initial_aria_checked}")
+            global_switch = page.locator(
+                'button.qwenpaw-switch[role="switch"]'
+            )
+            assert (
+                global_switch.count() > 0 and global_switch.first.is_visible()
+            ), "Global toggle switch should be visible"
+            initial_aria_checked = global_switch.first.get_attribute(
+                "aria-checked"
+            )
+            initial_enabled = initial_aria_checked == "true"
+            logger.info(
+                f"Global toggle initial state: {'enabled' if initial_enabled else 'disabled'}, aria-checked={initial_aria_checked}"
+            )
 
             # 4. Verify the tool card grid
             log_test_step("4. Verify the tool card grid")
@@ -158,7 +177,10 @@ class TestToolsPageDisplayAndGlobalToggle:
             expect(status_text).to_be_visible()
             status = status_text.inner_text().strip()
             logger.info(f"First tool status: {status}")
-            assert status in ["Enabled", "Disabled"], f"Status should be 'Enabled' or 'Disabled', got: {status}"
+            assert status in [
+                "Enabled",
+                "Disabled",
+            ], f"Status should be 'Enabled' or 'Disabled', got: {status}"
 
             # Verify the description
             description = first_card.locator('p[class*="toolDescription"]')
@@ -173,25 +195,38 @@ class TestToolsPageDisplayAndGlobalToggle:
             # 5. Toggle the global switch state
             log_test_step("5. Toggle the global switch state")
             global_switch.first.click()
-            expected_aria = 'false' if initial_enabled else 'true'
+            expected_aria = "false" if initial_enabled else "true"
             expected_status = "Disabled" if initial_enabled else "Enabled"
             for _poll in range(20):
                 page.wait_for_timeout(1000)
-                new_aria_checked = global_switch.first.get_attribute('aria-checked')
+                new_aria_checked = global_switch.first.get_attribute(
+                    "aria-checked"
+                )
                 if new_aria_checked == expected_aria:
                     break
-            new_enabled = global_switch.first.get_attribute('aria-checked') == 'true'
-            assert new_enabled != initial_enabled, \
-                f"Switch aria-checked should change after toggle, initial={initial_enabled}, new={new_enabled}"
+            new_enabled = (
+                global_switch.first.get_attribute("aria-checked") == "true"
+            )
+            assert (
+                new_enabled != initial_enabled
+            ), f"Switch aria-checked should change after toggle, initial={initial_enabled}, new={new_enabled}"
             first_status_el = page.locator('span[class*="statusText"]').first
             try:
-                expect(first_status_el).to_have_text(expected_status, timeout=10000)
+                expect(first_status_el).to_have_text(
+                    expected_status, timeout=10000
+                )
             except Exception:
-                logger.warning(f"First tool statusText did not update to '{expected_status}', may lag behind switch")
-            logger.info(f"Global toggle new state: {'enabled' if new_enabled else 'disabled'}")
+                logger.warning(
+                    f"First tool statusText did not update to '{expected_status}', may lag behind switch"
+                )
+            logger.info(
+                f"Global toggle new state: {'enabled' if new_enabled else 'disabled'}"
+            )
 
             log_test_result(test_name, True, 0)
-            logger.info(f"Test {test_name} passed - built-in tools page display and global toggle OK")
+            logger.info(
+                f"Test {test_name} passed - built-in tools page display and global toggle OK"
+            )
 
         except Exception as e:
             logger.error(f"Test {test_name} failed: {str(e)}")
@@ -202,22 +237,35 @@ class TestToolsPageDisplayAndGlobalToggle:
             try:
                 if initial_enabled is not None:
                     log_test_step("6. Restore original state")
-                    current_aria = global_switch.first.get_attribute('aria-checked')
-                    current_enabled = current_aria == 'true'
+                    current_aria = global_switch.first.get_attribute(
+                        "aria-checked"
+                    )
+                    current_enabled = current_aria == "true"
                     if current_enabled != initial_enabled:
                         global_switch.first.click()
-                        expected_restore = 'true' if initial_enabled else 'false'
+                        expected_restore = (
+                            "true" if initial_enabled else "false"
+                        )
                         for _poll in range(10):
                             page.wait_for_timeout(1000)
-                            if global_switch.first.get_attribute('aria-checked') == expected_restore:
+                            if (
+                                global_switch.first.get_attribute(
+                                    "aria-checked"
+                                )
+                                == expected_restore
+                            ):
                                 break
                         logger.info("Global toggle restored")
             except Exception as restore_error:
-                logger.warning(f"Error restoring original state (does not affect test result): {str(restore_error)}")
+                logger.warning(
+                    f"Error restoring original state (does not affect test result): {str(restore_error)}"
+                )
+
 
 # ============================================================================
 # TOOL-002: Per-tool enable/disable + async-execute toggle
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p0
@@ -260,7 +308,11 @@ class TestToolEnableDisableAndAsyncToggle:
             except Exception:
                 logger.warning("Tools page first load timed out, retrying...")
                 page.wait_for_timeout(3000)
-                page.goto(f"{config.base_url}/tools", wait_until="domcontentloaded", timeout=60000)
+                page.goto(
+                    f"{config.base_url}/tools",
+                    wait_until="domcontentloaded",
+                    timeout=60000,
+                )
 
             # Wait for the page container to be visible
             tools_page = page.locator('div[class*="toolsPage"]')
@@ -289,14 +341,21 @@ class TestToolEnableDisableAndAsyncToggle:
             status_text = first_card.locator('span[class*="statusText"]')
             initial_status = status_text.inner_text().strip()
             logger.info(f"Initial status: {initial_status}")
-            assert initial_status in ["Enabled", "Disabled"], f"Status should be 'Enabled' or 'Disabled', got: {initial_status}"
+            assert initial_status in [
+                "Enabled",
+                "Disabled",
+            ], f"Status should be 'Enabled' or 'Disabled', got: {initial_status}"
 
             # Get the card footer buttons
             card_footer = first_card.locator('div[class*="cardFooter"]')
-            toggle_buttons = card_footer.locator('button[class*="toggleButton"]')
+            toggle_buttons = card_footer.locator(
+                'button[class*="toggleButton"]'
+            )
             button_count = toggle_buttons.count()
             logger.info(f"Detected button count: {button_count}")
-            assert button_count >= 1, "There should be at least one toggle button"
+            assert (
+                button_count >= 1
+            ), "There should be at least one toggle button"
 
             # 4. Test the async-execute toggle (if present)
             # Source: the async-execute button exists only on the execute_shell_command tool,
@@ -308,20 +367,27 @@ class TestToolEnableDisableAndAsyncToggle:
                 # Async-execute button is disabled when the tool is disabled; ensure the tool is enabled first
                 need_restore_disable = False
                 if initial_status == "Disabled":
-                    logger.info("Tool is currently disabled; enabling it to test async-execute")
+                    logger.info(
+                        "Tool is currently disabled; enabling it to test async-execute"
+                    )
                     enable_disable_button = toggle_buttons.last
                     enable_disable_button.click()
                     page.wait_for_timeout(1500)
                     new_status = status_text.inner_text().strip()
                     logger.info(f"Status after enabling: {new_status}")
-                    assert new_status == "Enabled", f"Tool should be enabled, got: {new_status}"
+                    assert (
+                        new_status == "Enabled"
+                    ), f"Tool should be enabled, got: {new_status}"
                     need_restore_disable = True
 
                 async_text = async_button.inner_text().strip()
                 logger.info(f"Async-execute button text: {async_text}")
 
                 # Determine current async-execute state (case-insensitive)
-                is_async_enabled = "enabled" in async_text.lower() and "disabled" not in async_text.lower()
+                is_async_enabled = (
+                    "enabled" in async_text.lower()
+                    and "disabled" not in async_text.lower()
+                )
 
                 # Toggle the async-execute state
                 async_button.click()
@@ -330,16 +396,28 @@ class TestToolEnableDisableAndAsyncToggle:
                 # Verify the state changed
                 new_async_text = async_button.inner_text().strip()
                 logger.info(f"Async-execute new state: {new_async_text}")
-                new_is_async_enabled = "enabled" in new_async_text.lower() and "disabled" not in new_async_text.lower()
-                assert new_is_async_enabled != is_async_enabled, "Async-execute state should have toggled"
+                new_is_async_enabled = (
+                    "enabled" in new_async_text.lower()
+                    and "disabled" not in new_async_text.lower()
+                )
+                assert (
+                    new_is_async_enabled != is_async_enabled
+                ), "Async-execute state should have toggled"
 
                 # Restore async-execute state
                 async_button.click()
                 page.wait_for_timeout(2000)
                 restored_async_text = async_button.inner_text().strip()
-                logger.info(f"Async-execute restored state: {restored_async_text}")
-                restored_is_async_enabled = "enabled" in restored_async_text.lower() and "disabled" not in restored_async_text.lower()
-                assert restored_is_async_enabled == is_async_enabled, "Async-execute state should be restored"
+                logger.info(
+                    f"Async-execute restored state: {restored_async_text}"
+                )
+                restored_is_async_enabled = (
+                    "enabled" in restored_async_text.lower()
+                    and "disabled" not in restored_async_text.lower()
+                )
+                assert (
+                    restored_is_async_enabled == is_async_enabled
+                ), "Async-execute state should be restored"
 
                 # If we enabled the tool earlier to test async-execute, restore it to disabled
                 if need_restore_disable:
@@ -350,7 +428,9 @@ class TestToolEnableDisableAndAsyncToggle:
 
                 logger.info("Async-execute toggle test passed")
             else:
-                logger.warning("Async-execute button not found, skipping async-execute test")
+                logger.warning(
+                    "Async-execute button not found, skipping async-execute test"
+                )
 
             # 5. Test the enable/disable button (last button, plain "Enable"/"Disable" text)
             log_test_step("5. Test enable/disable button")
@@ -368,7 +448,7 @@ class TestToolEnableDisableAndAsyncToggle:
                 # card is detached. Instead, disable the tool and assert its
                 # card leaves the enabled grid.
                 enabled_count_before = tools_grid.locator(
-                    'div[class*="toolCard"]'
+                    'div[class*="toolCard"]',
                 ).count()
 
                 enable_disable_button.click()
@@ -376,27 +456,31 @@ class TestToolEnableDisableAndAsyncToggle:
                 # Available section). Assert the enabled-card count drops.
                 try:
                     expect(
-                        tools_grid.locator('div[class*="toolCard"]')
+                        tools_grid.locator('div[class*="toolCard"]'),
                     ).to_have_count(enabled_count_before - 1, timeout=8000)
                     toggled_off = True
                     logger.info(
                         "Tool card left the enabled grid after disable "
-                        f"({enabled_count_before} -> {enabled_count_before - 1})"
+                        f"({enabled_count_before} -> {enabled_count_before - 1})",
                     )
                 except Exception:
                     # Fallback for builds where a disabled tool stays in the
                     # grid with an updated status label.
                     logger.warning(
                         "Enabled-card count did not drop; tool may stay in "
-                        "grid with a Disabled label on this build"
+                        "grid with a Disabled label on this build",
                     )
 
                 logger.info("Enable/disable button test passed")
             else:
-                logger.warning("Enable/disable button not found, skipping enable/disable test")
+                logger.warning(
+                    "Enable/disable button not found, skipping enable/disable test"
+                )
 
             log_test_result(test_name, True, 0)
-            logger.info(f"Test {test_name} passed - per-tool enable/disable and async-execute toggle OK")
+            logger.info(
+                f"Test {test_name} passed - per-tool enable/disable and async-execute toggle OK"
+            )
 
         except Exception as e:
             logger.error(f"Test {test_name} failed: {str(e)}")
@@ -412,18 +496,27 @@ class TestToolEnableDisableAndAsyncToggle:
                 if toggled_off and tool_name:
                     log_test_step("6. Restore original state")
                     available_tile = page.locator(
-                        f'div[class*="availableItem"]:has-text("{tool_name}")'
+                        f'div[class*="availableItem"]:has-text("{tool_name}")',
                     ).first
-                    if available_tile.count() > 0 and available_tile.is_visible():
+                    if (
+                        available_tile.count() > 0
+                        and available_tile.is_visible()
+                    ):
                         available_tile.click()
                         page.wait_for_timeout(1500)
-                        logger.info("Re-enabled tool from the Available section")
+                        logger.info(
+                            "Re-enabled tool from the Available section"
+                        )
             except Exception as restore_error:
-                logger.warning(f"Error restoring original state (does not affect test result): {str(restore_error)}")
+                logger.warning(
+                    f"Error restoring original state (does not affect test result): {str(restore_error)}"
+                )
+
 
 # ============================================================================
 # TOOL-003: Global toggle state consistency verification
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p2
@@ -484,11 +577,15 @@ class TestToolsGlobalToggleConsistency:
             logger.info(f"Detected tool card count: {card_count}")
 
             # Get the global toggle's initial state
-            global_switch = page.locator('button.qwenpaw-switch[role="switch"]').first
+            global_switch = page.locator(
+                'button.qwenpaw-switch[role="switch"]'
+            ).first
             expect(global_switch).to_be_visible(timeout=5000)
-            initial_aria_checked = global_switch.get_attribute('aria-checked')
-            initial_enabled = initial_aria_checked == 'true'
-            logger.info(f"Global toggle initial state: {'enabled' if initial_enabled else 'disabled'}")
+            initial_aria_checked = global_switch.get_attribute("aria-checked")
+            initial_enabled = initial_aria_checked == "true"
+            logger.info(
+                f"Global toggle initial state: {'enabled' if initial_enabled else 'disabled'}"
+            )
 
             # Record each tool's initial status
             initial_statuses = []
@@ -502,18 +599,20 @@ class TestToolsGlobalToggleConsistency:
             # Step 3: If the global toggle is enabled, disable it first
             log_test_step("3. Ensure the global toggle is in a known state")
             if initial_enabled:
-                logger.info("Global toggle is currently enabled; disabling first to start the test")
+                logger.info(
+                    "Global toggle is currently enabled; disabling first to start the test"
+                )
                 global_switch.click()
                 page.wait_for_timeout(1500)
 
-                new_aria = global_switch.get_attribute('aria-checked')
-                assert new_aria == 'false', "Global toggle did not disable"
+                new_aria = global_switch.get_attribute("aria-checked")
+                assert new_aria == "false", "Global toggle did not disable"
                 logger.info("Global toggle disabled")
 
             # Step 4: Click the global disable toggle (ensure disabled state)
             log_test_step("4. Confirm the global toggle is disabled")
-            current_aria = global_switch.get_attribute('aria-checked')
-            if current_aria == 'true':
+            current_aria = global_switch.get_attribute("aria-checked")
+            if current_aria == "true":
                 global_switch.click()
                 page.wait_for_timeout(1500)
                 logger.info("Global toggle switched to disabled")
@@ -524,8 +623,10 @@ class TestToolsGlobalToggleConsistency:
 
             # Step 6: Verify the global toggle state changed
             log_test_step("6. Verify the global toggle state")
-            current_global = global_switch.get_attribute('aria-checked')
-            logger.info(f"Global toggle current state: aria-checked={current_global}")
+            current_global = global_switch.get_attribute("aria-checked")
+            logger.info(
+                f"Global toggle current state: aria-checked={current_global}"
+            )
 
             # Iterate over tool cards and record their state
             updated_cards = tools_grid.locator('div[class*="toolCard"]').all()
@@ -543,7 +644,9 @@ class TestToolsGlobalToggleConsistency:
                         enabled_count += 1
                     logger.info(f"Tool {i+1} status: {status}")
 
-            logger.info(f"Tool status summary: disabled={disabled_count}, enabled={enabled_count}, total={total_visible}")
+            logger.info(
+                f"Tool status summary: disabled={disabled_count}, enabled={enabled_count}, total={total_visible}"
+            )
             # The global toggle may control the default state of new tools rather than batch-toggle all tools;
             # verifying the global toggle itself flipped is enough
             logger.info("Global toggle state verified")
@@ -553,8 +656,8 @@ class TestToolsGlobalToggleConsistency:
             global_switch.click()
             page.wait_for_timeout(1500)
 
-            enabled_aria = global_switch.get_attribute('aria-checked')
-            assert enabled_aria == 'true', "Global toggle did not enable"
+            enabled_aria = global_switch.get_attribute("aria-checked")
+            assert enabled_aria == "true", "Global toggle did not enable"
             logger.info("Global toggle enabled")
 
             # Step 8: Wait for state update
@@ -571,7 +674,9 @@ class TestToolsGlobalToggleConsistency:
                     status = status_text.inner_text().strip()
                     if status != "Enabled":
                         all_enabled = False
-                        logger.warning(f"Tool {i+1} status is not 'Enabled': {status}")
+                        logger.warning(
+                            f"Tool {i+1} status is not 'Enabled': {status}"
+                        )
                     else:
                         logger.info(f"Tool {i+1} status: {status}")
 
@@ -579,7 +684,9 @@ class TestToolsGlobalToggleConsistency:
             logger.info("All tool cards are 'Enabled'")
 
             log_test_result(test_name, True, 0)
-            logger.info(f"Test {test_name} passed - global toggle state consistency verified")
+            logger.info(
+                f"Test {test_name} passed - global toggle state consistency verified"
+            )
 
         except Exception as e:
             logger.error(f"Test {test_name} failed: {str(e)}")
@@ -588,25 +695,40 @@ class TestToolsGlobalToggleConsistency:
         finally:
             # Step 10: Restore original state
             try:
-                if global_switch is not None and initial_enabled is not None and initial_aria_checked is not None:
+                if (
+                    global_switch is not None
+                    and initial_enabled is not None
+                    and initial_aria_checked is not None
+                ):
                     log_test_step("10. Restore original state")
                     if not initial_enabled:
                         # If initial state was disabled, click again to return to disabled
-                        current_aria = global_switch.get_attribute('aria-checked')
-                        if current_aria == 'true':
+                        current_aria = global_switch.get_attribute(
+                            "aria-checked"
+                        )
+                        if current_aria == "true":
                             global_switch.click()
                             page.wait_for_timeout(1500)
-                            restored_aria = global_switch.get_attribute('aria-checked')
-                            logger.info(f"Global toggle restored to initial state: {'enabled' if initial_enabled else 'disabled'}")
+                            restored_aria = global_switch.get_attribute(
+                                "aria-checked"
+                            )
+                            logger.info(
+                                f"Global toggle restored to initial state: {'enabled' if initial_enabled else 'disabled'}"
+                            )
                     else:
-                        logger.info("Global toggle already at initial enabled state")
+                        logger.info(
+                            "Global toggle already at initial enabled state"
+                        )
             except Exception as restore_error:
-                logger.warning(f"Error restoring original state (does not affect test result): {str(restore_error)}")
+                logger.warning(
+                    f"Error restoring original state (does not affect test result): {str(restore_error)}"
+                )
 
 
 # ============================================================================
 # TOOL-P2-001: Async-execute toggle verification
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p2
@@ -615,16 +737,26 @@ class TestToolAsyncSwitch:
     """TOOL-P2-001: Async-execute toggle verification."""
 
     @pytest.mark.test_id("TOOL-P2-001")
-    def test_tool_async_switch(self, page: Page, request: pytest.FixtureRequest):
+    def test_tool_async_switch(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Test the tool async-execute toggle."""
         test_name = request.node.name
 
         log_test_step("Navigate to the tools management page")
         try:
-            page.goto(f"{config.base_url}/tools", wait_until="domcontentloaded", timeout=60000)
+            page.goto(
+                f"{config.base_url}/tools",
+                wait_until="domcontentloaded",
+                timeout=60000,
+            )
         except Exception as nav_error:
-            logger.warning(f"Tools page navigation timed out, trying commit level: {nav_error}")
-            page.goto(f"{config.base_url}/tools", wait_until="commit", timeout=30000)
+            logger.warning(
+                f"Tools page navigation timed out, trying commit level: {nav_error}"
+            )
+            page.goto(
+                f"{config.base_url}/tools", wait_until="commit", timeout=30000
+            )
         page.wait_for_timeout(3000)
 
         log_test_step("Find tool cards")
@@ -635,14 +767,18 @@ class TestToolAsyncSwitch:
 
         log_test_step("Find the async-execute toggle")
         async_switches = page.locator(
-            '.qwenpaw-switch, [class*="asyncSwitch"]'
+            '.qwenpaw-switch, [class*="asyncSwitch"]',
         ).all()
-        assert len(async_switches) > 0, "Tools page should have toggle controls"
+        assert (
+            len(async_switches) > 0
+        ), "Tools page should have toggle controls"
         logger.info(f"Found {len(async_switches)} toggles")
 
         first_switch = async_switches[0]
         original_state = first_switch.get_attribute("aria-checked")
-        assert original_state is not None, "Toggle should have an aria-checked attribute"
+        assert (
+            original_state is not None
+        ), "Toggle should have an aria-checked attribute"
         logger.info(f"Toggle initial state: aria-checked={original_state}")
 
         log_test_step("Click to toggle the async-execute switch")
@@ -651,16 +787,18 @@ class TestToolAsyncSwitch:
 
         new_state = first_switch.get_attribute("aria-checked")
         logger.info(f"State after toggle: aria-checked={new_state}")
-        assert new_state != original_state, \
-            f"Async toggle had no effect: before={original_state}, after={new_state}"
+        assert (
+            new_state != original_state
+        ), f"Async toggle had no effect: before={original_state}, after={new_state}"
         logger.info("Async toggle state changed successfully")
 
         log_test_step("Restore original state")
         first_switch.click()
         page.wait_for_timeout(1000)
         restored_state = first_switch.get_attribute("aria-checked")
-        assert restored_state == original_state, \
-            f"Async toggle restore failed: expected {original_state}, got {restored_state}"
+        assert (
+            restored_state == original_state
+        ), f"Async toggle restore failed: expected {original_state}, got {restored_state}"
         logger.info("Async toggle restored to original state")
 
         log_test_result(test_name, True, 0)

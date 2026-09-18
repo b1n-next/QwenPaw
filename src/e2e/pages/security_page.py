@@ -33,23 +33,25 @@ class SecurityPage(BasePage):
     # ========== Selector definitions ==========
 
     # Page load indicator
-    PAGE_LOAD_INDICATOR = '.qwenpaw-tabs-tab-btn'
+    PAGE_LOAD_INDICATOR = ".qwenpaw-tabs-tab-btn"
 
     # Tabs
     TOOL_GUARD_TAB = '[data-node-key="toolGuard"] .qwenpaw-tabs-tab-btn'
     FILE_GUARD_TAB = '[data-node-key="fileGuard"] .qwenpaw-tabs-tab-btn'
 
     # Active panel
-    ACTIVE_PANEL = '.qwenpaw-tabs-tabpane-active'
+    ACTIVE_PANEL = ".qwenpaw-tabs-tabpane-active"
 
     # Guard switch
     GUARD_SWITCH = 'button.qwenpaw-switch[role="switch"]'
 
     # Save button
-    SAVE_BTN = 'button.qwenpaw-btn-primary:has-text("保存"), button:has-text("保 存")'
+    SAVE_BTN = (
+        'button.qwenpaw-btn-primary:has-text("保存"), button:has-text("保 存")'
+    )
 
     # Protected tools select
-    PROTECTED_TOOLS_SELECT = '.qwenpaw-select'
+    PROTECTED_TOOLS_SELECT = ".qwenpaw-select"
 
     # File guard path input
     PATH_INPUT = 'input[placeholder*="文件或目录路径"]'
@@ -63,10 +65,14 @@ class SecurityPage(BasePage):
         self.wait_for_page_loaded()
         return self
 
-    def wait_for_page_loaded(self, timeout: Optional[int] = None) -> "SecurityPage":
+    def wait_for_page_loaded(
+        self, timeout: Optional[int] = None
+    ) -> "SecurityPage":
         """Wait for the page to finish loading."""
         timeout = timeout or self.timeout
-        expect(self.page.locator(self.PAGE_LOAD_INDICATOR).first).to_be_visible(timeout=timeout)
+        expect(
+            self.page.locator(self.PAGE_LOAD_INDICATOR).first
+        ).to_be_visible(timeout=timeout)
         return self
 
     # ========== Tab methods ==========
@@ -118,8 +124,8 @@ class SecurityPage(BasePage):
         """Return whether the guard is enabled."""
         switch = self.get_guard_toggle()
         if switch.count() > 0:
-            aria_checked = switch.get_attribute('aria-checked')
-            return aria_checked == 'true'
+            aria_checked = switch.get_attribute("aria-checked")
+            return aria_checked == "true"
         return False
 
     def toggle_guard(self) -> "SecurityPage":
@@ -150,7 +156,9 @@ class SecurityPage(BasePage):
         save_btn = self.page.locator(self.SAVE_BTN).first
         if not save_btn.is_visible():
             # Fall back to the footer
-            save_btn = self.page.locator('div[class*="footer"] button.qwenpaw-btn-primary').first
+            save_btn = self.page.locator(
+                'div[class*="footer"] button.qwenpaw-btn-primary'
+            ).first
 
         expect(save_btn).to_be_visible(timeout=self.timeout)
         save_btn.click()
@@ -184,6 +192,6 @@ class SecurityPage(BasePage):
 
     def assert_config_saved(self) -> "SecurityPage":
         """Assert that the configuration was saved."""
-        error_msg = self.page.locator('.qwenpaw-message-error')
+        error_msg = self.page.locator(".qwenpaw-message-error")
         assert error_msg.count() == 0, "Error message appeared after save"
         return self

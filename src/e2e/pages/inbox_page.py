@@ -72,43 +72,35 @@ class InboxPage(BasePage):
     # so we anchor on the bilingual menu label instead.
     SIDEBAR_INBOX_BADGE = (
         'li.qwenpaw-menu-item:has(span.qwenpaw-menu-title-content:has-text("Inbox")) '
-        '.qwenpaw-badge-dot, '
+        ".qwenpaw-badge-dot, "
         'li.qwenpaw-menu-item:has(span.qwenpaw-menu-title-content:has-text("收件箱")) '
-        '.qwenpaw-badge-dot'
+        ".qwenpaw-badge-dot"
     )
 
     # Detail modal
-    DETAIL_MODAL = '.qwenpaw-modal'
+    DETAIL_MODAL = ".qwenpaw-modal"
 
     # Batch toolbar
-    BATCH_ENTER_BTN = (
-        'button:has-text("Batch"), '
-        'button:has-text("批量操作")'
-    )
+    BATCH_ENTER_BTN = 'button:has-text("Batch"), ' 'button:has-text("批量操作")'
     BATCH_SELECT_ALL = (
-        'label:has-text("Select current page"), '
-        'label:has-text("全选当前页")'
+        'label:has-text("Select current page"), ' 'label:has-text("全选当前页")'
     )
     BATCH_DELETE_BTN = (
-        'button:has-text("Batch Delete"), '
-        'button:has-text("批量删除")'
+        'button:has-text("Batch Delete"), ' 'button:has-text("批量删除")'
     )
     POPCONFIRM_OK = (
-        '.qwenpaw-popconfirm button.qwenpaw-btn-primary, '
-        '.qwenpaw-popover button.qwenpaw-btn-primary'
+        ".qwenpaw-popconfirm button.qwenpaw-btn-primary, "
+        ".qwenpaw-popover button.qwenpaw-btn-primary"
     )
 
-    EMPTY_PUSH = (
-        'text=/(No push messages|暂无推送消息)/'
-    )
+    EMPTY_PUSH = "text=/(No push messages|暂无推送消息)/"
 
     # Per-card delete (Trash icon, antd Button danger => -dangerous class)
-    CARD_DELETE_BTN = 'button.qwenpaw-btn-dangerous'
+    CARD_DELETE_BTN = "button.qwenpaw-btn-dangerous"
 
     # Toolbar "Mark all read" button
     MARK_ALL_READ_BTN = (
-        'button:has-text("Mark all read"), '
-        'button:has-text("全部标记已读")'
+        'button:has-text("Mark all read"), ' 'button:has-text("全部标记已读")'
     )
 
     # ========== Workspace path helpers ==========
@@ -123,6 +115,7 @@ class InboxPage(BasePage):
         need updating.
         """
         from config.settings import config
+
         return config.working_dir
 
     @classmethod
@@ -227,9 +220,7 @@ class InboxPage(BasePage):
             params=params,
             headers=self._agent_headers(),
         )
-        assert resp.ok, (
-            f"List events failed [{resp.status}]: {resp.text()}"
-        )
+        assert resp.ok, f"List events failed [{resp.status}]: {resp.text()}"
         body = resp.json()
         return body.get("events", []) if isinstance(body, dict) else []
 
@@ -263,10 +254,13 @@ class InboxPage(BasePage):
 
     def open(self) -> "InboxPage":
         self._install_default_agent_init_script()
-        self.page.goto(self.PAGE_URL, wait_until="commit", timeout=self.timeout)
+        self.page.goto(
+            self.PAGE_URL, wait_until="commit", timeout=self.timeout
+        )
         try:
             self.page.wait_for_load_state(
-                "networkidle", timeout=self.timeout,
+                "networkidle",
+                timeout=self.timeout,
             )
         except TimeoutError:
             pass
@@ -282,7 +276,8 @@ class InboxPage(BasePage):
         )
         try:
             self.page.wait_for_load_state(
-                "networkidle", timeout=self.timeout,
+                "networkidle",
+                timeout=self.timeout,
             )
         except TimeoutError:
             pass

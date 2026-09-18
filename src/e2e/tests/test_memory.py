@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 # MEM-003 P1 — Long-term Memory card renders on /agent-config
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.p1
 @pytest.mark.memory
@@ -51,7 +52,7 @@ class TestMemoryCardUI:
 
         log_test_step("2. 'Long-term Memory' tab is visible")
         expect(
-            memory_page.page.locator(memory_page.MEMORY_TAB).first
+            memory_page.page.locator(memory_page.MEMORY_TAB).first,
         ).to_be_visible(timeout=memory_page.timeout)
 
         log_test_step("3. Click the tab and verify the dream_cron input")
@@ -61,7 +62,7 @@ class TestMemoryCardUI:
         # collides with the Tab label and the className is design-system
         # specific.
         expect(
-            memory_page.page.locator(memory_page.DREAM_CRON_INPUT).first
+            memory_page.page.locator(memory_page.DREAM_CRON_INPUT).first,
         ).to_be_visible(timeout=memory_page.timeout)
 
         log_test_result(test_name, True, 0)
@@ -71,6 +72,7 @@ class TestMemoryCardUI:
 # ============================================================================
 # MEM-004 P1 — MEMORY.md is visible in the Workspace files panel
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -99,9 +101,9 @@ class TestWorkspaceMemoryMd:
             data={"content": "# Memory\n\ne2e seed\n"},
             headers=memory_page._agent_headers(),
         )
-        assert seed_resp.ok, (
-            f"Seed MEMORY.md failed [{seed_resp.status}]: {seed_resp.text()}"
-        )
+        assert (
+            seed_resp.ok
+        ), f"Seed MEMORY.md failed [{seed_resp.status}]: {seed_resp.text()}"
         # Defensive reset: a prior coding-mode case may have bound a
         # project directory, which makes the files page show the project
         # tree instead of the workspace tree.
@@ -123,7 +125,7 @@ class TestWorkspaceMemoryMd:
         # The file list renders each entry as a div with class
         # *fileItemName* — text-based locator is enough.
         expect(
-            memory_page.page.locator('text="MEMORY.md"').first
+            memory_page.page.locator('text="MEMORY.md"').first,
         ).to_be_visible(timeout=memory_page.timeout)
 
         log_test_result(test_name, True, 0)
@@ -133,6 +135,7 @@ class TestWorkspaceMemoryMd:
 # ============================================================================
 # MEM-005 P2 — Memory search recall (xfail when LLM unavailable)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.requires_llm
@@ -179,22 +182,22 @@ class TestMemorySearchRecall:
             timeout=memory_page.timeout,
         )
         chat_input = memory_page.page.locator(
-            '.qwenpaw-sender textarea:visible, .qwenpaw-sender [role="textbox"]:visible'
+            '.qwenpaw-sender textarea:visible, .qwenpaw-sender [role="textbox"]:visible',
         ).first
         expect(chat_input).to_be_visible(timeout=memory_page.timeout)
         chat_input.fill(
-            f"What did I previously say about {keyword}? Quote it."
+            f"What did I previously say about {keyword}? Quote it.",
         )
         send_btn = memory_page.page.locator(
-            "button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary"
+            "button.qwenpaw-sender-actions-btn.qwenpaw-btn-primary",
         ).first
         send_btn.click()
 
         log_test_step("3. Wait for AI bubble that mentions the keyword")
         expect(
             memory_page.page.locator(
-                f'.qwenpaw-bubble.qwenpaw-bubble-start:has-text("{keyword}")'
-            ).first
+                f'.qwenpaw-bubble.qwenpaw-bubble-start:has-text("{keyword}")',
+            ).first,
         ).to_be_visible(timeout=180000)
 
         log_test_result(test_name, True, 0)
@@ -204,6 +207,7 @@ class TestMemorySearchRecall:
 # ============================================================================
 # MEM-001 P1 — auto_memory_interval edit + save + reload persistence
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -228,10 +232,10 @@ class TestAutoMemoryIntervalPersistence:
             memory_page.open_agent_config()
             memory_page.click_memory_tab()
             interval_input = memory_page.page.locator(
-                memory_page.AUTO_MEMORY_INTERVAL_INPUT
+                memory_page.AUTO_MEMORY_INTERVAL_INPUT,
             ).first
             expect(interval_input).to_be_visible(
-                timeout=memory_page.timeout
+                timeout=memory_page.timeout,
             )
 
             log_test_step("2. Fill a distinct value and save")
@@ -245,10 +249,10 @@ class TestAutoMemoryIntervalPersistence:
             memory_page.page.wait_for_timeout(3000)
             memory_page.click_memory_tab()
             interval_after = memory_page.page.locator(
-                memory_page.AUTO_MEMORY_INTERVAL_INPUT
+                memory_page.AUTO_MEMORY_INTERVAL_INPUT,
             ).first
             expect(interval_after).to_be_visible(
-                timeout=memory_page.timeout
+                timeout=memory_page.timeout,
             )
             assert interval_after.input_value() == new_value, (
                 f"interval not persisted: expected {new_value}, "
@@ -264,6 +268,7 @@ class TestAutoMemoryIntervalPersistence:
 # ============================================================================
 # MEM-002 P1 — dream_cron edit + save + reload persistence
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -288,20 +293,22 @@ class TestDreamCronPersistence:
             memory_page.open_agent_config()
             memory_page.click_memory_tab()
             cron_input = memory_page.page.locator(
-                memory_page.DREAM_CRON_INPUT
+                memory_page.DREAM_CRON_INPUT,
             ).first
             expect(cron_input).to_be_visible(timeout=memory_page.timeout)
 
             log_test_step("2. Ensure dream cron is enabled (input editable)")
             if cron_input.is_disabled():
                 memory_page.page.locator(
-                    memory_page.DREAM_CRON_ENABLED_SWITCH
+                    memory_page.DREAM_CRON_ENABLED_SWITCH,
                 ).first.click()
                 memory_page.page.wait_for_timeout(300)
 
             log_test_step("3. Fill a valid 5-field cron and save")
             old_value = cron_input.input_value()
-            new_value = "0 3 * * *" if old_value != "0 3 * * *" else "0 4 * * *"
+            new_value = (
+                "0 3 * * *" if old_value != "0 3 * * *" else "0 4 * * *"
+            )
             cron_input.fill(new_value)
             memory_page.click_save()
 
@@ -310,7 +317,7 @@ class TestDreamCronPersistence:
             memory_page.page.wait_for_timeout(3000)
             memory_page.click_memory_tab()
             cron_after = memory_page.page.locator(
-                memory_page.DREAM_CRON_INPUT
+                memory_page.DREAM_CRON_INPUT,
             ).first
             expect(cron_after).to_be_visible(timeout=memory_page.timeout)
             assert cron_after.input_value() == new_value, (
@@ -327,6 +334,7 @@ class TestDreamCronPersistence:
 # ============================================================================
 # MEM-007 P2 — Auto Memory Search switch + max_results field (no save)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p2
@@ -354,7 +362,7 @@ class TestAutoMemorySearchControls:
         memory_page.open_agent_config()
         memory_page.click_memory_tab()
         expect(
-            page.locator(memory_page.DREAM_CRON_INPUT).first
+            page.locator(memory_page.DREAM_CRON_INPUT).first,
         ).to_be_visible(timeout=memory_page.timeout)
 
         log_test_step("2. Locate the Auto Memory Search switch")
@@ -368,13 +376,13 @@ class TestAutoMemorySearchControls:
         switch.click()
         page.wait_for_timeout(300)
         after = switch.get_attribute("aria-checked")
-        assert before != after, (
-            f"auto search switch did not flip: {before} -> {after}"
-        )
+        assert (
+            before != after
+        ), f"auto search switch did not flip: {before} -> {after}"
 
         log_test_step("4. max_results is editable (fill 5, value sticks)")
         max_results = page.locator(
-            memory_page.AUTO_SEARCH_MAX_RESULTS_INPUT
+            memory_page.AUTO_SEARCH_MAX_RESULTS_INPUT,
         ).first
         expect(max_results).to_be_visible(timeout=memory_page.timeout)
         max_results.fill("5")

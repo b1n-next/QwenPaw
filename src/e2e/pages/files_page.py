@@ -54,10 +54,14 @@ class FilesPage(BasePage):
         self.wait_for_page_loaded()
         return self
 
-    def wait_for_page_loaded(self, timeout: Optional[int] = None) -> "FilesPage":
+    def wait_for_page_loaded(
+        self, timeout: Optional[int] = None
+    ) -> "FilesPage":
         """Wait for the page to finish loading."""
         timeout = timeout or self.timeout
-        expect(self.page.locator(self.PAGE_LOAD_INDICATOR).first).to_be_visible(timeout=timeout)
+        expect(
+            self.page.locator(self.PAGE_LOAD_INDICATOR).first
+        ).to_be_visible(timeout=timeout)
         return self
 
     # ========== File list operations ==========
@@ -102,23 +106,34 @@ class FilesPage(BasePage):
         if switch.count() > 0:
             return switch.evaluate(
                 "el => el.classList.contains('qwenpaw-switch-checked') || "
-                "el.getAttribute('aria-checked') === 'true'"
+                "el.getAttribute('aria-checked') === 'true'",
             )
         return False
 
     # ========== Assertion methods ==========
 
-    def assert_file_count(self, expected_count: int, timeout: Optional[int] = None) -> "FilesPage":
+    def assert_file_count(
+        self, expected_count: int, timeout: Optional[int] = None
+    ) -> "FilesPage":
         """Assert the file count."""
         expect(self.page.locator(self.FILE_ITEM_SELECTOR)).to_have_count(
-            expected_count, timeout=timeout or self.timeout
+            expected_count,
+            timeout=timeout or self.timeout,
         )
         return self
 
-    def assert_file_exists(self, file_name: str, timeout: Optional[int] = None) -> "FilesPage":
+    def assert_file_exists(
+        self, file_name: str, timeout: Optional[int] = None
+    ) -> "FilesPage":
         """Assert that the file exists."""
-        file_item = self.page.locator(self.FILE_ITEM_SELECTOR).filter(
-            has=self.page.locator(self.FILE_NAME_SELECTOR).filter(has_text=file_name)
-        ).first
+        file_item = (
+            self.page.locator(self.FILE_ITEM_SELECTOR)
+            .filter(
+                has=self.page.locator(self.FILE_NAME_SELECTOR).filter(
+                    has_text=file_name
+                ),
+            )
+            .first
+        )
         expect(file_item).to_be_visible(timeout=timeout or self.timeout)
         return self

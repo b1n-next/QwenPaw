@@ -32,16 +32,22 @@ class VoicePage(BasePage):
     # ========== Selector definitions ==========
 
     # Page load indicator
-    PAGE_LOAD_INDICATOR = '.qwenpaw-switch, .qwenpaw-switch-input, [class*=voiceToggle]'
+    PAGE_LOAD_INDICATOR = (
+        ".qwenpaw-switch, .qwenpaw-switch-input, [class*=voiceToggle]"
+    )
 
     # Voice service switch
-    VOICE_TOGGLE_SELECTOR = '.qwenpaw-switch, .qwenpaw-switch-input, [class*=voiceToggle]'
+    VOICE_TOGGLE_SELECTOR = (
+        ".qwenpaw-switch, .qwenpaw-switch-input, [class*=voiceToggle]"
+    )
 
     # Configuration form
-    CONFIG_FORM_SELECTOR = '.qwenpaw-form, [class*=configForm], form'
+    CONFIG_FORM_SELECTOR = ".qwenpaw-form, [class*=configForm], form"
 
     # Success message
-    SUCCESS_MESSAGE_SELECTOR = '.qwenpaw-message-success, .qwenpaw-notification-success'
+    SUCCESS_MESSAGE_SELECTOR = (
+        ".qwenpaw-message-success, .qwenpaw-notification-success"
+    )
 
     # ========== Navigation methods ==========
 
@@ -52,10 +58,14 @@ class VoicePage(BasePage):
         self.wait_for_page_loaded()
         return self
 
-    def wait_for_page_loaded(self, timeout: Optional[int] = None) -> "VoicePage":
+    def wait_for_page_loaded(
+        self, timeout: Optional[int] = None
+    ) -> "VoicePage":
         """Wait for the page to finish loading."""
         timeout = timeout or self.timeout
-        expect(self.page.locator(self.PAGE_LOAD_INDICATOR).first).to_be_visible(timeout=timeout)
+        expect(
+            self.page.locator(self.PAGE_LOAD_INDICATOR).first
+        ).to_be_visible(timeout=timeout)
         return self
 
     # ========== Voice service methods ==========
@@ -70,9 +80,11 @@ class VoicePage(BasePage):
     def is_voice_enabled(self) -> bool:
         """Return whether the voice service is enabled."""
         toggle = self.get_voice_toggle()
-        toggle_class = toggle.get_attribute('class')
-        is_checked = 'checked' in toggle_class if toggle_class else False
-        logger.debug(f"Voice service status: {'enabled' if is_checked else 'disabled'}")
+        toggle_class = toggle.get_attribute("class")
+        is_checked = "checked" in toggle_class if toggle_class else False
+        logger.debug(
+            f"Voice service status: {'enabled' if is_checked else 'disabled'}"
+        )
         return is_checked
 
     def toggle_voice(self) -> "VoicePage":
@@ -118,5 +130,7 @@ class VoicePage(BasePage):
         if success_msg.is_visible(timeout=3000):
             logger.info("Save success message displayed")
         else:
-            logger.info("No save success message found (auto-save may be enabled)")
+            logger.info(
+                "No save success message found (auto-save may be enabled)"
+            )
         return self

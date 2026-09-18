@@ -99,7 +99,7 @@ class TestCronLifecycleDeep:
         row = cronjobs_page.get_job_row(job_name)
         hist_btn = row.locator(
             'button:has-text("History"), button:has-text("历史"), '
-            'button[aria-label*="history" i]'
+            'button[aria-label*="history" i]',
         ).first
         if hist_btn.count() > 0 and hist_btn.is_visible():
             hist_btn.click()

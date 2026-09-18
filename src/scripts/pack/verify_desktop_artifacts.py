@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Verify desktop installers after they are downloaded from Actions artifacts."""
 
 from __future__ import annotations
@@ -44,7 +45,9 @@ def read_expected_sha256(sidecar: Path, artifact: Path) -> str:
     try:
         fields = sidecar.read_text(encoding="ascii").strip().split()
     except OSError as error:
-        raise ValueError(f"cannot read checksum sidecar {sidecar}: {error}") from error
+        raise ValueError(
+            f"cannot read checksum sidecar {sidecar}: {error}"
+        ) from error
 
     if len(fields) != 2 or len(fields[0]) != 64:
         raise ValueError(f"invalid checksum sidecar: {sidecar}")
@@ -80,13 +83,17 @@ def verify_artifact(artifact: Path, platform: str) -> None:
             with zipfile.ZipFile(artifact) as archive:
                 corrupt_member = archive.testzip()
         except (OSError, zipfile.BadZipFile) as error:
-            raise ValueError(f"invalid macOS ZIP {artifact}: {error}") from error
+            raise ValueError(
+                f"invalid macOS ZIP {artifact}: {error}"
+            ) from error
         if corrupt_member is not None:
             raise ValueError(
                 f"CRC check failed for {corrupt_member!r} in {artifact}",
             )
 
-    print(f"verified {platform} artifact: {artifact} ({artifact.stat().st_size} bytes)")
+    print(
+        f"verified {platform} artifact: {artifact} ({artifact.stat().st_size} bytes)"
+    )
 
 
 def find_exactly_one(directory: Path, pattern: str, label: str) -> Path:
@@ -109,10 +116,12 @@ def verify_updater_metadata(
         metadata = json.loads(metadata_path.read_text(encoding="utf-8-sig"))
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
         raise ValueError(
-            f"invalid updater metadata {metadata_path}: {error}"
+            f"invalid updater metadata {metadata_path}: {error}",
         ) from error
     if not isinstance(metadata, dict):
-        raise ValueError(f"updater metadata {metadata_path} must be a JSON object")
+        raise ValueError(
+            f"updater metadata {metadata_path} must be a JSON object"
+        )
 
     expected = {
         "artifact": artifact_name,
@@ -208,7 +217,10 @@ def main() -> int:
             continue
         if not artifacts:
             if platform in required_platforms:
-                print(f"::error::Missing required {platform} artifact", file=sys.stderr)
+                print(
+                    f"::error::Missing required {platform} artifact",
+                    file=sys.stderr,
+                )
                 failed = True
             continue
 
@@ -223,7 +235,10 @@ def main() -> int:
         if platform not in required_platforms:
             continue
         if not (args.root / spec["directory"]).is_dir():
-            print(f"::error::Missing required {platform} artifact", file=sys.stderr)
+            print(
+                f"::error::Missing required {platform} artifact",
+                file=sys.stderr,
+            )
             failed = True
             continue
         found_any = True

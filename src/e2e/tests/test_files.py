@@ -26,6 +26,7 @@ FILE_META_SELECTOR = 'div[class*="fileItemMeta"]'
 SWITCH_SELECTOR = 'button.qwenpaw-switch[role="switch"]'
 DRAG_HANDLE_SELECTOR = 'div[class*="dragHandle"]'
 
+
 def navigate_to_workspace(page: Page):
     """Navigate to the workspace page and wait for it to load."""
     page.goto(WORKSPACE_URL)
@@ -48,6 +49,7 @@ def reset_project_binding(api_context) -> None:
         headers={"X-Agent-Id": "default"},
     )
 
+
 def get_file_items(page: Page):
     """Get the file list; skip the test if empty."""
     items = page.locator(FILE_ITEM_SELECTOR).all()
@@ -55,9 +57,11 @@ def get_file_items(page: Page):
         pytest.skip("No file items found")
     return items
 
+
 # ============================================================================
 # FILE-001: Page load + file list + editor
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p0
@@ -75,7 +79,9 @@ class TestFileListEditSave:
     """
 
     @pytest.mark.test_id("FILE-001")
-    def test_file_list_view_edit_save(self, page: Page, request: pytest.FixtureRequest):
+    def test_file_list_view_edit_save(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Verify file list display and opening the editor."""
         test_name = request.node.name
 
@@ -88,10 +94,10 @@ class TestFileListEditSave:
         try:
             breadcrumb = page.locator(
                 'span[class*="breadcrumbCurrent"]:has-text("Files"), '
-                'span[class*="breadcrumbCurrent"]:has-text("Workspace")'
+                'span[class*="breadcrumbCurrent"]:has-text("Workspace")',
             ).first
             if not breadcrumb.is_visible():
-                breadcrumb = page.locator('text=Workspace, text=Files').first
+                breadcrumb = page.locator("text=Workspace, text=Files").first
             expect(breadcrumb).to_be_visible(timeout=5000)
             logger.info("Breadcrumb verified")
         except Exception:
@@ -99,12 +105,16 @@ class TestFileListEditSave:
 
         # Step 3: Verify the core-files heading
         log_test_step("3. Verify the core-files heading")
-        section_title = page.locator('h3[class*="sectionTitle"]:has-text("Core Files"), h3[class*="sectionTitle"]:has-text("Core")').first
+        section_title = page.locator(
+            'h3[class*="sectionTitle"]:has-text("Core Files"), h3[class*="sectionTitle"]:has-text("Core")'
+        ).first
         try:
             expect(section_title).to_be_visible(timeout=5000)
             logger.info("Core files heading visible")
         except Exception:
-            logger.warning("Core files heading not found, skipping verification")
+            logger.warning(
+                "Core files heading not found, skipping verification"
+            )
 
         # Step 4: Verify the file list
         log_test_step("4. Verify the file list")
@@ -135,28 +145,39 @@ class TestFileListEditSave:
 
         content_area = page.locator(
             '[class*="markdownViewer"], [class*="preview"], '
-            '[class*="editor"], textarea, .monaco-editor'
+            '[class*="editor"], textarea, .monaco-editor',
         ).first
         expect(content_area).to_be_visible(timeout=5000)
         editor_content = content_area.text_content() or ""
-        assert len(editor_content.strip()) > 0, "Editor/preview content is empty"
-        logger.info(f"Editor opened; content length: {len(editor_content)} chars")
+        assert (
+            len(editor_content.strip()) > 0
+        ), "Editor/preview content is empty"
+        logger.info(
+            f"Editor opened; content length: {len(editor_content)} chars"
+        )
 
         # Step 7: Verify the toggle switch exists
         log_test_step("7. Verify the file enable switch exists")
         switches = page.locator(SWITCH_SELECTOR).all()
         assert len(switches) >= 1, "There should be at least 1 enable switch"
         first_switch = switches[0]
-        checked = first_switch.get_attribute('aria-checked')
-        assert checked in ['true', 'false'], f"Unexpected switch aria-checked value: {checked}"
+        checked = first_switch.get_attribute("aria-checked")
+        assert checked in [
+            "true",
+            "false",
+        ], f"Unexpected switch aria-checked value: {checked}"
         logger.info(f"Switch exists, current state: {checked}")
 
         log_test_result(test_name, True, 0)
-        logger.info(f"Test {test_name} passed - file list display and opening editor OK")
+        logger.info(
+            f"Test {test_name} passed - file list display and opening editor OK"
+        )
+
 
 # ============================================================================
 # FILE-002: Toggle switch + drag reorder + reload restore
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p0
@@ -175,7 +196,9 @@ class TestFileToggleReorderMemory:
     """
 
     @pytest.mark.test_id("FILE-002")
-    def test_file_toggle_reorder_memory(self, page: Page, request: pytest.FixtureRequest):
+    def test_file_toggle_reorder_memory(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Verify file toggle, drag reorder, and reload restore."""
         test_name = request.node.name
 
@@ -195,8 +218,8 @@ class TestFileToggleReorderMemory:
 
         # Step 3: Record the initial state
         log_test_step("3. Record initial enabled state")
-        initial_checked = toggle.get_attribute('aria-checked')
-        initial_enabled = initial_checked == 'true'
+        initial_checked = toggle.get_attribute("aria-checked")
+        initial_enabled = initial_checked == "true"
         logger.info(f"Initial state: aria-checked={initial_checked}")
 
         # Step 4: Toggle the switch and hard-assert
@@ -210,16 +233,18 @@ class TestFileToggleReorderMemory:
 
         # Handle a possible confirm dialog (Ant Popconfirm or Modal)
         popconfirm = page.locator(
-            '.qwenpaw-popconfirm-buttons button.qwenpaw-btn-primary, '
-            '.qwenpaw-modal-footer button.qwenpaw-btn-primary, '
-            '.ant-popconfirm-buttons button.ant-btn-primary, '
-            '.ant-modal-footer button.ant-btn-primary, '
+            ".qwenpaw-popconfirm-buttons button.qwenpaw-btn-primary, "
+            ".qwenpaw-modal-footer button.qwenpaw-btn-primary, "
+            ".ant-popconfirm-buttons button.ant-btn-primary, "
+            ".ant-modal-footer button.ant-btn-primary, "
             '.qwenpaw-popover button:has-text("OK"), '
             '.qwenpaw-popover button:has-text("Yes"), '
             '.ant-popover button:has-text("OK"), '
-            '.ant-popover button:has-text("Yes")'
+            '.ant-popover button:has-text("Yes")',
         )
-        if popconfirm.count() > 0 and popconfirm.first.is_visible(timeout=3000):
+        if popconfirm.count() > 0 and popconfirm.first.is_visible(
+            timeout=3000
+        ):
             popconfirm.first.click()
             logger.info("Confirmed toggle dialog")
             page.wait_for_timeout(2000)
@@ -229,11 +254,11 @@ class TestFileToggleReorderMemory:
         # Re-fetch the switch reference (DOM may have updated)
         file_items = get_file_items(page)
         toggle = file_items[0].locator(SWITCH_SELECTOR).first
-        new_checked = toggle.get_attribute('aria-checked')
-        new_enabled = new_checked == 'true'
-        assert new_enabled != initial_enabled, (
-            f"Switch did not flip after toggle: {initial_checked} -> {new_checked}"
-        )
+        new_checked = toggle.get_attribute("aria-checked")
+        new_enabled = new_checked == "true"
+        assert (
+            new_enabled != initial_enabled
+        ), f"Switch did not flip after toggle: {initial_checked} -> {new_checked}"
         logger.info(f"Switch toggled: {initial_checked} -> {new_checked}")
 
         # Step 5: Restore the initial state and hard-assert
@@ -244,7 +269,9 @@ class TestFileToggleReorderMemory:
         page.wait_for_timeout(1000)
 
         # Handle a possible confirm dialog
-        if popconfirm.count() > 0 and popconfirm.first.is_visible(timeout=2000):
+        if popconfirm.count() > 0 and popconfirm.first.is_visible(
+            timeout=2000
+        ):
             popconfirm.first.click()
             logger.info("Confirmed restore dialog")
             page.wait_for_timeout(1500)
@@ -254,10 +281,10 @@ class TestFileToggleReorderMemory:
         # Re-fetch the switch reference
         file_items = get_file_items(page)
         toggle = file_items[0].locator(SWITCH_SELECTOR).first
-        restored_checked = toggle.get_attribute('aria-checked')
-        assert restored_checked == initial_checked, (
-            f"Switch not restored: expected {initial_checked}, got {restored_checked}"
-        )
+        restored_checked = toggle.get_attribute("aria-checked")
+        assert (
+            restored_checked == initial_checked
+        ), f"Switch not restored: expected {initial_checked}, got {restored_checked}"
         logger.info("Switch state restored")
 
         # Step 6: Drag reorder (requires at least 2 files)
@@ -296,10 +323,14 @@ class TestFileToggleReorderMemory:
                 if initial_order != new_order:
                     logger.info("File order updated")
                 else:
-                    logger.info("File order unchanged (drag may not have taken effect; does not affect test pass)")
+                    logger.info(
+                        "File order unchanged (drag may not have taken effect; does not affect test pass)"
+                    )
         finally:
             # Try to restore after drag; since the target position is uncertain, only warn
-            logger.warning("Drag reorder executed; file order may have changed and was not auto-restored")
+            logger.warning(
+                "Drag reorder executed; file order may have changed and was not auto-restored"
+            )
 
         # Step 7: Reload the page and verify the file list still exists
         log_test_step("7. Reload and verify file list")
@@ -309,14 +340,20 @@ class TestFileToggleReorderMemory:
 
         refreshed_items = page.locator(FILE_ITEM_SELECTOR).all()
         assert len(refreshed_items) >= 1, "File list is empty after reload"
-        logger.info(f"File list still present after reload, count: {len(refreshed_items)}")
+        logger.info(
+            f"File list still present after reload, count: {len(refreshed_items)}"
+        )
 
         log_test_result(test_name, True, 0)
-        logger.info(f"Test {test_name} passed - toggle, drag reorder and reload restore OK")
+        logger.info(
+            f"Test {test_name} passed - toggle, drag reorder and reload restore OK"
+        )
+
 
 # ============================================================================
 # FILE-003: File content edit, save and reset
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p0
@@ -339,7 +376,9 @@ class TestFileContentEditAndSave:
     """
 
     @pytest.mark.test_id("FILE-003")
-    def test_file_content_edit_save_reset(self, page: Page, request: pytest.FixtureRequest):
+    def test_file_content_edit_save_reset(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Verify file content edit, save and reset."""
         test_name = request.node.name
         test_marker = "\n# E2E Test Marker"
@@ -364,10 +403,14 @@ class TestFileContentEditAndSave:
 
         log_test_step("4. Turn off Markdown preview to enter edit mode")
         # Source: Preview Switch is in the contentLabel area
-        preview_switch = editor_card.locator('button.qwenpaw-switch[role="switch"]').first
+        preview_switch = editor_card.locator(
+            'button.qwenpaw-switch[role="switch"]'
+        ).first
         if preview_switch.is_visible():
             # If preview is on (aria-checked=true), click to turn it off
-            is_preview_on = preview_switch.get_attribute('aria-checked') == 'true'
+            is_preview_on = (
+                preview_switch.get_attribute("aria-checked") == "true"
+            )
             if is_preview_on:
                 preview_switch.click()
                 page.wait_for_timeout(1000)
@@ -378,7 +421,7 @@ class TestFileContentEditAndSave:
             logger.info("Preview switch not found; may not be a .md file")
 
         log_test_step("5. Locate textarea and record original content")
-        textarea = editor_card.locator('textarea').first
+        textarea = editor_card.locator("textarea").first
         if not textarea.is_visible():
             # If no textarea, may not be an md file; skip
             logger.info("Textarea editor not found; skipping edit test")
@@ -386,7 +429,11 @@ class TestFileContentEditAndSave:
             return
 
         original_content = textarea.input_value()
-        original_preview = original_content[:50] if len(original_content) > 50 else original_content
+        original_preview = (
+            original_content[:50]
+            if len(original_content) > 50
+            else original_content
+        )
         logger.info(f"Original content preview: {original_preview}")
 
         try:
@@ -418,20 +465,28 @@ class TestFileContentEditAndSave:
             # Turn off preview again
             editor_card = page.locator('[class*="editorCard"]').first
             expect(editor_card).to_be_visible(timeout=5000)
-            preview_switch = editor_card.locator('button.qwenpaw-switch[role="switch"]').first
-            if preview_switch.is_visible() and preview_switch.get_attribute('aria-checked') == 'true':
+            preview_switch = editor_card.locator(
+                'button.qwenpaw-switch[role="switch"]'
+            ).first
+            if (
+                preview_switch.is_visible()
+                and preview_switch.get_attribute("aria-checked") == "true"
+            ):
                 preview_switch.click()
                 page.wait_for_timeout(1000)
 
             log_test_step("9. Verify the appended content was persisted")
-            textarea = editor_card.locator('textarea').first
+            textarea = editor_card.locator("textarea").first
             expect(textarea).to_be_visible(timeout=5000)
             updated_content = textarea.input_value()
-            assert test_marker.strip() in updated_content, \
-                f"Appended marker not found; content tail: {updated_content[-80:]}"
+            assert (
+                test_marker.strip() in updated_content
+            ), f"Appended marker not found; content tail: {updated_content[-80:]}"
             logger.info("Appended content saved and verified")
 
-            log_test_step("10. Use the reset button to restore original content")
+            log_test_step(
+                "10. Use the reset button to restore original content"
+            )
             # Modify content first to make hasChanges=true, then click reset
             textarea.fill(original_content)
             page.wait_for_timeout(500)
@@ -442,11 +497,13 @@ class TestFileContentEditAndSave:
                 page.wait_for_timeout(1000)
                 logger.info("Clicked reset button")
             else:
-                logger.info("Reset button unavailable (content may already be restored)")
+                logger.info(
+                    "Reset button unavailable (content may already be restored)"
+                )
 
             log_test_step("11. Save the restored content")
             # Manually re-fill original content and save
-            textarea = editor_card.locator('textarea').first
+            textarea = editor_card.locator("textarea").first
             if textarea.is_visible():
                 textarea.fill(original_content)
                 page.wait_for_timeout(500)
@@ -457,27 +514,37 @@ class TestFileContentEditAndSave:
                     logger.info("Saved restored content")
 
             log_test_result(test_name, True, 0)
-            logger.info(f"Test {test_name} passed - file content edit, save and reset OK")
+            logger.info(
+                f"Test {test_name} passed - file content edit, save and reset OK"
+            )
         finally:
             # Ensure the file content is restored to original
             if original_content is not None:
                 try:
                     editor_card = page.locator('[class*="editorCard"]').first
-                    textarea = editor_card.locator('textarea').first
+                    textarea = editor_card.locator("textarea").first
                     if textarea.is_visible():
                         textarea.fill(original_content)
                         page.wait_for_timeout(500)
-                        save_btn = editor_card.locator('button:has-text("Save")').first
+                        save_btn = editor_card.locator(
+                            'button:has-text("Save")'
+                        ).first
                         if save_btn.is_visible() and save_btn.is_enabled():
                             save_btn.click()
                             page.wait_for_timeout(2000)
-                            logger.info("Cleanup: file content restored to original")
+                            logger.info(
+                                "Cleanup: file content restored to original"
+                            )
                 except Exception:
-                    logger.warning("Cleanup failed: could not restore original file content")
+                    logger.warning(
+                        "Cleanup failed: could not restore original file content"
+                    )
+
 
 # ============================================================================
 # FILE-004: Workspace upload and download
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p0
@@ -498,7 +565,9 @@ class TestWorkspaceUploadDownload:
     """
 
     @pytest.mark.test_id("FILE-004")
-    def test_workspace_download_and_upload_button(self, page: Page, api_context, request: pytest.FixtureRequest):
+    def test_workspace_download_and_upload_button(
+        self, page: Page, api_context, request: pytest.FixtureRequest
+    ):
         """Verify workspace upload and per-file download buttons."""
         test_name = request.node.name
 
@@ -517,7 +586,7 @@ class TestWorkspaceUploadDownload:
         log_test_step("2. Find the upload button")
         upload_btn = page.locator(
             'button[aria-label*="Upload"], button[aria-label*="上传"], '
-            'button:has-text("Upload files"), button:has-text("上传文件")'
+            'button:has-text("Upload files"), button:has-text("上传文件")',
         ).first
         expect(upload_btn).to_be_visible(timeout=5000)
         assert upload_btn.is_enabled(), "Upload button should be enabled"
@@ -525,25 +594,32 @@ class TestWorkspaceUploadDownload:
 
         log_test_step("3. Verify the hidden file input exists")
         file_input = page.locator('input[type="file"]').first
-        assert file_input.count() > 0, "A hidden file upload input should exist"
+        assert (
+            file_input.count() > 0
+        ), "A hidden file upload input should exist"
         logger.info("Hidden file input exists")
 
         log_test_step("4. Open the first file and verify the download button")
-        first_row = page.locator('button[class*="treeRow"]:not([aria-expanded])').first
+        first_row = page.locator(
+            'button[class*="treeRow"]:not([aria-expanded])'
+        ).first
         expect(first_row).to_be_visible(timeout=10000)
         first_row.click()
-        download_btn = page.locator('button:has(svg.lucide-download)').first
+        download_btn = page.locator("button:has(svg.lucide-download)").first
         expect(download_btn).to_be_visible(timeout=10000)
         assert download_btn.is_enabled(), "Download button should be enabled"
         logger.info("Per-file download button visible and enabled")
 
         log_test_result(test_name, True, 0)
-        logger.info(f"Test {test_name} passed - workspace upload/download buttons OK")
+        logger.info(
+            f"Test {test_name} passed - workspace upload/download buttons OK"
+        )
 
 
 # ============================================================================
 # FILE-P1-004: Daily memory expand/collapse view
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -559,7 +635,9 @@ class TestDailyMemoryView:
     """
 
     @pytest.mark.test_id("FILE-P1-004")
-    def test_daily_memory_view(self, page: Page, request: pytest.FixtureRequest):
+    def test_daily_memory_view(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Test daily memory expand/collapse."""
         test_name = request.node.name
 
@@ -572,14 +650,16 @@ class TestDailyMemoryView:
         memory_section = page.locator(
             ':text("Daily"), :text("Memory"), '
             ':text("daily"), :text("memory"), '
-            '[class*="memory"], [class*="Memory"]'
+            '[class*="memory"], [class*="Memory"]',
         ).first
 
         if memory_section.count() == 0:
-            logger.info("Daily memory section not found; verifying file list exists")
+            logger.info(
+                "Daily memory section not found; verifying file list exists"
+            )
             file_list = page.locator(
                 '[class*="fileList"], [class*="FileList"], '
-                '.qwenpaw-tree, .ant-tree'
+                ".qwenpaw-tree, .ant-tree",
             ).first
             if file_list.count() > 0:
                 logger.info("File list exists")
@@ -593,13 +673,15 @@ class TestDailyMemoryView:
         log_test_step("Find expandable memory items")
         # Daily memory typically uses Collapse or clickable list items
         expandable_items = page.locator(
-            '.qwenpaw-collapse-header, .ant-collapse-header, '
+            ".qwenpaw-collapse-header, .ant-collapse-header, "
             '[class*="memoryItem"], [class*="memory-item"], '
-            '[class*="dailyMemory"] [class*="header"]'
+            '[class*="dailyMemory"] [class*="header"]',
         ).all()
 
         if len(expandable_items) > 0:
-            logger.info(f"Found {len(expandable_items)} expandable memory items")
+            logger.info(
+                f"Found {len(expandable_items)} expandable memory items"
+            )
 
             log_test_step("Expand the first memory item")
             expandable_items[0].click()
@@ -607,12 +689,14 @@ class TestDailyMemoryView:
 
             # Verify expanded content
             expanded_content = page.locator(
-                '.qwenpaw-collapse-content-active, .ant-collapse-content-active, '
-                '[class*="memoryContent"], [class*="memory-content"]'
+                ".qwenpaw-collapse-content-active, .ant-collapse-content-active, "
+                '[class*="memoryContent"], [class*="memory-content"]',
             ).first
             if expanded_content.count() > 0:
                 content_text = expanded_content.inner_text()
-                logger.info(f"Memory content expanded; length: {len(content_text)}")
+                logger.info(
+                    f"Memory content expanded; length: {len(content_text)}"
+                )
             else:
                 logger.info("No explicit content area found after expansion")
 
@@ -621,16 +705,20 @@ class TestDailyMemoryView:
             page.wait_for_timeout(500)
             logger.info("Memory item collapsed")
         else:
-            logger.info("No expandable memory items found; another display mechanism may be used")
+            logger.info(
+                "No expandable memory items found; another display mechanism may be used"
+            )
             # Try clicking the memory section
             memory_section.click()
             page.wait_for_timeout(1000)
 
         log_test_result(test_name, True, 0)
 
+
 # ============================================================================
 # FILE-P1-005: Markdown live preview
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -646,7 +734,9 @@ class TestMarkdownPreview:
     """
 
     @pytest.mark.test_id("FILE-P1-005")
-    def test_markdown_preview(self, page: Page, request: pytest.FixtureRequest):
+    def test_markdown_preview(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Test Markdown live preview."""
         test_name = request.node.name
 
@@ -658,21 +748,25 @@ class TestMarkdownPreview:
         log_test_step("Find Markdown files in the file list")
         md_files = page.locator(
             ':text(".md"), :text("README"), '
-            '[class*="file"]:has-text(".md")'
+            '[class*="file"]:has-text(".md")',
         ).all()
 
         if len(md_files) == 0:
             # Fall back to any file in the file tree
             file_items = page.locator(
-                '.qwenpaw-tree-treenode, .ant-tree-treenode, '
-                '[class*="fileItem"], [class*="file-item"]'
+                ".qwenpaw-tree-treenode, .ant-tree-treenode, "
+                '[class*="fileItem"], [class*="file-item"]',
             ).all()
             if len(file_items) > 0:
-                logger.info(f"Found {len(file_items)} file items; clicking the first")
+                logger.info(
+                    f"Found {len(file_items)} file items; clicking the first"
+                )
                 file_items[0].click()
                 page.wait_for_timeout(2000)
             else:
-                logger.info("File list is empty; skipping Markdown preview test")
+                logger.info(
+                    "File list is empty; skipping Markdown preview test"
+                )
                 log_test_result(test_name, True, 0)
                 return
         else:
@@ -684,13 +778,13 @@ class TestMarkdownPreview:
         editor_area = page.locator(
             'textarea, [class*="editor"], [class*="Editor"], '
             '[class*="CodeMirror"], [class*="monaco"], '
-            '[class*="fileContent"], [class*="file-content"]'
+            '[class*="fileContent"], [class*="file-content"]',
         ).first
 
         preview_area = page.locator(
             '[class*="preview"], [class*="Preview"], '
             '[class*="markdown"], [class*="Markdown"], '
-            '.markdown-body'
+            ".markdown-body",
         ).first
 
         has_editor = editor_area.count() > 0
@@ -706,7 +800,7 @@ class TestMarkdownPreview:
         if not has_editor and not has_preview:
             # At least verify a file content area exists
             content_area = page.locator(
-                '[class*="content"], pre, code'
+                '[class*="content"], pre, code',
             ).first
             if content_area.count() > 0:
                 logger.info("Found a file content display area")
@@ -720,6 +814,7 @@ class TestMarkdownPreview:
 # FILE-P2-001: Upload files into the workspace
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.p2
 @pytest.mark.files
@@ -732,7 +827,9 @@ class TestWorkspaceZipUpload:
     """
 
     @pytest.mark.test_id("FILE-P2-001")
-    def test_workspace_zip_upload(self, page: Page, request: pytest.FixtureRequest):
+    def test_workspace_zip_upload(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Test the workspace upload entry."""
         test_name = request.node.name
 
@@ -744,9 +841,11 @@ class TestWorkspaceZipUpload:
         log_test_step("Find the upload button")
         upload_btn = page.locator(
             'button[aria-label*="Upload"], button[aria-label*="上传"], '
-            'button:has-text("Upload files"), button:has-text("上传文件")'
+            'button:has-text("Upload files"), button:has-text("上传文件")',
         ).first
-        assert upload_btn.count() > 0, "Files page should have an upload button"
+        assert (
+            upload_btn.count() > 0
+        ), "Files page should have an upload button"
         expect(upload_btn).to_be_visible(timeout=5000)
         logger.info("Upload button exists and visible")
 
@@ -762,6 +861,7 @@ class TestWorkspaceZipUpload:
 # FILE-P2-002: Download a workspace file
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.p2
 @pytest.mark.files
@@ -774,7 +874,9 @@ class TestWorkspaceZipDownload:
     """
 
     @pytest.mark.test_id("FILE-P2-002")
-    def test_workspace_zip_download(self, page: Page, api_context, request: pytest.FixtureRequest):
+    def test_workspace_zip_download(
+        self, page: Page, api_context, request: pytest.FixtureRequest
+    ):
         """Test downloading a workspace file."""
         test_name = request.node.name
 
@@ -793,17 +895,21 @@ class TestWorkspaceZipDownload:
         page.wait_for_timeout(3000)
 
         log_test_step("Open the first file")
-        first_row = page.locator('button[class*="treeRow"]:not([aria-expanded])').first
+        first_row = page.locator(
+            'button[class*="treeRow"]:not([aria-expanded])'
+        ).first
         expect(first_row).to_be_visible(timeout=10000)
         first_row.click()
         # Wait for the editor tab to open before the toolbar renders.
         expect(
-            page.locator('button:has(svg.lucide-download)').first
+            page.locator("button:has(svg.lucide-download)").first,
         ).to_be_visible(timeout=10000)
 
         log_test_step("Find the download button")
-        download_btn = page.locator('button:has(svg.lucide-download)').first
-        assert download_btn.count() > 0, "Editor toolbar should have a download button"
+        download_btn = page.locator("button:has(svg.lucide-download)").first
+        assert (
+            download_btn.count() > 0
+        ), "Editor toolbar should have a download button"
         assert download_btn.is_enabled(), "Download button should be enabled"
         logger.info("Download button exists and enabled")
 

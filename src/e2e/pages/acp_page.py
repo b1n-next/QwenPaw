@@ -51,24 +51,30 @@ class ACPPage(BasePage):
 
     # ACP card list
     ACP_CARD = '[class*="acpCard"], [class*="ACPCard"], .qwenpaw-card'
-    ACP_CARD_TITLE = '[class*="agentKey"], [class*="title"], .qwenpaw-card-meta-title'
-    ACP_CARD_TAG = '.qwenpaw-tag'
-    ACP_CARD_SWITCH = '.qwenpaw-switch'
+    ACP_CARD_TITLE = (
+        '[class*="agentKey"], [class*="title"], .qwenpaw-card-meta-title'
+    )
+    ACP_CARD_TAG = ".qwenpaw-tag"
+    ACP_CARD_SWITCH = ".qwenpaw-switch"
 
     # ACP drawer (create/edit)
-    DRAWER = '.qwenpaw-drawer'
-    DRAWER_TITLE = '.qwenpaw-drawer-title'
-    DRAWER_CLOSE = '.qwenpaw-drawer-close'
+    DRAWER = ".qwenpaw-drawer"
+    DRAWER_TITLE = ".qwenpaw-drawer-title"
+    DRAWER_CLOSE = ".qwenpaw-drawer-close"
 
     # Drawer form fields
-    FORM_AGENT_KEY = 'input[id*="agentKey"], input[name*="agentKey"], #agentKey'
+    FORM_AGENT_KEY = (
+        'input[id*="agentKey"], input[name*="agentKey"], #agentKey'
+    )
     FORM_COMMAND = 'input[id*="command"], input[name*="command"], #command'
     FORM_ARGS = 'textarea[id*="args"], textarea[name*="args"], #argsText'
     FORM_ENV = 'textarea[id*="env"], textarea[name*="env"], #envText'
     FORM_ENABLED_SWITCH = '[class*="enabled"] .qwenpaw-switch, #enabled'
     FORM_TRUSTED_SWITCH = '[class*="trusted"] .qwenpaw-switch, #trusted'
     FORM_TOOL_PARSE_MODE = '.qwenpaw-select, select[id*="tool_parse_mode"]'
-    FORM_BUFFER_LIMIT = 'input[id*="buffer"], input[name*="buffer"], input[type="number"]'
+    FORM_BUFFER_LIMIT = (
+        'input[id*="buffer"], input[name*="buffer"], input[type="number"]'
+    )
 
     # Drawer action buttons
     SAVE_BUTTON = '.qwenpaw-drawer button:has-text("Save"), .qwenpaw-drawer button:has-text("保存"), .qwenpaw-drawer button.qwenpaw-btn-primary'
@@ -77,13 +83,13 @@ class ACPPage(BasePage):
     DOC_LINK = '.qwenpaw-drawer a[href*="doc"], .qwenpaw-drawer a[href*="integration"]'
 
     # Confirmation popups
-    POPCONFIRM = '.qwenpaw-popconfirm, .qwenpaw-modal-confirm'
+    POPCONFIRM = ".qwenpaw-popconfirm, .qwenpaw-modal-confirm"
     POPCONFIRM_OK = '.qwenpaw-popconfirm button:has-text("OK"), .qwenpaw-popconfirm button:has-text("确定"), .qwenpaw-popconfirm .qwenpaw-btn-primary'
     POPCONFIRM_CANCEL = '.qwenpaw-popconfirm button:has-text("Cancel"), .qwenpaw-popconfirm button:has-text("取消")'
 
     # Toast messages
-    SUCCESS_TOAST = '.qwenpaw-message-success, .qwenpaw-notification-success'
-    ERROR_TOAST = '.qwenpaw-message-error, .qwenpaw-notification-error'
+    SUCCESS_TOAST = ".qwenpaw-message-success, .qwenpaw-notification-success"
+    ERROR_TOAST = ".qwenpaw-message-error, .qwenpaw-notification-error"
 
     # Builtin ACP names
     BUILTIN_ACP_NAMES = ["opencode", "qwen_code", "claude_code", "codex"]
@@ -114,7 +120,9 @@ class ACPPage(BasePage):
 
     def get_breadcrumb_text(self) -> str:
         """Return the breadcrumb text."""
-        breadcrumb = self.page.locator('[class*="breadcrumb"], [class*="Breadcrumb"]').first
+        breadcrumb = self.page.locator(
+            '[class*="breadcrumb"], [class*="Breadcrumb"]'
+        ).first
         if breadcrumb.is_visible(timeout=3000):
             return breadcrumb.inner_text().strip()
         return ""
@@ -183,7 +191,7 @@ class ACPPage(BasePage):
         """Return the agentKey of the given card."""
         title_el = card.locator(
             '[class*="agentKey"], [class*="title"], '
-            '.qwenpaw-card-meta-title, h3, h4'
+            ".qwenpaw-card-meta-title, h3, h4",
         ).first
         if title_el.is_visible(timeout=3000):
             return title_el.inner_text().strip()
@@ -200,7 +208,7 @@ class ACPPage(BasePage):
         if switch.count() > 0:
             return switch.evaluate(
                 "el => el.classList.contains('qwenpaw-switch-checked') || "
-                "el.getAttribute('aria-checked') === 'true'"
+                "el.getAttribute('aria-checked') === 'true'",
             )
         return False
 
@@ -344,7 +352,8 @@ class ACPPage(BasePage):
         """Wait for the success toast message."""
         try:
             self.page.locator(self.SUCCESS_TOAST).first.wait_for(
-                state="visible", timeout=timeout or 10000
+                state="visible",
+                timeout=timeout or 10000,
             )
             return True
         except Exception:
@@ -356,14 +365,17 @@ class ACPPage(BasePage):
         """Assert that the page has loaded."""
         timeout = timeout or self.timeout
         indicator = self.page.locator(
-            f'{self.CREATE_BUTTON}, {self.ACP_CARD}, {self.FILTER_TABS}'
+            f"{self.CREATE_BUTTON}, {self.ACP_CARD}, {self.FILTER_TABS}",
         ).first
         expect(indicator).to_be_visible(timeout=timeout)
         return self
 
-    def assert_card_count(self, expected: int, timeout: Optional[int] = None) -> "ACPPage":
+    def assert_card_count(
+        self, expected: int, timeout: Optional[int] = None
+    ) -> "ACPPage":
         """Assert the ACP card count."""
         expect(self.page.locator(self.ACP_CARD)).to_have_count(
-            expected, timeout=timeout or self.timeout
+            expected,
+            timeout=timeout or self.timeout,
         )
         return self

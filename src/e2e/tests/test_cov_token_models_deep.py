@@ -32,7 +32,9 @@ class TestTokenUsageDeep:
 
     @pytest.mark.test_id("COV-TK-001")
     def test_token_usage_rows_chart_export(
-        self, token_usage_page: TokenUsagePage, request: pytest.FixtureRequest
+        self,
+        token_usage_page: TokenUsagePage,
+        request: pytest.FixtureRequest,
     ):
         test_name = request.node.name
 
@@ -59,7 +61,7 @@ class TestTokenUsageDeep:
         log_test_step("5. Try filter controls")
         for sel in (
             '[class*="filter"] select, [class*="Filter"] select',
-            '.qwenpaw-select',
+            ".qwenpaw-select",
         ):
             filters = token_usage_page.page.locator(sel)
             if filters.count() > 0:
@@ -68,7 +70,7 @@ class TestTokenUsageDeep:
 
         log_test_step("6. Try export button")
         export_btn = token_usage_page.page.locator(
-            'button:has-text("Export"), button:has-text("导出")'
+            'button:has-text("Export"), button:has-text("导出")',
         ).first
         if export_btn.count() > 0 and export_btn.is_visible():
             export_btn.click()
@@ -93,7 +95,9 @@ class TestModelsDeep:
 
     @pytest.mark.test_id("COV-MD-001")
     def test_models_list_breadcrumb(
-        self, models_page: ModelsPage, request: pytest.FixtureRequest
+        self,
+        models_page: ModelsPage,
+        request: pytest.FixtureRequest,
     ):
         test_name = request.node.name
 

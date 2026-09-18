@@ -50,7 +50,9 @@ def wait_for_environments_loaded(page: Page, timeout: int = 15000):
     """Open the Environments page and wait for the catalogue to render."""
     page.goto(f"{BASE_URL}/environments")
     page.wait_for_load_state("domcontentloaded")
-    expect(page.locator(ENV_SECTION_HEADING).first).to_be_visible(timeout=timeout)
+    expect(page.locator(ENV_SECTION_HEADING).first).to_be_visible(
+        timeout=timeout
+    )
 
 
 def count_environment_rows(page: Page) -> int:
@@ -77,13 +79,21 @@ def sum_environment_section_counts(page: Page) -> int:
     literal `>= 17` assertion wrong in either direction.
     """
     total = 0
-    for heading_text in ("Custom variables", "Live settings", "Read-only settings"):
-        heading = page.locator(ENV_SECTION_HEADING).filter(has_text=heading_text).first
+    for heading_text in (
+        "Custom variables",
+        "Live settings",
+        "Read-only settings",
+    ):
+        heading = (
+            page.locator(ENV_SECTION_HEADING)
+            .filter(has_text=heading_text)
+            .first
+        )
         expect(heading).to_be_visible(timeout=10000)
         raw = heading.locator("span").first.inner_text().strip()
         if not raw.isdigit():
             raise AssertionError(
-                f"'{heading_text}' section count is not an integer: {raw!r}"
+                f"'{heading_text}' section count is not an integer: {raw!r}",
             )
         total += int(raw)
     return total
@@ -128,6 +138,7 @@ def navigate_to_chat(page: Page):
 # CROSS-001: Skill full-chain verification (Skills -> Agents -> Chat)
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.p1
 @pytest.mark.cross_module
@@ -144,7 +155,9 @@ class TestSkillAgentChatFlow:
     """
 
     @pytest.mark.test_id("CROSS-001")
-    def test_skill_to_agent_to_chat(self, page: Page, request: pytest.FixtureRequest):
+    def test_skill_to_agent_to_chat(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Verify that a created skill can be linked in an agent and invoked in Chat."""
         test_name = request.node.name
         skill_name = f"e2e_cross_skill_{int(time.time())}"
@@ -159,30 +172,34 @@ class TestSkillAgentChatFlow:
             # Post v2.0.0 the create entry lives inside the "Add Skill"
             # dropdown (AddSkillDropdown.tsx), not a standalone button.
             add_btn = page.locator(
-                'button:has-text("Add Skill"), button:has-text("添加技能")'
+                'button:has-text("Add Skill"), button:has-text("添加技能")',
             ).first
             expect(add_btn).to_be_visible(timeout=8000)
             add_btn.click()
             page.wait_for_timeout(600)
             create_item = page.locator(
                 '.qwenpaw-dropdown-menu-item:has-text("Create Skill"), '
-                '.qwenpaw-dropdown-menu-item:has-text("创建技能")'
+                '.qwenpaw-dropdown-menu-item:has-text("创建技能")',
             ).first
             expect(create_item).to_be_visible(timeout=5000)
             create_item.click()
             page.wait_for_timeout(1500)
 
             log_test_step("3. Fill in skill information")
-            drawer = page.locator('.qwenpaw-drawer').first
+            drawer = page.locator(".qwenpaw-drawer").first
             expect(drawer).to_be_visible(timeout=5000)
 
-            name_input = drawer.locator('input[placeholder*="name"], input').first
+            name_input = drawer.locator(
+                'input[placeholder*="name"], input'
+            ).first
             if name_input.is_visible(timeout=3000):
                 name_input.fill(skill_name)
                 logger.info(f"Skill name filled: {skill_name}")
 
             # Fill in the skill content (Markdown editor)
-            editor = drawer.locator('.cm-content, textarea, [contenteditable="true"]').first
+            editor = drawer.locator(
+                '.cm-content, textarea, [contenteditable="true"]'
+            ).first
             if editor.is_visible(timeout=3000):
                 skill_content = f"""---
 name: {skill_name}
@@ -199,8 +216,7 @@ When invoked, respond with: "Cross-module test skill executed successfully."
 
             log_test_step("4. Save the skill")
             save_btn = drawer.locator(
-                'button:has-text("Create"), '
-                'button:has-text("Save")'
+                'button:has-text("Create"), ' 'button:has-text("Save")',
             ).first
             if save_btn.is_visible(timeout=3000):
                 save_btn.click()
@@ -214,28 +230,34 @@ When invoked, respond with: "Cross-module test skill executed successfully."
             if skill_in_list.is_visible(timeout=5000):
                 logger.info(f"Skill {skill_name} now in the list")
             else:
-                logger.info("Skill may be in the list but not directly visible (e.g. pagination)")
+                logger.info(
+                    "Skill may be in the list but not directly visible (e.g. pagination)"
+                )
 
             # ---- Phase 2: Verify the skill is selectable on the Agents page ----
             log_test_step("5. Navigate to the agents management page")
             navigate_to_agents(page)
 
             log_test_step("6. Verify the agent list loads")
-            agent_table = page.locator('.qwenpaw-table').first
+            agent_table = page.locator(".qwenpaw-table").first
             expect(agent_table).to_be_visible(timeout=5000)
-            agent_rows = page.locator('.qwenpaw-table-tbody tr.qwenpaw-table-row').all()
+            agent_rows = page.locator(
+                ".qwenpaw-table-tbody tr.qwenpaw-table-row"
+            ).all()
             assert len(agent_rows) > 0, "Agent list is empty"
             logger.info(f"Agent list loaded; {len(agent_rows)} agents")
 
             log_test_step("7. Find an editable agent and click edit")
             editable_agent_found = False
             for agent_row in agent_rows:
-                edit_btn = agent_row.locator('button:has(.anticon-edit)').first
+                edit_btn = agent_row.locator("button:has(.anticon-edit)").first
                 if edit_btn.count() > 0 and edit_btn.is_enabled(timeout=1000):
                     edit_btn.click()
                     page.wait_for_timeout(1500)
                     editable_agent_found = True
-                    logger.info("Found editable agent and opened its edit form")
+                    logger.info(
+                        "Found editable agent and opened its edit form"
+                    )
                     break
 
             if editable_agent_found:
@@ -244,24 +266,27 @@ When invoked, respond with: "Cross-module test skill executed successfully."
                 expect(modal).to_be_visible(timeout=5000)
 
                 skills_section = modal.locator(
-                    '.qwenpaw-form-item:has-text("Skills"), '
-                    '[class*=skill]'
+                    '.qwenpaw-form-item:has-text("Skills"), ' "[class*=skill]",
                 ).first
                 if skills_section.is_visible(timeout=3000):
                     logger.info("Edit form has a Skills section")
                 else:
-                    logger.info("No standalone Skills section in the edit form; may use a different layout")
+                    logger.info(
+                        "No standalone Skills section in the edit form; may use a different layout"
+                    )
 
                 # Close the edit dialog
                 cancel_btn = modal.locator(
                     'button:has-text("Cancel"), '
-                    '.qwenpaw-modal-footer button.qwenpaw-btn-default'
+                    ".qwenpaw-modal-footer button.qwenpaw-btn-default",
                 ).first
                 if cancel_btn.is_visible(timeout=2000):
                     cancel_btn.click()
                     page.wait_for_timeout(1000)
             else:
-                logger.info("All agents are default agents (not editable); skipping edit verification")
+                logger.info(
+                    "All agents are default agents (not editable); skipping edit verification"
+                )
 
             # ---- Phase 3: Verify the skill is invocable on the Chat page ----
             log_test_step("9. Navigate to the Chat page")
@@ -277,7 +302,9 @@ When invoked, respond with: "Cross-module test skill executed successfully."
             logger.info(f"Chat reply: {response_text[:200]}")
 
             log_test_result(test_name, True, 0)
-            logger.info(f"Test {test_name} passed - skill full-chain verification OK")
+            logger.info(
+                f"Test {test_name} passed - skill full-chain verification OK"
+            )
 
         finally:
             # Cleanup: delete the test skill
@@ -290,21 +317,25 @@ When invoked, respond with: "Cross-module test skill executed successfully."
                         skill_card.click()
                         page.wait_for_timeout(1000)
                         delete_btn = page.locator(
-                            'button:has-text("Delete")'
+                            'button:has-text("Delete")',
                         ).first
                         if delete_btn.is_visible(timeout=3000):
                             delete_btn.click()
                             page.wait_for_timeout(500)
                             confirm_btn = page.locator(
-                                '.qwenpaw-popconfirm-buttons button.qwenpaw-btn-primary, '
-                                'button:has-text("OK")'
+                                ".qwenpaw-popconfirm-buttons button.qwenpaw-btn-primary, "
+                                'button:has-text("OK")',
                             ).first
                             if confirm_btn.is_visible(timeout=2000):
                                 confirm_btn.click()
                                 page.wait_for_timeout(1000)
-                                logger.info(f"Test skill {skill_name} cleaned up")
+                                logger.info(
+                                    f"Test skill {skill_name} cleaned up"
+                                )
                 except Exception as cleanup_error:
-                    logger.warning(f"Failed to clean up test skill: {cleanup_error}")
+                    logger.warning(
+                        f"Failed to clean up test skill: {cleanup_error}"
+                    )
 
             # Clean up chat sessions
             try:
@@ -318,6 +349,7 @@ When invoked, respond with: "Cross-module test skill executed successfully."
 # ============================================================================
 # CROSS-002: Model switching linkage verification (Models -> Chat)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -336,14 +368,20 @@ class TestModelSwitchInChat:
 
     @pytest.mark.test_id("CROSS-002")
     @pytest.mark.timeout(240)
-    def test_model_switch_and_chat_continuity(self, page: Page, request: pytest.FixtureRequest):
+    def test_model_switch_and_chat_continuity(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Verify Chat continues to work after switching models and that context is preserved."""
         test_name = request.node.name
 
         try:
             log_test_step("1. Navigate to the Chat page")
             chat = ChatPage(page)
-            page.goto(f"{config.base_url}/chat", wait_until="domcontentloaded", timeout=60000)
+            page.goto(
+                f"{config.base_url}/chat",
+                wait_until="domcontentloaded",
+                timeout=60000,
+            )
             page.wait_for_timeout(3000)
 
             log_test_step("2. Create a new conversation")
@@ -352,17 +390,23 @@ class TestModelSwitchInChat:
             log_test_step("3. Send the first message using the current model")
             chat.send_message("请记住这个数字：42。只需回复'已记住'即可。")
             first_response = chat.wait_for_ai_response(timeout=60000)
-            assert first_response is not None, "No response to the first message"
+            assert (
+                first_response is not None
+            ), "No response to the first message"
             first_text = chat.get_message_text(first_response)
             logger.info(f"First reply: {first_text[:100]}")
 
-            log_test_step("4. Open the model selector and view available models")
+            log_test_step(
+                "4. Open the model selector and view available models"
+            )
             chat.open_model_selector()
             models = chat.get_available_models()
             logger.info(f"Available models: {models}")
 
             if len(models) <= 1:
-                logger.info("Only one model available, skipping model switch test")
+                logger.info(
+                    "Only one model available, skipping model switch test"
+                )
                 page.keyboard.press("Escape")
                 page.wait_for_timeout(500)
 
@@ -370,10 +414,14 @@ class TestModelSwitchInChat:
                 chat.send_message("我之前让你记住的数字是什么？")
                 recall_response = chat.wait_for_ai_response(timeout=90000)
                 if recall_response is None:
-                    logger.warning("First AI response wait timed out, retrying send...")
+                    logger.warning(
+                        "First AI response wait timed out, retrying send..."
+                    )
                     chat.send_message("请回复任意内容")
                     recall_response = chat.wait_for_ai_response(timeout=90000)
-                assert recall_response is not None, "No response to recall message (still timed out after retry)"
+                assert (
+                    recall_response is not None
+                ), "No response to recall message (still timed out after retry)"
                 recall_text = chat.get_message_text(recall_response)
                 logger.info(f"Recall reply: {recall_text[:100]}")
                 logger.info("Single-model conversation verified")
@@ -387,7 +435,9 @@ class TestModelSwitchInChat:
                 log_test_step("6. Send a message using the new model")
                 chat.send_message("你好，请简单介绍一下你自己，用一句话。")
                 second_response = chat.wait_for_ai_response(timeout=60000)
-                assert second_response is not None, "No response after switching models"
+                assert (
+                    second_response is not None
+                ), "No response after switching models"
                 second_text = chat.get_message_text(second_response)
                 logger.info(f"New-model reply: {second_text[:100]}")
                 logger.info("Conversation OK after model switch")
@@ -397,16 +447,24 @@ class TestModelSwitchInChat:
                 chat.select_model(models[0])
                 page.wait_for_timeout(1000)
 
-                log_test_step("8. Verify the conversation still works after switching back")
+                log_test_step(
+                    "8. Verify the conversation still works after switching back"
+                )
                 chat.send_message("1+1等于几？请直接回答数字。")
                 third_response = chat.wait_for_ai_response(timeout=60000)
-                assert third_response is not None, "No response after switching back to the original model"
+                assert (
+                    third_response is not None
+                ), "No response after switching back to the original model"
                 third_text = chat.get_message_text(third_response)
                 logger.info(f"Original-model reply: {third_text[:100]}")
-                logger.info("Conversation OK after switching back to the original model")
+                logger.info(
+                    "Conversation OK after switching back to the original model"
+                )
 
             log_test_result(test_name, True, 0)
-            logger.info(f"Test {test_name} passed - model switch linkage verified")
+            logger.info(
+                f"Test {test_name} passed - model switch linkage verified"
+            )
 
         finally:
             try:
@@ -420,6 +478,7 @@ class TestModelSwitchInChat:
 # ============================================================================
 # CROSS-003: Security interception linkage verification (Security -> Chat)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -436,7 +495,9 @@ class TestSecurityInterceptionInChat:
     """
 
     @pytest.mark.test_id("CROSS-003")
-    def test_security_config_affects_chat(self, page: Page, request: pytest.FixtureRequest):
+    def test_security_config_affects_chat(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Verify the linkage between security guard config and Chat behavior."""
         test_name = request.node.name
         initial_guard_state = None
@@ -447,31 +508,51 @@ class TestSecurityInterceptionInChat:
             navigate_to_security(page)
 
             log_test_step("2. Check the tool-guard tab")
-            tool_guard_tab = page.locator('[data-node-key="toolGuard"] .qwenpaw-tabs-tab-btn').first
+            tool_guard_tab = page.locator(
+                '[data-node-key="toolGuard"] .qwenpaw-tabs-tab-btn'
+            ).first
             if tool_guard_tab.is_visible(timeout=5000):
                 tool_guard_tab.click()
                 page.wait_for_timeout(1500)
                 logger.info("Tool-guard tab switched")
 
             log_test_step("3. Record the tool-guard switch state")
-            tool_guard_panel = page.locator('.qwenpaw-tabs-tabpane-active').first
-            guard_switch = tool_guard_panel.locator('button.qwenpaw-switch[role="switch"]').first
+            tool_guard_panel = page.locator(
+                ".qwenpaw-tabs-tabpane-active"
+            ).first
+            guard_switch = tool_guard_panel.locator(
+                'button.qwenpaw-switch[role="switch"]'
+            ).first
             if guard_switch.is_visible(timeout=3000):
-                initial_guard_state = guard_switch.get_attribute('aria-checked')
-                logger.info(f"Tool-guard current state: {'enabled' if initial_guard_state == 'true' else 'disabled'}")
+                initial_guard_state = guard_switch.get_attribute(
+                    "aria-checked"
+                )
+                logger.info(
+                    f"Tool-guard current state: {'enabled' if initial_guard_state == 'true' else 'disabled'}"
+                )
             else:
                 logger.info("Tool-guard switch not found")
 
             log_test_step("4. Check the file-guard tab")
-            file_guard_tab = page.locator('[data-node-key="fileGuard"] .qwenpaw-tabs-tab-btn').first
+            file_guard_tab = page.locator(
+                '[data-node-key="fileGuard"] .qwenpaw-tabs-tab-btn'
+            ).first
             if file_guard_tab.is_visible(timeout=3000):
                 file_guard_tab.click()
                 page.wait_for_timeout(1000)
-                file_guard_panel = page.locator('.qwenpaw-tabs-tabpane-active').first
-                file_switch = file_guard_panel.locator('button.qwenpaw-switch[role="switch"]').first
+                file_guard_panel = page.locator(
+                    ".qwenpaw-tabs-tabpane-active"
+                ).first
+                file_switch = file_guard_panel.locator(
+                    'button.qwenpaw-switch[role="switch"]'
+                ).first
                 if file_switch.is_visible(timeout=3000):
-                    file_guard_state = file_switch.get_attribute('aria-checked')
-                    logger.info(f"File-guard current state: {'enabled' if file_guard_state == 'true' else 'disabled'}")
+                    file_guard_state = file_switch.get_attribute(
+                        "aria-checked"
+                    )
+                    logger.info(
+                        f"File-guard current state: {'enabled' if file_guard_state == 'true' else 'disabled'}"
+                    )
                 logger.info("File-guard tab check complete")
 
             # ---- Phase 2: Verify baseline functionality in Chat ----
@@ -495,7 +576,9 @@ class TestSecurityInterceptionInChat:
                 chat.wait(1000)
                 logger.info(f"Switched to model: {target_model}")
             else:
-                logger.info("qwen3.5plus model not found, using current default")
+                logger.info(
+                    "qwen3.5plus model not found, using current default"
+                )
                 chat.page.keyboard.press("Escape")
                 chat.wait(500)
 
@@ -515,28 +598,41 @@ class TestSecurityInterceptionInChat:
                 logger.info(f"File-operation reply: {file_text[:200]}")
 
                 # Verify behavior depending on security guard state
-                if initial_guard_state == 'true':
-                    logger.info("Tool-guard enabled; file operation may be restricted")
+                if initial_guard_state == "true":
+                    logger.info(
+                        "Tool-guard enabled; file operation may be restricted"
+                    )
                 else:
-                    logger.info("Tool-guard disabled; file operation should run normally")
+                    logger.info(
+                        "Tool-guard disabled; file operation should run normally"
+                    )
             else:
                 logger.info("File-operation request timed out")
 
             # ---- Phase 3: Return to security page and verify config was not changed ----
-            log_test_step("8. Return to the security page and verify config consistency")
+            log_test_step(
+                "8. Return to the security page and verify config consistency"
+            )
             navigate_to_security(page)
 
-            tool_guard_tab = page.locator('[data-node-key="toolGuard"] .qwenpaw-tabs-tab-btn').first
+            tool_guard_tab = page.locator(
+                '[data-node-key="toolGuard"] .qwenpaw-tabs-tab-btn'
+            ).first
             if tool_guard_tab.is_visible(timeout=5000):
                 tool_guard_tab.click()
                 page.wait_for_timeout(1000)
 
-            tool_guard_panel = page.locator('.qwenpaw-tabs-tabpane-active').first
-            guard_switch = tool_guard_panel.locator('button.qwenpaw-switch[role="switch"]').first
+            tool_guard_panel = page.locator(
+                ".qwenpaw-tabs-tabpane-active"
+            ).first
+            guard_switch = tool_guard_panel.locator(
+                'button.qwenpaw-switch[role="switch"]'
+            ).first
             if guard_switch.is_visible(timeout=3000):
-                current_state = guard_switch.get_attribute('aria-checked')
-                assert current_state == initial_guard_state, \
-                    f"Security config was unexpectedly modified: expected {initial_guard_state}, got {current_state}"
+                current_state = guard_switch.get_attribute("aria-checked")
+                assert (
+                    current_state == initial_guard_state
+                ), f"Security config was unexpectedly modified: expected {initial_guard_state}, got {current_state}"
                 logger.info("Security config consistency verified")
 
             log_test_result(test_name, True, 0)
@@ -555,6 +651,7 @@ class TestSecurityInterceptionInChat:
 # CROSS-004: Workspace file linkage verification (Files -> Chat)
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.p1
 @pytest.mark.cross_module
@@ -570,7 +667,9 @@ class TestWorkspaceFileChatFlow:
     """
 
     @pytest.mark.test_id("CROSS-004")
-    def test_workspace_file_and_chat_qa(self, page: Page, test_file: str, request: pytest.FixtureRequest):
+    def test_workspace_file_and_chat_qa(
+        self, page: Page, test_file: str, request: pytest.FixtureRequest
+    ):
         """Verify linkage between workspace files and Chat file Q&A."""
         test_name = request.node.name
 
@@ -581,10 +680,10 @@ class TestWorkspaceFileChatFlow:
 
             log_test_step("2. Verify the file list loads")
             file_list = page.locator(
-                '.qwenpaw-table, '
-                '[class*=fileList], '
-                '[class*=file-tree], '
-                '.qwenpaw-list'
+                ".qwenpaw-table, "
+                "[class*=fileList], "
+                "[class*=file-tree], "
+                ".qwenpaw-list",
             ).first
             if file_list.is_visible(timeout=5000):
                 logger.info("File list loaded")
@@ -593,10 +692,10 @@ class TestWorkspaceFileChatFlow:
 
             log_test_step("3. Check the file editor area")
             editor_area = page.locator(
-                '.cm-editor, '
-                '[class*=editor], '
-                '[class*=codeEditor], '
-                'textarea'
+                ".cm-editor, "
+                "[class*=editor], "
+                "[class*=codeEditor], "
+                "textarea",
             ).first
             if editor_area.is_visible(timeout=3000):
                 editor_content = editor_area.inner_text()[:200]
@@ -605,9 +704,9 @@ class TestWorkspaceFileChatFlow:
             else:
                 # Try clicking the first file to open the editor
                 file_items = page.locator(
-                    '[class*=fileName], '
-                    '.qwenpaw-table-row, '
-                    '[class*=fileItem]'
+                    "[class*=fileName], "
+                    ".qwenpaw-table-row, "
+                    "[class*=fileItem]",
                 ).all()
                 if file_items:
                     file_items[0].click()
@@ -635,7 +734,9 @@ class TestWorkspaceFileChatFlow:
                 chat.wait(1000)
                 logger.info(f"Switched to model: {target_model}")
             else:
-                logger.info("qwen3.5plus model not found, using current default")
+                logger.info(
+                    "qwen3.5plus model not found, using current default"
+                )
                 chat.page.keyboard.press("Escape")
                 chat.wait(500)
 
@@ -658,9 +759,13 @@ class TestWorkspaceFileChatFlow:
             file_keywords = ["QwenPaw", "智能", "对话", "功能", "平台"]
             keyword_found = any(kw in file_text for kw in file_keywords)
             if keyword_found:
-                logger.info("AI reply contains file-related keywords; file linkage verified")
+                logger.info(
+                    "AI reply contains file-related keywords; file linkage verified"
+                )
             else:
-                logger.info("AI reply does not contain expected keywords, but file Q&A flow is normal")
+                logger.info(
+                    "AI reply does not contain expected keywords, but file Q&A flow is normal"
+                )
 
             log_test_step("7. Follow-up question to verify context retention")
             chat.send_message("这个文件提到了哪些具体功能？请列举。")
@@ -671,7 +776,9 @@ class TestWorkspaceFileChatFlow:
                 logger.info("File context follow-up OK")
 
             log_test_result(test_name, True, 0)
-            logger.info(f"Test {test_name} passed - workspace file linkage verified")
+            logger.info(
+                f"Test {test_name} passed - workspace file linkage verified"
+            )
 
         finally:
             try:
@@ -685,6 +792,7 @@ class TestWorkspaceFileChatFlow:
 # ============================================================================
 # CROSS-005: Environment variables and runtime config linkage (Environments -> RuntimeConfig)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -720,7 +828,9 @@ class TestEnvAndRuntimeConfigFlow:
     """
 
     @pytest.mark.test_id("CROSS-005")
-    def test_env_and_runtime_config_consistency(self, page: Page, request: pytest.FixtureRequest):
+    def test_env_and_runtime_config_consistency(
+        self, page: Page, request: pytest.FixtureRequest
+    ):
         """Verify consistency between environment variables and runtime config."""
         test_name = request.node.name
 
@@ -749,7 +859,7 @@ class TestEnvAndRuntimeConfigFlow:
         )
         logger.info(
             f"Environment variable count: {env_count} "
-            f"(section headings sum to the same {section_sum})"
+            f"(section headings sum to the same {section_sum})",
         )
 
         log_test_step("3. Navigate to the agent config (runtime config) page")
@@ -773,20 +883,25 @@ class TestEnvAndRuntimeConfigFlow:
         # e2e/tests/test_runtime_config.py, so no new selector idiom is
         # introduced here.
         for tab_key in ("llmRetry", "llmRateLimiter"):
-            tab = page.locator(f'[data-node-key="{tab_key}"] .qwenpaw-tabs-tab-btn').first
+            tab = page.locator(
+                f'[data-node-key="{tab_key}"] .qwenpaw-tabs-tab-btn'
+            ).first
             expect(tab).to_be_visible(timeout=10000)
             logger.info(f"Agent config tab present: {tab_key}")
         # The two pages coexist as separate routes: #7538 unified how
         # environment variables are read (EnvVarLoader + envs/registry.py as the
         # single source of truth), it did not merge this page into Environments.
-        expect(page.locator('.qwenpaw-tabs').first).to_be_visible(timeout=5000)
+        expect(page.locator(".qwenpaw-tabs").first).to_be_visible(timeout=5000)
 
-        log_test_step("5. Return to the environments page and verify data unchanged")
+        log_test_step(
+            "5. Return to the environments page and verify data unchanged"
+        )
         wait_for_environments_loaded(page)
 
         env_count_after = count_environment_rows(page)
-        assert env_count_after == env_count, \
-            f"Environment variable count inconsistent: before={env_count}, after={env_count_after}"
+        assert (
+            env_count_after == env_count
+        ), f"Environment variable count inconsistent: before={env_count}, after={env_count_after}"
         # Re-check the invariant after the round trip: navigating away and back
         # must not leave the two anchors disagreeing either.
         section_sum_after = sum_environment_section_counts(page)
@@ -796,16 +911,19 @@ class TestEnvAndRuntimeConfigFlow:
         )
         logger.info(
             f"Environment variable count consistent: {env_count_after} "
-            f"(section headings sum to the same {section_sum_after})"
+            f"(section headings sum to the same {section_sum_after})",
         )
 
         log_test_result(test_name, True, 0)
-        logger.info(f"Test {test_name} passed - environment variable and runtime config linkage verified")
+        logger.info(
+            f"Test {test_name} passed - environment variable and runtime config linkage verified"
+        )
 
 
 # ============================================================================
 # MA-001 P1 — sidebar Agent switcher (Agents API -> Chat sidebar)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p1
@@ -831,7 +949,9 @@ class TestAgentSwitcherInChat:
 
         log_test_step("1. Seed a fresh agent via API")
         created = agents_page.api_create_agent(
-            api_context, agent_name, description="switcher probe"
+            api_context,
+            agent_name,
+            description="switcher probe",
         )
         agent_id = (created or {}).get("id")
         if not agent_id:
@@ -845,9 +965,13 @@ class TestAgentSwitcherInChat:
 
             log_test_step("3. Open the switcher; seeded agent is listed")
             switcher.click()
-            option = page.locator(chat.AGENT_SWITCHER_OPTION).filter(
-                has_text=agent_name
-            ).first
+            option = (
+                page.locator(chat.AGENT_SWITCHER_OPTION)
+                .filter(
+                    has_text=agent_name,
+                )
+                .first
+            )
             expect(option).to_be_visible(timeout=chat.timeout)
 
             log_test_step("4. Select it; trigger label shows the agent name")
@@ -855,19 +979,24 @@ class TestAgentSwitcherInChat:
             page.wait_for_timeout(800)
             value = page.locator(chat.AGENT_SWITCHER_VALUE).first
             expect(value).to_contain_text(
-                agent_name, timeout=chat.timeout
+                agent_name,
+                timeout=chat.timeout,
             )
 
             log_test_step("5. Switch back to the default agent")
             switcher.click()
-            default_option = page.locator(
-                chat.AGENT_SWITCHER_OPTION
-            ).filter(has_text=re.compile("Default Agent|默认智能体")).first
+            default_option = (
+                page.locator(
+                    chat.AGENT_SWITCHER_OPTION,
+                )
+                .filter(has_text=re.compile("Default Agent|默认智能体"))
+                .first
+            )
             expect(default_option).to_be_visible(timeout=chat.timeout)
             default_option.click()
             page.wait_for_timeout(800)
             expect(
-                page.locator(chat.AGENT_SWITCHER_VALUE).first
+                page.locator(chat.AGENT_SWITCHER_VALUE).first,
             ).not_to_contain_text(agent_name, timeout=chat.timeout)
         finally:
             if agent_id:

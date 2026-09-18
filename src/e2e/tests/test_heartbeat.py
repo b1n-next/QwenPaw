@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 # HEART-001: Page display + enable/disable
 # ============================================================================
 
+
 @pytest.mark.integration
 @pytest.mark.p0
 @pytest.mark.heartbeat_core
@@ -53,7 +54,9 @@ class TestHeartbeatDisplayAndToggle:
     """
 
     @pytest.mark.test_id("HEART-001")
-    def test_heartbeat_display_and_toggle(self, heartbeat_page: HeartbeatPage, request: pytest.FixtureRequest):
+    def test_heartbeat_display_and_toggle(
+        self, heartbeat_page: HeartbeatPage, request: pytest.FixtureRequest
+    ):
         """
         Verify page display and enable/disable toggle.
 
@@ -71,14 +74,22 @@ class TestHeartbeatDisplayAndToggle:
         heartbeat_page.open()
 
         log_test_step("2. Verify config card and form elements")
-        expect(heartbeat_page.page.locator(heartbeat_page.ENABLED_SWITCH).first).to_be_visible()
-        expect(heartbeat_page.page.locator(heartbeat_page.INTERVAL_INPUT).first).to_be_visible()
-        expect(heartbeat_page.page.locator(heartbeat_page.SAVE_BTN).first).to_be_visible()
+        expect(
+            heartbeat_page.page.locator(heartbeat_page.ENABLED_SWITCH).first
+        ).to_be_visible()
+        expect(
+            heartbeat_page.page.locator(heartbeat_page.INTERVAL_INPUT).first
+        ).to_be_visible()
+        expect(
+            heartbeat_page.page.locator(heartbeat_page.SAVE_BTN).first
+        ).to_be_visible()
         logger.info("All config elements displayed correctly")
 
         log_test_step("3. Record current enabled state")
         original_state = heartbeat_page.is_heartbeat_enabled()
-        logger.info(f"Original state: {'enabled' if original_state else 'disabled'}")
+        logger.info(
+            f"Original state: {'enabled' if original_state else 'disabled'}"
+        )
 
         log_test_step("4. Toggle state and save")
         heartbeat_page.toggle_heartbeat()
@@ -86,9 +97,12 @@ class TestHeartbeatDisplayAndToggle:
 
         log_test_step("5. Verify state change")
         new_state = heartbeat_page.is_heartbeat_enabled()
-        assert new_state != original_state, \
-            f"State should change from {'enabled' if original_state else 'disabled'} to {'disabled' if original_state else 'enabled'}"
-        logger.info(f"State changed to {'enabled' if new_state else 'disabled'}")
+        assert (
+            new_state != original_state
+        ), f"State should change from {'enabled' if original_state else 'disabled'} to {'disabled' if original_state else 'enabled'}"
+        logger.info(
+            f"State changed to {'enabled' if new_state else 'disabled'}"
+        )
 
         log_test_step("6. Restore original state")
         if heartbeat_page.is_heartbeat_enabled() != original_state:
@@ -96,11 +110,15 @@ class TestHeartbeatDisplayAndToggle:
             heartbeat_page.save_config()
 
         log_test_result(test_name, True, 0)
-        logger.info(f"Test {test_name} passed - page display and enable/disable toggle work")
+        logger.info(
+            f"Test {test_name} passed - page display and enable/disable toggle work"
+        )
+
 
 # ============================================================================
 # HEART-002: Full config flow (interval + time + skill + save verification)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p0
@@ -125,7 +143,9 @@ class TestHeartbeatFullConfig:
     """
 
     @pytest.mark.test_id("HEART-002")
-    def test_full_heartbeat_configuration(self, heartbeat_page: HeartbeatPage, request: pytest.FixtureRequest):
+    def test_full_heartbeat_configuration(
+        self, heartbeat_page: HeartbeatPage, request: pytest.FixtureRequest
+    ):
         """
         Verify full heartbeat config flow.
 
@@ -149,7 +169,9 @@ class TestHeartbeatFullConfig:
         original_enabled = heartbeat_page.is_heartbeat_enabled()
         original_interval = heartbeat_page.get_interval()
         original_time = heartbeat_page.get_scheduled_time()
-        logger.info(f"Original config: enabled={original_enabled}, interval={original_interval}, time={original_time}")
+        logger.info(
+            f"Original config: enabled={original_enabled}, interval={original_interval}, time={original_time}"
+        )
 
         log_test_step("3. Set interval to 15 minutes")
         heartbeat_page.set_interval(15, "分钟")
@@ -161,7 +183,7 @@ class TestHeartbeatFullConfig:
         skill_select = heartbeat_page.page.locator(heartbeat_page.SKILL_SELECT)
         if skill_select.count() > 0:
             skill_select.click()
-            options = heartbeat_page.page.locator('.ant-select-option')
+            options = heartbeat_page.page.locator(".ant-select-option")
             if options.count() > 0:
                 options.first.click()
                 logger.info("Skill selected")
@@ -189,11 +211,15 @@ class TestHeartbeatFullConfig:
         )
 
         log_test_result(test_name, True, 0)
-        logger.info(f"Test {test_name} passed - full heartbeat config flow works, original config restored")
+        logger.info(
+            f"Test {test_name} passed - full heartbeat config flow works, original config restored"
+        )
+
 
 # ============================================================================
 # HEART-003: Target session selection and active hours config
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p2
@@ -222,7 +248,9 @@ class TestHeartbeatTargetAndActiveHours:
     """
 
     @pytest.mark.test_id("HEART-003")
-    def test_target_session_and_active_hours(self, heartbeat_page: HeartbeatPage, request: pytest.FixtureRequest):
+    def test_target_session_and_active_hours(
+        self, heartbeat_page: HeartbeatPage, request: pytest.FixtureRequest
+    ):
         """
         Verify target session selection and active hours config.
 
@@ -249,11 +277,13 @@ class TestHeartbeatTargetAndActiveHours:
         original_enabled = heartbeat_page.is_heartbeat_enabled()
         original_interval = heartbeat_page.get_interval()
         original_time = heartbeat_page.get_scheduled_time()
-        logger.info(f"Original config: enabled={original_enabled}, interval={original_interval}, time={original_time}")
+        logger.info(
+            f"Original config: enabled={original_enabled}, interval={original_interval}, time={original_time}"
+        )
 
         log_test_step("3. Find target session selector (main/last)")
         target_session_selector = heartbeat_page.page.locator(
-            '.qwenpaw-radio-group, .qwenpaw-select, [class*="targetSession"], [class*="target"]'
+            '.qwenpaw-radio-group, .qwenpaw-select, [class*="targetSession"], [class*="target"]',
         ).first
         expect(target_session_selector).to_be_visible(timeout=3000)
         logger.info("Target session selector exists")
@@ -262,17 +292,25 @@ class TestHeartbeatTargetAndActiveHours:
         current_target = ""
         main_option = heartbeat_page.page.locator(
             '.qwenpaw-radio-label:has-text("main"), .qwenpaw-radio-label:has-text("主会话"), '
-            '[class*="radio"]:has-text("main"), [class*="radio"]:has-text("主")'
+            '[class*="radio"]:has-text("main"), [class*="radio"]:has-text("主")',
         ).first
         last_option = heartbeat_page.page.locator(
             '.qwenpaw-radio-label:has-text("last"), .qwenpaw-radio-label:has-text("最近"), '
-            '[class*="radio"]:has-text("last"), [class*="radio"]:has-text("最近")'
+            '[class*="radio"]:has-text("last"), [class*="radio"]:has-text("最近")',
         ).first
 
         if main_option.is_visible():
-            current_target = "main" if main_option.get_attribute('aria-checked') == 'true' else "last"
+            current_target = (
+                "main"
+                if main_option.get_attribute("aria-checked") == "true"
+                else "last"
+            )
         elif last_option.is_visible():
-            current_target = "last" if last_option.get_attribute('aria-checked') == 'true' else "main"
+            current_target = (
+                "last"
+                if last_option.get_attribute("aria-checked") == "true"
+                else "main"
+            )
         logger.info(f"Current target session: {current_target}")
 
         log_test_step("5. Switch target session option")
@@ -287,27 +325,35 @@ class TestHeartbeatTargetAndActiveHours:
 
         log_test_step("6. Find active hours toggle")
         active_hours_switch = heartbeat_page.page.locator(
-            '.qwenpaw-switch, [class*="activeHours"], [class*="active"]'
+            '.qwenpaw-switch, [class*="activeHours"], [class*="active"]',
         ).first
         expect(active_hours_switch).to_be_visible(timeout=3000)
         logger.info("Active hours toggle exists")
 
         log_test_step("7. Enable active hours")
-        active_hours_checked = active_hours_switch.get_attribute('aria-checked')
-        if active_hours_checked != 'true':
+        active_hours_checked = active_hours_switch.get_attribute(
+            "aria-checked"
+        )
+        if active_hours_checked != "true":
             active_hours_switch.click()
             heartbeat_page.page.wait_for_timeout(1000)
             logger.info("Active hours enabled")
 
         log_test_step("8. Set start time")
         start_time_picker = heartbeat_page.page.locator(
-            '.qwenpaw-picker, .qwenpaw-time-picker, [class*="startTime"], [class*="start"]'
+            '.qwenpaw-picker, .qwenpaw-time-picker, [class*="startTime"], [class*="start"]',
         ).first
         if start_time_picker.is_visible():
             start_time_picker.click()
             heartbeat_page.page.wait_for_timeout(500)
             # Select 09:00
-            time_option = heartbeat_page.page.locator('.qwenpaw-picker-panel li, .ant-picker-panel li').filter(has_text="09").first
+            time_option = (
+                heartbeat_page.page.locator(
+                    ".qwenpaw-picker-panel li, .ant-picker-panel li"
+                )
+                .filter(has_text="09")
+                .first
+            )
             if time_option.is_visible():
                 time_option.click()
                 heartbeat_page.page.wait_for_timeout(500)
@@ -315,13 +361,19 @@ class TestHeartbeatTargetAndActiveHours:
 
         log_test_step("9. Set end time")
         end_time_picker = heartbeat_page.page.locator(
-            '.qwenpaw-picker, .qwenpaw-time-picker, [class*="endTime"], [class*="end"]'
+            '.qwenpaw-picker, .qwenpaw-time-picker, [class*="endTime"], [class*="end"]',
         ).first
         if end_time_picker.is_visible():
             end_time_picker.click()
             heartbeat_page.page.wait_for_timeout(500)
             # Select 18:00
-            time_option = heartbeat_page.page.locator('.qwenpaw-picker-panel li, .ant-picker-panel li').filter(has_text="18").first
+            time_option = (
+                heartbeat_page.page.locator(
+                    ".qwenpaw-picker-panel li, .ant-picker-panel li"
+                )
+                .filter(has_text="18")
+                .first
+            )
             if time_option.is_visible():
                 time_option.click()
                 heartbeat_page.page.wait_for_timeout(500)
@@ -348,11 +400,15 @@ class TestHeartbeatTargetAndActiveHours:
         logger.info("Original config restored")
 
         log_test_result(test_name, True, 0)
-        logger.info(f"Test {test_name} passed - target session selection and active hours config work")
+        logger.info(
+            f"Test {test_name} passed - target session selection and active hours config work"
+        )
+
 
 # ============================================================================
 # HB-P2-001: Interval unit switch (minute/hour combinations)
 # ============================================================================
+
 
 @pytest.mark.integration
 @pytest.mark.p2
@@ -361,7 +417,12 @@ class TestHeartbeatIntervalUnit:
     """HB-P2-001: Interval unit switch"""
 
     @pytest.mark.test_id("HB-P2-001")
-    def test_heartbeat_interval_unit(self, page: Page, heartbeat_page: "HeartbeatPage", request: pytest.FixtureRequest):
+    def test_heartbeat_interval_unit(
+        self,
+        page: Page,
+        heartbeat_page: "HeartbeatPage",
+        request: pytest.FixtureRequest,
+    ):
         """Test heartbeat interval unit switching."""
         test_name = request.node.name
 
@@ -371,28 +432,37 @@ class TestHeartbeatIntervalUnit:
         log_test_step("Find interval unit selector")
         # The unit selector on the page has input id=everyUnit and class containing everyUnit
         # Need to locate the .qwenpaw-select container that wraps this input
-        unit_select = page.locator('.qwenpaw-select:has(#everyUnit)').first
+        unit_select = page.locator(".qwenpaw-select:has(#everyUnit)").first
 
         if unit_select.count() > 0:
             # Get currently selected unit text (use selection-item to avoid duplicate text)
-            selection_item = unit_select.locator('.qwenpaw-select-selection-item')
+            selection_item = unit_select.locator(
+                ".qwenpaw-select-selection-item"
+            )
             if selection_item.count() > 0:
-                current_unit = selection_item.get_attribute('title') or selection_item.inner_text().strip()
+                current_unit = (
+                    selection_item.get_attribute("title")
+                    or selection_item.inner_text().strip()
+                )
             else:
-                current_unit = unit_select.inner_text().strip().split('\n')[0]
+                current_unit = unit_select.inner_text().strip().split("\n")[0]
             logger.info(f"Current interval unit: {current_unit}")
 
             log_test_step("Click unit selector to expand options")
             unit_select.click()
             page.wait_for_timeout(500)
 
-            options = page.locator('.qwenpaw-select-item-option').all()
-            assert len(options) > 0, "Unit dropdown options should not be empty"
+            options = page.locator(".qwenpaw-select-item-option").all()
+            assert (
+                len(options) > 0
+            ), "Unit dropdown options should not be empty"
             logger.info(f"Found {len(options)} unit options")
 
             option_texts = []
             for opt in options:
-                opt_title = opt.get_attribute('title') or opt.inner_text().strip()
+                opt_title = (
+                    opt.get_attribute("title") or opt.inner_text().strip()
+                )
                 option_texts.append(opt_title)
                 logger.info(f"  Unit option: {opt_title}")
 
@@ -401,7 +471,9 @@ class TestHeartbeatIntervalUnit:
             target_option = None
             target_text = None
             for opt in options:
-                opt_title = opt.get_attribute('title') or opt.inner_text().strip()
+                opt_title = (
+                    opt.get_attribute("title") or opt.inner_text().strip()
+                )
                 if opt_title != current_unit:
                     target_option = opt
                     target_text = opt_title
@@ -413,17 +485,26 @@ class TestHeartbeatIntervalUnit:
 
                 # Re-read selected value
                 if selection_item.count() > 0:
-                    new_unit = selection_item.get_attribute('title') or selection_item.inner_text().strip()
+                    new_unit = (
+                        selection_item.get_attribute("title")
+                        or selection_item.inner_text().strip()
+                    )
                 else:
-                    new_unit = unit_select.inner_text().strip().split('\n')[0]
+                    new_unit = unit_select.inner_text().strip().split("\n")[0]
                 logger.info(f"Unit after switch: {new_unit}")
-                assert new_unit == target_text, f"Unit should switch to {target_text}, actual: {new_unit}"
-                logger.info(f"Unit switched from '{current_unit}' to '{new_unit}'")
+                assert (
+                    new_unit == target_text
+                ), f"Unit should switch to {target_text}, actual: {new_unit}"
+                logger.info(
+                    f"Unit switched from '{current_unit}' to '{new_unit}'"
+                )
 
                 log_test_step("Restore original unit")
                 unit_select.click()
                 page.wait_for_timeout(500)
-                restore_option = page.locator(f'.qwenpaw-select-item-option:has-text("{current_unit}")').first
+                restore_option = page.locator(
+                    f'.qwenpaw-select-item-option:has-text("{current_unit}")'
+                ).first
                 if restore_option.count() > 0:
                     restore_option.click()
                     page.wait_for_timeout(500)
@@ -438,9 +519,11 @@ class TestHeartbeatIntervalUnit:
 
         log_test_result(test_name, True, 0)
 
+
 # ============================================================================
 # Fixtures
 # ============================================================================
+
 
 @pytest.fixture(scope="function")
 def heartbeat_page(page: Page) -> HeartbeatPage:

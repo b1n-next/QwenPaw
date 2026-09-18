@@ -47,7 +47,7 @@ MODULE_NAME_MAP = {
 def _aggregate_module_stats(passed_reports, failed_reports, skipped_reports):
     """Aggregate passed/failed/skipped counts per test file."""
     module_stats = defaultdict(
-        lambda: {"passed": 0, "failed": 0, "skipped": 0, "cases": []}
+        lambda: {"passed": 0, "failed": 0, "skipped": 0, "cases": []},
     )
 
     for report in passed_reports:
@@ -77,7 +77,9 @@ def _calc_total_duration(*report_groups) -> float:
         return 0.0
 
 
-def _build_header(total, passed, failed, skipped, rerun, pass_rate, duration_seconds):
+def _build_header(
+    total, passed, failed, skipped, rerun, pass_rate, duration_seconds
+):
     """Build the report header and overview."""
     duration_minutes = int(duration_seconds // 60)
     duration_secs = int(duration_seconds % 60)
@@ -119,7 +121,7 @@ def _build_module_table(module_stats):
         status = "OK" if stats["failed"] == 0 else "FAIL"
         lines.append(
             f"| {module_display} | `{module_file}` | "
-            f"{stats['passed']} | {stats['failed']} | {stats['skipped']} | {status} |"
+            f"{stats['passed']} | {stats['failed']} | {stats['skipped']} | {status} |",
         )
     lines.append("")
     return lines
@@ -205,7 +207,9 @@ def _build_skipped_section(skipped_reports):
     return lines
 
 
-def _build_screenshot_section(passed_reports, failed_reports, reports_dir: Path):
+def _build_screenshot_section(
+    passed_reports, failed_reports, reports_dir: Path
+):
     """Build a screenshot gallery for all tests."""
     all_with_screenshots = [
         r
@@ -234,7 +238,9 @@ def _build_screenshot_section(passed_reports, failed_reports, reports_dir: Path)
             test_name = parts[-1].split("[")[0] if parts else report.nodeid
             status_icon = "OK" if report.passed else "FAIL"
             try:
-                relative = Path(report.screenshot_path).relative_to(reports_dir)
+                relative = Path(report.screenshot_path).relative_to(
+                    reports_dir
+                )
             except ValueError:
                 continue
             lines.append(f"**{status_icon} {test_name}**\n")
@@ -274,21 +280,32 @@ def generate_markdown_report(terminalreporter, reports_dir: Path) -> Path:
     pass_rate = (passed_count / total * 100) if total > 0 else 0
 
     module_stats = _aggregate_module_stats(
-        passed_reports, failed_reports, skipped_reports
+        passed_reports,
+        failed_reports,
+        skipped_reports,
     )
     duration_seconds = _calc_total_duration(
-        passed_reports, failed_reports, skipped_reports
+        passed_reports,
+        failed_reports,
+        skipped_reports,
     )
 
     lines: list[str] = []
     lines += _build_header(
-        total, passed_count, failed_count, skipped_count,
-        rerun_count, pass_rate, duration_seconds,
+        total,
+        passed_count,
+        failed_count,
+        skipped_count,
+        rerun_count,
+        pass_rate,
+        duration_seconds,
     )
     lines += _build_module_table(module_stats)
     lines += _build_failed_section(failed_reports, reports_dir)
     lines += _build_skipped_section(skipped_reports)
-    lines += _build_screenshot_section(passed_reports, failed_reports, reports_dir)
+    lines += _build_screenshot_section(
+        passed_reports, failed_reports, reports_dir
+    )
 
     # Footer
     lines += [

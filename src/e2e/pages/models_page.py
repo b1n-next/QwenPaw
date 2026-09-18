@@ -34,7 +34,9 @@ class ModelsPage(BasePage):
     # ========== Selector definitions ==========
 
     # Page load indicator
-    PAGE_LOAD_INDICATOR = '.ant-breadcrumb, .qwenpaw-breadcrumb, h1, h2, [class*="breadcrumb"]'
+    PAGE_LOAD_INDICATOR = (
+        '.ant-breadcrumb, .qwenpaw-breadcrumb, h1, h2, [class*="breadcrumb"]'
+    )
 
     # Breadcrumb
     BREADCRUMB_SELECTOR = '.ant-breadcrumb, .qwenpaw-breadcrumb, nav[class*="breadcrumb"], [class*="Breadcrumb"]'
@@ -54,10 +56,14 @@ class ModelsPage(BasePage):
         self.wait_for_page_loaded()
         return self
 
-    def wait_for_page_loaded(self, timeout: Optional[int] = None) -> "ModelsPage":
+    def wait_for_page_loaded(
+        self, timeout: Optional[int] = None
+    ) -> "ModelsPage":
         """Wait for the page to finish loading."""
         timeout = timeout or self.timeout
-        expect(self.page.locator(self.PAGE_LOAD_INDICATOR).first).to_be_visible(timeout=timeout)
+        expect(
+            self.page.locator(self.PAGE_LOAD_INDICATOR).first
+        ).to_be_visible(timeout=timeout)
         return self
 
     # ========== Page element operations ==========
@@ -87,20 +93,29 @@ class ModelsPage(BasePage):
 
     # ========== Assertion methods ==========
 
-    def assert_breadcrumb_contains(self, expected_text: str, timeout: Optional[int] = None) -> "ModelsPage":
+    def assert_breadcrumb_contains(
+        self, expected_text: str, timeout: Optional[int] = None
+    ) -> "ModelsPage":
         """Assert the breadcrumb contains the given text."""
         breadcrumb = self.page.locator(self.BREADCRUMB_SELECTOR).first
-        expect(breadcrumb).to_contain_text(expected_text, timeout=timeout or self.timeout)
-        return self
-
-    def assert_model_count(self, expected_count: int, timeout: Optional[int] = None) -> "ModelsPage":
-        """Assert the model count."""
-        expect(self.page.locator(self.MODEL_LIST_SELECTOR)).to_have_count(
-            expected_count, timeout=timeout or self.timeout
+        expect(breadcrumb).to_contain_text(
+            expected_text, timeout=timeout or self.timeout
         )
         return self
 
-    def assert_download_button_visible(self, timeout: Optional[int] = None) -> "ModelsPage":
+    def assert_model_count(
+        self, expected_count: int, timeout: Optional[int] = None
+    ) -> "ModelsPage":
+        """Assert the model count."""
+        expect(self.page.locator(self.MODEL_LIST_SELECTOR)).to_have_count(
+            expected_count,
+            timeout=timeout or self.timeout,
+        )
+        return self
+
+    def assert_download_button_visible(
+        self, timeout: Optional[int] = None
+    ) -> "ModelsPage":
         """Assert the download button is visible."""
         download_btn = self.page.locator(self.DOWNLOAD_MODEL_BTN).first
         expect(download_btn).to_be_visible(timeout=timeout or self.timeout)

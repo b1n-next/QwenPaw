@@ -46,72 +46,74 @@ from fixtures import (  # noqa: F401,E402
 )
 
 
-
 # ========== Page Object Fixtures ==========
 # Note: shared fixtures (chat_page / clean_chat_page / api_context / page, etc.)
 # are defined in fixtures/__init__.py. Here we only add Page Object fixtures
 # for other modules, lazily importing them to avoid loading every Page class
 # at startup.
 
+
 def _make_page_fixture(import_path: str, class_name: str):
     """Factory: build a fixture from a Page class (lazy import)."""
+
     def _fixture(page):
         module = __import__(import_path, fromlist=[class_name])
         return getattr(module, class_name)(page)
+
     _fixture.__name__ = class_name
     return _fixture
 
 
 channels_page = pytest.fixture(scope="function", name="channels_page")(
-    _make_page_fixture("pages.channels_page", "ChannelsPage")
+    _make_page_fixture("pages.channels_page", "ChannelsPage"),
 )
 sessions_page = pytest.fixture(scope="function", name="sessions_page")(
-    _make_page_fixture("pages.sessions_page", "SessionsPage")
+    _make_page_fixture("pages.sessions_page", "SessionsPage"),
 )
 cronjobs_page = pytest.fixture(scope="function", name="cronjobs_page")(
-    _make_page_fixture("pages.cronjobs_page", "CronJobsPage")
+    _make_page_fixture("pages.cronjobs_page", "CronJobsPage"),
 )
 heartbeat_page = pytest.fixture(scope="function", name="heartbeat_page")(
-    _make_page_fixture("pages.heartbeat_page", "HeartbeatPage")
+    _make_page_fixture("pages.heartbeat_page", "HeartbeatPage"),
 )
 backups_page = pytest.fixture(scope="function", name="backups_page")(
-    _make_page_fixture("pages.backups_page", "BackupsPage")
+    _make_page_fixture("pages.backups_page", "BackupsPage"),
 )
 agent_stats_page = pytest.fixture(scope="function", name="agent_stats_page")(
-    _make_page_fixture("pages.agent_stats_page", "AgentStatsPage")
+    _make_page_fixture("pages.agent_stats_page", "AgentStatsPage"),
 )
 acp_page = pytest.fixture(scope="function", name="acp_page")(
-    _make_page_fixture("pages.acp_page", "ACPPage")
+    _make_page_fixture("pages.acp_page", "ACPPage"),
 )
 coding_page = pytest.fixture(scope="function", name="coding_page")(
-    _make_page_fixture("pages.coding_page", "CodingPage")
+    _make_page_fixture("pages.coding_page", "CodingPage"),
 )
 plugin_page = pytest.fixture(scope="function", name="plugin_page")(
-    _make_page_fixture("pages.plugin_page", "PluginPage")
+    _make_page_fixture("pages.plugin_page", "PluginPage"),
 )
 memory_page = pytest.fixture(scope="function", name="memory_page")(
-    _make_page_fixture("pages.memory_page", "MemoryPage")
+    _make_page_fixture("pages.memory_page", "MemoryPage"),
 )
 inbox_page = pytest.fixture(scope="function", name="inbox_page")(
-    _make_page_fixture("pages.inbox_page", "InboxPage")
+    _make_page_fixture("pages.inbox_page", "InboxPage"),
 )
 security_page = pytest.fixture(scope="function", name="security_page")(
-    _make_page_fixture("pages.security_page", "SecurityPage")
+    _make_page_fixture("pages.security_page", "SecurityPage"),
 )
 skills_page = pytest.fixture(scope="function", name="skills_page")(
-    _make_page_fixture("pages.skills_page", "SkillsPage")
+    _make_page_fixture("pages.skills_page", "SkillsPage"),
 )
 skill_pool_page = pytest.fixture(scope="function", name="skill_pool_page")(
-    _make_page_fixture("pages.skill_pool_page", "SkillPoolPage")
+    _make_page_fixture("pages.skill_pool_page", "SkillPoolPage"),
 )
 token_usage_page = pytest.fixture(scope="function", name="token_usage_page")(
-    _make_page_fixture("pages.token_usage_page", "TokenUsagePage")
+    _make_page_fixture("pages.token_usage_page", "TokenUsagePage"),
 )
 models_page = pytest.fixture(scope="function", name="models_page")(
-    _make_page_fixture("pages.models_page", "ModelsPage")
+    _make_page_fixture("pages.models_page", "ModelsPage"),
 )
 files_page = pytest.fixture(scope="function", name="files_page")(
-    _make_page_fixture("pages.files_page", "FilesPage")
+    _make_page_fixture("pages.files_page", "FilesPage"),
 )
 
 
@@ -131,11 +133,12 @@ def dingtalk_config():
         Configuration dict
     """
     return {
-        'webhook': os.getenv('DINGTALK_WEBHOOK', ''),
-        'secret': os.getenv('DINGTALK_SECRET', ''),
-        'client_id': os.getenv('DINGTALK_CLIENT_ID', ''),
-        'client_secret': os.getenv('DINGTALK_CLIENT_SECRET', ''),
+        "webhook": os.getenv("DINGTALK_WEBHOOK", ""),
+        "secret": os.getenv("DINGTALK_SECRET", ""),
+        "client_id": os.getenv("DINGTALK_CLIENT_ID", ""),
+        "client_secret": os.getenv("DINGTALK_CLIENT_SECRET", ""),
     }
+
 
 @pytest.fixture(scope="function")
 def dingtalk_test_message():
@@ -146,8 +149,10 @@ def dingtalk_test_message():
         Test message string
     """
     import time
-    timestamp = time.strftime('%Y%m%d_%H%M%S')
+
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
     return f"Automation test message - {timestamp}"
+
 
 # Note: clean_chat_page / test_file / large_test_file are provided by
 # fixtures/__init__.py. Don't redefine them here, to avoid fixture conflicts
@@ -155,6 +160,7 @@ def dingtalk_test_message():
 
 
 # ========== UI Smoke Mock Fixture ==========
+
 
 @pytest.fixture(scope="function")
 def mock_api(page):
@@ -165,16 +171,18 @@ def mock_api(page):
     so smoke tests only need a frontend dev server running.
     """
     from mocks import register_all
+
     register_all(page)
     yield page
-
 
 
 def pytest_collection_modifyitems(config, items):
     """Auto-skip tests marked with @pytest.mark.requires_llm when no model key is configured."""
     if os.getenv("QWENPAW_DASHSCOPE_API_KEY"):
         return
-    skip_llm = pytest.mark.skip(reason="QWENPAW_DASHSCOPE_API_KEY not set — LLM tests skipped")
+    skip_llm = pytest.mark.skip(
+        reason="QWENPAW_DASHSCOPE_API_KEY not set — LLM tests skipped"
+    )
     for item in items:
         if "requires_llm" in item.keywords:
             item.add_marker(skip_llm)
@@ -222,14 +230,18 @@ def warmup_server():
                         # Treat 2xx/3xx as backend online
                         if resp.status < 400:
                             api_ready = True
-                            logger.info(f"Backend API ready: {path} -> {resp.status}")
+                            logger.info(
+                                f"Backend API ready: {path} -> {resp.status}"
+                            )
                             break
                     except Exception:
                         continue
                 if not api_ready:
                     time.sleep(1)
             if not api_ready:
-                logger.warning("Backend API health check did not pass within 30s; continuing to warm up the frontend")
+                logger.warning(
+                    "Backend API health check did not pass within 30s; continuing to warm up the frontend"
+                )
         except Exception as e:
             logger.warning(f"API health check error (ignored): {e}")
         finally:
@@ -268,16 +280,18 @@ def warmup_server():
             context.close()
             browser.close()
         except Exception as e:
-            logger.warning(f"Service warmup failed (does not block tests): {e}")
+            logger.warning(
+                f"Service warmup failed (does not block tests): {e}"
+            )
 
     yield
 
 
 def pytest_terminal_summary(terminalreporter, exitstatus, config):
     """Terminal summary on test completion + auto-generate the Markdown report"""
-    passed = len(terminalreporter.getreports('passed'))
-    failed = len(terminalreporter.getreports('failed'))
-    skipped = len(terminalreporter.getreports('skipped'))
+    passed = len(terminalreporter.getreports("passed"))
+    failed = len(terminalreporter.getreports("failed"))
+    skipped = len(terminalreporter.getreports("skipped"))
     total = passed + failed + skipped
 
     terminalreporter.write_sep("=" * 60)
@@ -295,11 +309,14 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     # Auto-generate the Markdown test report (extracted to utils/report_generator.py)
     try:
         from utils.report_generator import generate_markdown_report
+
         reports_dir = Path(__file__).parent / "reports"
         report_path = generate_markdown_report(terminalreporter, reports_dir)
-        terminalreporter.write_line(f"Markdown report generated: {report_path}")
         terminalreporter.write_line(
-            f"Latest report shortcut: {reports_dir / 'test-report-latest.md'}"
+            f"Markdown report generated: {report_path}"
+        )
+        terminalreporter.write_line(
+            f"Latest report shortcut: {reports_dir / 'test-report-latest.md'}",
         )
     except Exception as e:
         terminalreporter.write_line(f"Markdown report generation failed: {e}")
@@ -307,32 +324,39 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
 
 # ========== pytest-html report hooks ==========
 
+
 def pytest_configure(config):
     """Configure report metadata and custom markers"""
     # UI smoke / integration tier markers
-    config.addinivalue_line("markers", "ui_smoke: UI smoke test (mocked API, no backend needed)")
-    config.addinivalue_line("markers", "integration: Integration test (requires running backend + API keys)")
+    config.addinivalue_line(
+        "markers", "ui_smoke: UI smoke test (mocked API, no backend needed)"
+    )
+    config.addinivalue_line(
+        "markers",
+        "integration: Integration test (requires running backend + API keys)",
+    )
     # pytest-html 4.x: set metadata via pytest-metadata's stash
-    if hasattr(config, 'stash'):
+    if hasattr(config, "stash"):
         try:
             from pytest_metadata.plugin import metadata_key
+
             metadata = config.stash[metadata_key]
         except (ImportError, KeyError):
             metadata = {}
-    elif hasattr(config, '_metadata'):
+    elif hasattr(config, "_metadata"):
         metadata = config._metadata
     else:
         metadata = {}
 
     # Remove irrelevant default metadata
     for key in list(metadata.keys()):
-        if key in ['Java', 'Packages', 'Plugins', 'JAVA_HOME']:
+        if key in ["Java", "Packages", "Plugins", "JAVA_HOME"]:
             metadata.pop(key, None)
 
-    metadata['Project'] = 'QwenPaw E2E Automation'
-    metadata['Test Environment'] = app_config.server.base_url
-    metadata['Browser'] = 'Chromium (Playwright)'
-    metadata['Framework'] = 'Pytest + Playwright'
+    metadata["Project"] = "QwenPaw E2E Automation"
+    metadata["Test Environment"] = app_config.server.base_url
+    metadata["Browser"] = "Chromium (Playwright)"
+    metadata["Framework"] = "Pytest + Playwright"
 
     # Clean up the previous run's screenshots and old reports before each test session
     reports_dir = Path(__file__).parent / "reports"
@@ -342,6 +366,7 @@ def pytest_configure(config):
         screenshots_dir = reports_dir / "screenshots"
         if screenshots_dir.exists():
             import shutil
+
             # First delete the steps subdir (step screenshots)
             steps_dir = screenshots_dir / "steps"
             if steps_dir.exists():
@@ -374,10 +399,12 @@ def pytest_html_report_title(report):
 @pytest.hookimpl(optionalhook=True)
 def pytest_html_results_summary(prefix, summary, postfix):
     """Add a project description in the report summary section"""
-    prefix.extend([
-        "<p>This report is auto-generated by the QwenPaw E2E automation framework.</p>",
-        "<p>Passed | Failed | Skipped | Reruns</p>",
-    ])
+    prefix.extend(
+        [
+            "<p>This report is auto-generated by the QwenPaw E2E automation framework.</p>",
+            "<p>Passed | Failed | Skipped | Reruns</p>",
+        ]
+    )
 
 
 @pytest.hookimpl(optionalhook=True)
@@ -385,6 +412,7 @@ def pytest_html_results_table_header(cells):
     """Insert a description column in the report table header"""
     try:
         from py.xml import html
+
         cells.insert(2, html.th("Description", class_="sortable"))
     except ImportError:
         pass
@@ -395,7 +423,8 @@ def pytest_html_results_table_row(report, cells):
     """Insert description info into each report table row"""
     try:
         from py.xml import html
-        doc = getattr(report, 'description', '') or ''
+
+        doc = getattr(report, "description", "") or ""
         cells.insert(2, html.td(doc))
     except ImportError:
         pass
@@ -440,11 +469,16 @@ def pytest_sessionfinish(session, exitstatus):
     # Clean up expired Markdown reports (keep test-report-latest.md)
     for md_file in reports_dir.glob("test-report-*.md"):
         try:
-            if md_file.name != "test-report-latest.md" and md_file.stat().st_mtime < cutoff_time:
+            if (
+                md_file.name != "test-report-latest.md"
+                and md_file.stat().st_mtime < cutoff_time
+            ):
                 md_file.unlink()
                 cleaned_count += 1
         except OSError:
             pass
 
     if cleaned_count > 0:
-        _logger.info(f"Cleaned up {cleaned_count} report files older than {REPORT_RETENTION_DAYS} days")
+        _logger.info(
+            f"Cleaned up {cleaned_count} report files older than {REPORT_RETENTION_DAYS} days"
+        )

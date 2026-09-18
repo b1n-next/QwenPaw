@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """Patch the main OSS metadata index to advertise the plugins product.
 
 Ensures the top-level ``metadata/index.json`` has a ``products.plugins``

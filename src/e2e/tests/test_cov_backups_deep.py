@@ -34,7 +34,9 @@ class TestBackupCreateRestoreDeep:
 
     @pytest.mark.test_id("COV-BK-001")
     def test_backup_create_restore_deep(
-        self, backups_page: BackupsPage, request: pytest.FixtureRequest
+        self,
+        backups_page: BackupsPage,
+        request: pytest.FixtureRequest,
     ):
         test_name = request.node.name
 
@@ -79,7 +81,7 @@ class TestBackupCreateRestoreDeep:
                 logger.info("Restore modal opened")
                 # Cancel restore to keep environment clean
                 cancel = backups_page.page.locator(
-                    'button:has-text("Cancel"), button:has-text("取消")'
+                    'button:has-text("Cancel"), button:has-text("取消")',
                 ).first
                 if cancel.count() > 0 and cancel.is_visible():
                     cancel.click()
@@ -105,7 +107,9 @@ class TestBackupImportExportDeep:
 
     @pytest.mark.test_id("COV-BK-002")
     def test_backup_import_export_deep(
-        self, backups_page: BackupsPage, request: pytest.FixtureRequest
+        self,
+        backups_page: BackupsPage,
+        request: pytest.FixtureRequest,
     ):
         test_name = request.node.name
 
@@ -115,7 +119,7 @@ class TestBackupImportExportDeep:
 
         log_test_step("2. Verify import entry exists")
         import_btn = backups_page.page.locator(
-            'button:has-text("Import"), button:has-text("导入")'
+            'button:has-text("Import"), button:has-text("导入")',
         ).first
         if import_btn.count() > 0 and import_btn.is_visible():
             log_test_step("3. Click import and observe dialog/picker")

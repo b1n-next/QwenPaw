@@ -46,12 +46,18 @@ class ChannelsPage(BasePage):
     # `[class*=availableItem]` would match one tile three times. The tile
     # container is a <div>; the name/action are <span>. Anchor on
     # `div[class*=availableItem]` to count each tile exactly once.
-    PAGE_LOAD_INDICATOR = '[class*=channelCard], div[class*=availableItem]'
+    PAGE_LOAD_INDICATOR = "[class*=channelCard], div[class*=availableItem]"
 
     # Filter buttons (UI text is Chinese; use button[class*=filterTab] to match the button rather than the parent container)
-    FILTER_ALL_BTN = 'button[class*=filterTab]:has-text("全部"), button:has-text("All")'
-    FILTER_BUILTIN_BTN = 'button[class*=filterTab]:has-text("内置"), button:has-text("Built-in")'
-    FILTER_CUSTOM_BTN = 'button[class*=filterTab]:has-text("自定义"), button:has-text("Custom")'
+    FILTER_ALL_BTN = (
+        'button[class*=filterTab]:has-text("全部"), button:has-text("All")'
+    )
+    FILTER_BUILTIN_BTN = (
+        'button[class*=filterTab]:has-text("内置"), button:has-text("Built-in")'
+    )
+    FILTER_CUSTOM_BTN = (
+        'button[class*=filterTab]:has-text("自定义"), button:has-text("Custom")'
+    )
 
     # Channel cards / available items (v2.0.0 dual-section layout).
     #   CHANNEL_CARD          — union: any enabled ChannelCard OR available tile
@@ -60,36 +66,36 @@ class ChannelsPage(BasePage):
     # `find_channel_card` / `get_channel_card_count` operate on the union.
     # `div[class*=availableItem]` (not the bare substring) avoids triple
     # matching on the item's name/action spans.
-    CHANNEL_CARD = '[class*=channelCard], div[class*=availableItem]'
-    CHANNEL_CARD_ENABLED = '[class*=channelCard][class*=enabled]'
-    CHANNEL_CARD_DISABLED = 'div[class*=availableItem]'
+    CHANNEL_CARD = "[class*=channelCard], div[class*=availableItem]"
+    CHANNEL_CARD_ENABLED = "[class*=channelCard][class*=enabled]"
+    CHANNEL_CARD_DISABLED = "div[class*=availableItem]"
 
     # Channel card content
-    CHANNEL_ICON = '[class*=channelCard] [class*=icon]'
-    CHANNEL_NAME = '[class*=channelCard] [class*=name]'
-    CHANNEL_STATUS_DOT = '[class*=channelCard] [class*=statusDot]'
-    CHANNEL_STATUS_TEXT = '[class*=channelCard] [class*=statusText]'
-    CHANNEL_BUILTIN_TAG = '[class*=channelCard] [class*=builtinTag]'
-    CHANNEL_CUSTOM_TAG = '[class*=channelCard] [class*=customTag]'
-    CHANNEL_BOT_PREFIX = '[class*=channelCard] [class*=botPrefix]'
+    CHANNEL_ICON = "[class*=channelCard] [class*=icon]"
+    CHANNEL_NAME = "[class*=channelCard] [class*=name]"
+    CHANNEL_STATUS_DOT = "[class*=channelCard] [class*=statusDot]"
+    CHANNEL_STATUS_TEXT = "[class*=channelCard] [class*=statusText]"
+    CHANNEL_BUILTIN_TAG = "[class*=channelCard] [class*=builtinTag]"
+    CHANNEL_CUSTOM_TAG = "[class*=channelCard] [class*=customTag]"
+    CHANNEL_BOT_PREFIX = "[class*=channelCard] [class*=botPrefix]"
 
     # Edit drawer (match only the visible drawer to avoid strict mode violations)
-    CHANNEL_DRAWER = '.qwenpaw-drawer:visible, .ant-drawer:visible'
-    DRAWER_TITLE = '.qwenpaw-drawer-title, .ant-drawer-title'
-    DRAWER_CLOSE_BTN = '.qwenpaw-drawer-close, .ant-drawer-close'
+    CHANNEL_DRAWER = ".qwenpaw-drawer:visible, .ant-drawer:visible"
+    DRAWER_TITLE = ".qwenpaw-drawer-title, .ant-drawer-title"
+    DRAWER_CLOSE_BTN = ".qwenpaw-drawer-close, .ant-drawer-close"
 
     # Form fields
-    FORM_ITEM = '.ant-form-item, .qwenpaw-form-item'
-    FORM_LABEL = '.ant-form-item-label, .qwenpaw-form-item-label'
-    FORM_INPUT = 'input.ant-input, input.qwenpaw-input'
-    FORM_SWITCH = '.ant-switch, .qwenpaw-switch'
-    FORM_SELECT = '.ant-select-selector, .qwenpaw-select-selector'
+    FORM_ITEM = ".ant-form-item, .qwenpaw-form-item"
+    FORM_LABEL = ".ant-form-item-label, .qwenpaw-form-item-label"
+    FORM_INPUT = "input.ant-input, input.qwenpaw-input"
+    FORM_SWITCH = ".ant-switch, .qwenpaw-switch"
+    FORM_SELECT = ".ant-select-selector, .qwenpaw-select-selector"
     FORM_SUBMIT_BTN = '.qwenpaw-drawer button:has-text("保 存"), .qwenpaw-drawer button:has-text("保存"), .qwenpaw-drawer button:has-text("Save"), .ant-drawer button:has-text("Save")'
     FORM_CANCEL_BTN = '.qwenpaw-drawer button:has-text("取 消"), .qwenpaw-drawer button:has-text("取消"), .qwenpaw-drawer button:has-text("Cancel"), .ant-drawer button:has-text("Cancel")'
 
     # Channel-specific field selectors (composed dynamically per channel type)
     BOT_PREFIX_INPUT = '.qwenpaw-drawer input[placeholder*="@bot"], .qwenpaw-drawer input[placeholder*="bot prefix" i], input[placeholder*="Bot Prefix" i], input[placeholder*="机器人前缀" i]'
-    ENABLE_TOGGLE = '.ant-switch, .qwenpaw-switch'
+    ENABLE_TOGGLE = ".ant-switch, .qwenpaw-switch"
 
     # Toast messages and loading state (inherited from BasePage; no redefinition needed)
 
@@ -107,13 +113,17 @@ class ChannelsPage(BasePage):
         self.wait_for_page_loaded()
         return self
 
-    def wait_for_page_loaded(self, timeout: Optional[int] = None) -> "ChannelsPage":
+    def wait_for_page_loaded(
+        self, timeout: Optional[int] = None
+    ) -> "ChannelsPage":
         """Wait for the page to finish loading."""
         timeout = timeout or self.timeout
         logger.info("Waiting for Channels page to load")
 
         # Wait for channel cards to appear (page has no h1 tag)
-        expect(self.page.locator(self.PAGE_LOAD_INDICATOR).first).to_be_visible(timeout=timeout)
+        expect(
+            self.page.locator(self.PAGE_LOAD_INDICATOR).first
+        ).to_be_visible(timeout=timeout)
 
         return self
 
@@ -276,7 +286,11 @@ class ChannelsPage(BasePage):
             # Extract "Bot Prefix: xxx" / "机器人前缀: xxx" from the card text
             for line in card_text.split("\n"):
                 line = line.strip()
-                if "机器人前缀:" in line or "Bot Prefix:" in line or "bot prefix:" in line:
+                if (
+                    "机器人前缀:" in line
+                    or "Bot Prefix:" in line
+                    or "bot prefix:" in line
+                ):
                     prefix = line.split(":")[-1].strip()
                     if prefix == "Not Set" or prefix == "未设置":
                         return ""
@@ -293,11 +307,28 @@ class ChannelsPage(BasePage):
     # use <ChannelAvailableItem> and no longer show a "内置 / Built-in" tag,
     # so DOM-based detection is not reliable. We match on channel label
     # instead — this matches the source of truth (frontend + backend).
-    _BUILTIN_LABELS = frozenset({
-        "iMessage", "Discord", "DingTalk", "Feishu", "QQ", "Telegram",
-        "Slack", "MQTT", "Mattermost", "Matrix", "Console", "Twilio",
-        "SIP", "WeCom", "XiaoYi", "WeChat", "OneBot", "Yuanbao",
-    })
+    _BUILTIN_LABELS = frozenset(
+        {
+            "iMessage",
+            "Discord",
+            "DingTalk",
+            "Feishu",
+            "QQ",
+            "Telegram",
+            "Slack",
+            "MQTT",
+            "Mattermost",
+            "Matrix",
+            "Console",
+            "Twilio",
+            "SIP",
+            "WeCom",
+            "XiaoYi",
+            "WeChat",
+            "OneBot",
+            "Yuanbao",
+        }
+    )
 
     def is_builtin_channel(self, channel_name: str) -> bool:
         """
@@ -321,12 +352,16 @@ class ChannelsPage(BasePage):
         timeout = timeout or self.timeout
         logger.info("Waiting for drawer to open")
         try:
-            self.page.locator('.qwenpaw-drawer, .ant-drawer').first.wait_for(state="visible", timeout=timeout)
+            self.page.locator(".qwenpaw-drawer, .ant-drawer").first.wait_for(
+                state="visible", timeout=timeout
+            )
             return True
         except Exception:
             return False
 
-    def wait_for_drawer_close(self, timeout: Optional[int] = None) -> "ChannelsPage":
+    def wait_for_drawer_close(
+        self, timeout: Optional[int] = None
+    ) -> "ChannelsPage":
         """Wait for the edit drawer to close."""
         timeout = timeout or self.timeout
         logger.info("Waiting for drawer to close")
@@ -359,7 +394,9 @@ class ChannelsPage(BasePage):
             prefix: Bot Prefix value.
         """
         logger.info(f"Filling bot prefix: {prefix}")
-        bot_input = self.page.locator('#bot_prefix, input[placeholder*="@bot"], input[placeholder*="bot prefix" i]')
+        bot_input = self.page.locator(
+            '#bot_prefix, input[placeholder*="@bot"], input[placeholder*="bot prefix" i]'
+        )
         if bot_input.count() > 0:
             bot_input.first.clear()
             bot_input.first.fill(prefix)
@@ -374,12 +411,12 @@ class ChannelsPage(BasePage):
         """
         logger.info(f"Toggling enable to: {enable}")
         # Locate the switch inside the drawer
-        drawer = self.page.locator('.qwenpaw-drawer, .ant-drawer')
-        switch = drawer.locator('.qwenpaw-switch, .ant-switch').first
+        drawer = self.page.locator(".qwenpaw-drawer, .ant-drawer")
+        switch = drawer.locator(".qwenpaw-switch, .ant-switch").first
 
         # Read the current state
-        aria_checked = switch.get_attribute('aria-checked') or 'false'
-        is_enabled = aria_checked == 'true'
+        aria_checked = switch.get_attribute("aria-checked") or "false"
+        is_enabled = aria_checked == "true"
 
         # Click only when the state needs to flip
         if is_enabled != enable:
@@ -399,7 +436,9 @@ class ChannelsPage(BasePage):
         logger.info(f"Filling field '{field_name}' with value: {value}")
         # Choose the fill approach based on the field type
         try:
-            input_elem = self.page.locator(f'input[placeholder*="{field_name}" i], input[label*="{field_name}" i]').first
+            input_elem = self.page.locator(
+                f'input[placeholder*="{field_name}" i], input[label*="{field_name}" i]'
+            ).first
             input_elem.fill(value)
         except Exception:
             # Fallback: use the generic input selector
@@ -413,29 +452,36 @@ class ChannelsPage(BasePage):
         # Wait for the save API request to complete via expect_response
         try:
             with self.page.expect_response(
-                lambda resp: '/api/config/channel' in resp.url and resp.request.method in ('PUT', 'POST', 'PATCH'),
-                timeout=10000
+                lambda resp: "/api/config/channel" in resp.url
+                and resp.request.method in ("PUT", "POST", "PATCH"),
+                timeout=10000,
             ) as response_info:
                 submit_btn.click()
             response = response_info.value
             logger.info(f"Save API response: status={response.status}")
             if not response.ok:
-                logger.warning(f"Save API returned non-OK status: {response.status}")
+                logger.warning(
+                    f"Save API returned non-OK status: {response.status}"
+                )
         except Exception:
             # No save API response observed — likely blocked by client-side validation
-            logger.warning("Save API response not captured; possible client-side validation error")
+            logger.warning(
+                "Save API response not captured; possible client-side validation error"
+            )
             self.page.wait_for_timeout(2000)
         return self
 
     def has_form_validation_errors(self) -> bool:
         """Check whether the form has validation errors."""
         errors = self.page.locator(
-            '.qwenpaw-form-item-explain-error, .ant-form-item-explain-error'
+            ".qwenpaw-form-item-explain-error, .ant-form-item-explain-error",
         )
         count = errors.count()
         if count > 0:
             for i in range(count):
-                logger.warning(f"Form validation error: {errors.nth(i).inner_text()}")
+                logger.warning(
+                    f"Form validation error: {errors.nth(i).inner_text()}"
+                )
         return count > 0
 
     def cancel_channel_config(self) -> "ChannelsPage":
@@ -455,7 +501,9 @@ class ChannelsPage(BasePage):
     def verify_channel_count(self, expected_count: int) -> bool:
         """Verify the channel card count."""
         actual_count = self.get_channel_card_count()
-        logger.info(f"Channel count: {actual_count}, expected: {expected_count}")
+        logger.info(
+            f"Channel count: {actual_count}, expected: {expected_count}"
+        )
         return actual_count == expected_count
 
     def _card_label_matches_builtin(self, card: Locator) -> Optional[bool]:
@@ -488,14 +536,14 @@ class ChannelsPage(BasePage):
             filter_type: 'all', 'builtin', or 'custom'.
         """
         cards = self.get_channel_cards()
-        if filter_type == 'all':
+        if filter_type == "all":
             return len(cards) > 0
-        if filter_type == 'builtin':
+        if filter_type == "builtin":
             for card in cards:
                 if self._card_label_matches_builtin(card) is False:
                     return False
             return len(cards) > 0
-        if filter_type == 'custom':
+        if filter_type == "custom":
             for card in cards:
                 if self._card_label_matches_builtin(card) is True:
                     return False
@@ -505,7 +553,9 @@ class ChannelsPage(BasePage):
     def wait_for_success_message(self, timeout: int = 5000) -> bool:
         """Wait for the success message (no toast may appear after save, so not required)."""
         try:
-            expect(self.page.locator(self.SUCCESS_MESSAGE)).to_be_visible(timeout=timeout)
+            expect(self.page.locator(self.SUCCESS_MESSAGE)).to_be_visible(
+                timeout=timeout
+            )
             return True
         except Exception:
             logger.info("No success message displayed (may be normal)")
@@ -514,7 +564,9 @@ class ChannelsPage(BasePage):
     def wait_for_error_message(self, timeout: int = 5000) -> bool:
         """Wait for the error message."""
         try:
-            expect(self.page.locator(self.ERROR_MESSAGE)).to_be_visible(timeout=timeout)
+            expect(self.page.locator(self.ERROR_MESSAGE)).to_be_visible(
+                timeout=timeout
+            )
             return True
         except TimeoutError:
             return False
@@ -560,7 +612,9 @@ class ChannelsPage(BasePage):
         self.close_drawer()
         return self
 
-    def update_bot_prefix(self, channel_name: str, prefix: str) -> "ChannelsPage":
+    def update_bot_prefix(
+        self, channel_name: str, prefix: str
+    ) -> "ChannelsPage":
         """
         Update the Bot Prefix for a channel.
 
@@ -575,7 +629,9 @@ class ChannelsPage(BasePage):
         self.close_drawer()
         return self
 
-    def refresh_and_verify_channel_status(self, channel_name: str, expected_status: str) -> bool:
+    def refresh_and_verify_channel_status(
+        self, channel_name: str, expected_status: str
+    ) -> bool:
         """
         Reload the page and verify the channel status.
 
