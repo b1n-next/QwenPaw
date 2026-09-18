@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 Generate OSS metadata JSON files for release artifacts.
 
@@ -81,10 +82,12 @@ def generate_metadata(
     }
 
     platform_suffix = platform_names.get(
-        platform, {"zh-CN": platform, "en-US": platform}
+        platform,
+        {"zh-CN": platform, "en-US": platform},
     )
     product_name = product_names.get(
-        product, {"zh-CN": product, "en-US": product}
+        product,
+        {"zh-CN": product, "en-US": product},
     )
 
     oss_path = f"/files/apps/{product}/{platform}/{filename}"
@@ -156,13 +159,17 @@ def merge_desktop_index(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate OSS metadata for release artifacts"
+        description="Generate OSS metadata for release artifacts",
     )
     parser.add_argument(
-        "--file", required=True, help="Path to the artifact file"
+        "--file",
+        required=True,
+        help="Path to the artifact file",
     )
     parser.add_argument(
-        "--product", required=True, help="Product name (e.g., desktop, cli)"
+        "--product",
+        required=True,
+        help="Product name (e.g., desktop, cli)",
     )
     parser.add_argument(
         "--platform",
@@ -170,7 +177,9 @@ def main():
         help="Platform name (e.g., win, mac, linux)",
     )
     parser.add_argument(
-        "--version", required=True, help="Version string (e.g., 1.0.0)"
+        "--version",
+        required=True,
+        help="Version string (e.g., 1.0.0)",
     )
     parser.add_argument(
         "--output",
@@ -190,7 +199,10 @@ def main():
 
     print(f"Generating metadata for: {args.file}")
     metadata = generate_metadata(
-        args.file, args.product, args.platform, args.version
+        args.file,
+        args.product,
+        args.platform,
+        args.version,
     )
 
     with open(args.output, "w", encoding="utf-8") as f:
@@ -204,13 +216,15 @@ def main():
     if args.merge_index and args.output_index:
         print(f"\nMerging into desktop index: {args.merge_index}")
         merged_index = merge_desktop_index(
-            args.merge_index, metadata, args.platform
+            args.merge_index,
+            metadata,
+            args.platform,
         )
         with open(args.output_index, "w", encoding="utf-8") as f:
             json.dump(merged_index, f, indent=2, ensure_ascii=False)
         print(f"✓ Desktop index written to: {args.output_index}")
         print(
-            f"  Latest {args.platform}: {merged_index['platforms'][args.platform]['latest']}"
+            f"  Latest {args.platform}: {merged_index['platforms'][args.platform]['latest']}",
         )
 
 

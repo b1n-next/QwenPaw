@@ -60,6 +60,7 @@ class _ControlledTransport(ComputerUseTransport):
         self,
         handler: ReverseRequestHandler,
     ) -> None:
+        del handler
         return None
 
     @property
