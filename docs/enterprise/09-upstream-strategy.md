@@ -160,6 +160,22 @@ git push -u origin feature/enterprise
 | Hub roadmap / RBAC / 模型治理动向 | issue #7318 及其引用 | 每周 |
 | 官方 Helm/K8s/provisioner PR | repo PR 搜索 `provisioner|helm|k8s` | 每月 |
 | `hub/`、`pawapp/`、`console layouts/registry` 重构 | `git log upstream/main -- src/qwenpaw/hub` | 每月（对齐例程内） |
+| `src/qwenpaw/hub/siem.py`（新文件） | F9 SiemRelay：审计 JSONL 批量外送（fire-and-forget/失败计数/transport 注入口） | Ph2 | 底座缺口 F9 |
+| `src/qwenpaw/hub/control_app.py`（追加×4） | F9 record_audit 镜像+`/admin/siem`；E9 用户面 `/api/hub/models` 策略目录；F5 traceparent 转发；G7 `/runtimes/{id}/sandbox-jobs` | Ph2 | F9/E9/F5/G7 |
+| `src/qwenpaw/hub/trace.py`（追加） | F5 W3C traceparent 严格解析（version-00）+ trace-id 回退 | Ph2 | 底座缺口 F5 |
+| `src/qwenpaw/hub/provisioners/k8s/manifest.py`（追加） | G7 `sandbox_job_manifest` 加固 Job 模板 | Ph2 | 底座缺口 G7 |
+| `src/qwenpaw/hub/provisioners/k8s/provisioner.py`（追加） | G7 `launch_sandbox_job` 派发（经 `client.create_at` 显式 batch 路径） | Ph2 | 底座缺口 G7 |
+| `src/qwenpaw/hub/provisioners/k8s/client.py`（追加） | G7 `create_at(path, body)` 非 core API 路径 POST | Ph2 | 底座缺口 G7 |
+| `tests/unit/hub/test_siem.py`、`test_e9_f5.py`、`test_sandbox_jobs.py`（新文件） | F9/E9/F5/G7 验收套（8 例） | Ph2 | F9/E9/F5/G7 |
+| `.pre-commit-config.yaml`（修改） | merge 窗后 exclude 宽化 `^(src/)?` 前缀组；修复 `src?` 正则笔误 | Ph2 | 上游合并适配 |
+| `tests/unit/plugins/computer_use/test_stop_semantics.py`（修改） | W0613 `del handler` + R1711 去显式 return | Ph2 | 上游合并适配 |
+| `scripts/pack/*`（8 文件 settle） | 上游文件 black/pragma/尾空白归一（fork 全量 hook 要求） | Ph2 | 上游合并适配 |
+| `console/src/pages/Hub/index.tsx`、`pageUtils` 依赖（修改） | merge 适配：settings 表单迁三态 registrationMode；Hub 页保留 fork 版（上游重构待吸收票） | Ph2 | 上游合并适配 |
+| `tests/unit/routers/test_backup.py`（重命名） | → `test_backup_jobs.py`，避开上游 `tests/integration/test_backup.py` 同名冲突 | Ph2 | 上游合并适配 |
+| `console/src/locales/*.json`（7 文件） | merge 语义深合并（fork 企业文案+上游治理文案）+ registrationMode 三键 | Ph2 | 上游合并适配 |
+| `console/src/layouts/MainLayout/index.tsx`（修改） | B5 pathDenied 守卫嵌套入上游 Suspense/Slot 外壳 | Ph2 | 上游合并适配 |
+| `console/src/i18n.ts`（修改） | fork 语言种子逻辑 + 上游 languageOnlyAliases 并存 | Ph2 | 上游合并适配 |
+| `src/qwenpaw/hub/database.py`（追加） | merge：通用列回填 `_ensure_settings_columns`（上游 hub-v1→fork hub-v2 迁移） | Ph2 | 上游合并适配 |
 | release notes | `website/public/release-notes/` | 每版本 |
 
 ## 5. 给上游回馈（降低长期维护成本）
