@@ -61,7 +61,6 @@ class _ControlledTransport(ComputerUseTransport):
         handler: ReverseRequestHandler,
     ) -> None:
         del handler
-        return None
 
     @property
     def pending_count(self) -> int:
