@@ -255,8 +255,7 @@ def _ensure_settings_columns(
                 # unknown drift: let the strict validator speak up
                 continue
             connection.execute(
-                f"ALTER TABLE {table} ADD COLUMN {column} "
-                f"{definition}",
+                f"ALTER TABLE {table} ADD COLUMN {column} " f"{definition}",
             )
 
 

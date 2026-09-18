@@ -440,8 +440,8 @@ def create_hub_app(  # pylint: disable=too-many-statements
         values = dict(original_credentials(record))
         network = model_networks[record.provisioner]
         values["QWENPAW_HUB_MODEL_URL"] = network.url(model_listener.port)
-        values["QWENPAW_HUB_MODEL_TOKEN"] = (
-            governance_catalog.issue_token(record)
+        values["QWENPAW_HUB_MODEL_TOKEN"] = governance_catalog.issue_token(
+            record,
         )
         return values
 
