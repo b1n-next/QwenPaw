@@ -76,7 +76,7 @@ def test_runtime_baseline_parse_and_gate() -> None:
     assert resource_baseline.resource_allowed("mcp", "anything")
     assert resource_baseline.restricted_kinds() == ("channel", "skill")
     # malformed payload never widens or narrows anything
-    assert resource_baseline.parse_resource_baseline("{oops") == {}
+    assert not resource_baseline.parse_resource_baseline("{oops")
     resource_baseline.apply_resource_baseline({})  # reset for others
 
 
@@ -105,7 +105,7 @@ def test_skill_preload_filtered() -> None:
             Path("/nonexistent-workspace"),
             ["kept", "dropped"],
         )
-        assert selected == []
+        assert not selected
         # prove the deny dropped the skill before the manifest miss:
         # with no baseline both names pass through to the (missing)
         # manifest and the result is also [] — so assert via
@@ -199,10 +199,7 @@ def test_owner_credentials_carry_resource_baseline(
             headers=headers,
         )
         # the helper the credential wrapper calls for every owner env
-        # (module-level lookup keeps the test independent of closure
-        # cell ordering inside create_hub_app)
-        import qwenpaw.hub.control_app as control_app_module
-
+        # (closure scan keeps the test independent of cell ordering)
         helper = None
         for cell in (
             client.app.state.runtime_service.credential_provider.__closure__

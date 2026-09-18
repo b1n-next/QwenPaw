@@ -3,12 +3,10 @@
 
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-import qwenpaw.hub.control_app as control_app
 from qwenpaw.hub.control_app import _build_oidc_client, create_hub_app
 
 
@@ -51,11 +49,11 @@ def test_client_secret_prefers_explicit_then_vault() -> None:
     # explicit hub.yaml value wins (compat with file-only setups)
     vault = _VaultStub("vault-value")
     client = _build_oidc_client(_OidcStub(secret="file-value"), vault=vault)
-    assert client._settings.client_secret == "file-value"
+    assert client.settings.client_secret == "file-value"
     assert vault.reads == 0
     # empty file value falls through to the vault entry
     client = _build_oidc_client(_OidcStub(secret=""), vault=vault)
-    assert client._settings.client_secret == "vault-value"
+    assert client.settings.client_secret == "vault-value"
     assert vault.reads == 1
     # disabled oidc never touches the vault
     client = _build_oidc_client(_OidcStub(enabled=False), vault=vault)
@@ -86,7 +84,7 @@ def test_env_secret_imported_to_vault_and_cleared(
             _OidcStub(secret=""),
             vault=client.app.state.credential_vault,
         )
-        assert rebuilt._settings.client_secret == "env-secret"
+        assert rebuilt.settings.client_secret == "env-secret"
 
 
 def test_no_env_leaves_vault_untouched(tmp_path: Path, monkeypatch) -> None:

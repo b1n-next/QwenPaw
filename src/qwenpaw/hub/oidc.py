@@ -78,6 +78,11 @@ class OidcClient:
         self._endpoints: Dict[str, str] = {}
         self._states: Dict[str, _StateEntry] = {}
 
+    @property
+    def settings(self) -> OidcSettings:
+        """Read-only view for diagnostics and tests (A4)."""
+        return self._settings
+
     # -------------------------------------------------- config
 
     def authorization_url(self, redirect_uri: str, next_path: str) -> str:

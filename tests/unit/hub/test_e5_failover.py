@@ -9,9 +9,10 @@ import json
 from pathlib import Path
 from typing import Any
 
+from types import SimpleNamespace
+
 import httpx
 import pytest
-from types import SimpleNamespace
 
 import qwenpaw.hub.model_service.gateway as gateway_module
 from qwenpaw.hub.control_app import create_hub_app
@@ -32,7 +33,13 @@ class _FakeAttempt:
         self.reserved_models: list[str] = []
         self.stack = contextlib.AsyncExitStack()
 
-    async def reserve(self, identity, body, *, admin_test=False):
+    async def reserve(
+        self,
+        identity,
+        body,
+        *,
+        admin_test=False,  # pylint: disable=unused-argument
+    ):
         model = str(body.get("model") or "")
         self.reserved_models.append(model)
         connection = {
@@ -53,7 +60,11 @@ class _FakeAttempt:
     async def dispatch(self) -> None:
         return None
 
-    async def close(self, actual=None, error=None) -> None:
+    async def close(  # pylint: disable=unused-argument
+        self,
+        actual=None,
+        error=None,
+    ) -> None:
         self.counter["closed"] += 1
 
 
