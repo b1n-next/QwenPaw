@@ -4124,7 +4124,10 @@
         "registration": "Public registration",
         "registrationHint": "When disabled, only administrators can create accounts.",
         "defaultRole": "Default registration role",
-        "defaultRoleHint": "Self-registered accounts are always ordinary users for security."
+        "defaultRoleHint": "Self-registered accounts are always ordinary users for security.",
+        "registrationOpen": "Open",
+        "registrationInvite": "Invite-only",
+        "registrationClosed": "Closed"
       },
       "security": {
         "title": "Authentication protection",

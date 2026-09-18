@@ -3682,7 +3682,10 @@
         "registration": "Registro público",
         "registrationHint": "Quando desativado, apenas administradores podem criar contas.",
         "defaultRole": "Função de registro padrão",
-        "defaultRoleHint": "As contas auto-registradas são sempre de usuários comuns por questões de segurança."
+        "defaultRoleHint": "As contas auto-registradas são sempre de usuários comuns por questões de segurança.",
+        "registrationOpen": "Aberto",
+        "registrationInvite": "Somente convite",
+        "registrationClosed": "Fechado"
       },
       "security": {
         "title": "Proteção de autenticação",

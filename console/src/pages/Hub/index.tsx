@@ -9,6 +9,7 @@ import {
   Modal,
   Pagination,
   Progress,
+  Radio,
   Select,
   Skeleton,
   Switch,
@@ -288,7 +289,7 @@ export default function HubPage() {
     setSettings(result);
     settingsForm.setFieldsValue({
       publicBaseUrl: result.config.control_plane.public_base_url || undefined,
-      registrationEnabled: result.config.control_plane.registration.enabled,
+      registrationMode: result.config.control_plane.registration.mode,
       runtimeProvisioner: result.config.runtime.provisioner,
       dockerSource: result.config.runtime.docker.source,
       dockerImage: result.config.runtime.docker.image,
@@ -558,7 +559,7 @@ export default function HubPage() {
           ...settings.config.control_plane,
           public_base_url: values.publicBaseUrl?.trim() || null,
           registration: {
-            enabled: values.registrationEnabled,
+            mode: values.registrationMode ?? "closed",
             default_role: "user",
           },
           security: {
@@ -2210,12 +2211,30 @@ function SettingsPanel({
                         <strong>{t("hub.settings.access.registration")}</strong>
                         <span>{t("hub.settings.access.registrationHint")}</span>
                       </div>
-                      <Form.Item
-                        name="registrationEnabled"
-                        valuePropName="checked"
-                        noStyle
-                      >
-                        <Switch />
+                      <Form.Item name="registrationMode" noStyle>
+                        <Radio.Group
+                          options={[
+                            {
+                              value: "open",
+                              label: t("hub.settings.access.registrationOpen"),
+                            },
+                            {
+                              value: "invite",
+                              label: t(
+                                "hub.settings.access.registrationInvite",
+                              ),
+                            },
+                            {
+                              value: "closed",
+                              label: t(
+                                "hub.settings.access.registrationClosed",
+                              ),
+                            },
+                          ]}
+                          optionType="button"
+                          buttonStyle="solid"
+                          size="small"
+                        />
                       </Form.Item>
                     </div>
                     <Form.Item

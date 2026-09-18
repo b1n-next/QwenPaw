@@ -633,7 +633,10 @@
         "registration": "Pendaftaran publik",
         "registrationHint": "Jika dinonaktifkan, hanya administrator yang dapat membuat akun.",
         "defaultRole": "Peran pendaftaran default",
-        "defaultRoleHint": "Akun yang didaftarkan sendiri selalu menjadi pengguna biasa demi keamanan."
+        "defaultRoleHint": "Akun yang didaftarkan sendiri selalu menjadi pengguna biasa demi keamanan.",
+        "registrationOpen": "Terbuka",
+        "registrationInvite": "Undangan",
+        "registrationClosed": "Tertutup"
       },
       "security": {
         "title": "Perlindungan otentikasi",

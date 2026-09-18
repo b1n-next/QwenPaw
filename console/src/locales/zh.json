@@ -3981,7 +3981,10 @@
         "registration": "开放注册",
         "registrationHint": "关闭后，仅管理员可以创建账号。",
         "defaultRole": "默认注册角色",
-        "defaultRoleHint": "出于安全考虑，自助注册账号固定为普通用户。"
+        "defaultRoleHint": "出于安全考虑，自助注册账号固定为普通用户。",
+        "registrationOpen": "开放注册",
+        "registrationInvite": "邀请制",
+        "registrationClosed": "关闭注册"
       },
       "security": {
         "title": "登录防护",

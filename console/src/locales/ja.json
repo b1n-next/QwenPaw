@@ -3401,7 +3401,10 @@
         "registration": "公的登録",
         "registrationHint": "無効にすると、管理者のみがアカウントを作成できます。",
         "defaultRole": "デフォルトの登録ロール",
-        "defaultRoleHint": "セキュリティのために、自己登録アカウントは常に一般ユーザーになります。"
+        "defaultRoleHint": "セキュリティのために、自己登録アカウントは常に一般ユーザーになります。",
+        "registrationOpen": "オープン",
+        "registrationInvite": "招待制",
+        "registrationClosed": "クローズド"
       },
       "security": {
         "title": "認証保護",

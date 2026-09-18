@@ -619,7 +619,10 @@
         "registration": "Đăng ký công khai",
         "registrationHint": "Khi bị tắt, chỉ quản trị viên mới có thể tạo tài khoản.",
         "defaultRole": "Vai trò đăng ký mặc định",
-        "defaultRoleHint": "Tài khoản tự đăng ký luôn là người dùng thông thường để bảo mật."
+        "defaultRoleHint": "Tài khoản tự đăng ký luôn là người dùng thông thường để bảo mật.",
+        "registrationOpen": "Mở",
+        "registrationInvite": "Chỉ lời mời",
+        "registrationClosed": "Đóng"
       },
       "security": {
         "title": "Bảo vệ xác thực",
