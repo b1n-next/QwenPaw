@@ -1322,10 +1322,22 @@ def select_preload_skills(
     workspace_dir: Path,
     effective_skills: Iterable[str],
 ) -> list[str]:
-    """Return effective skills explicitly configured with preload enabled."""
+    """Return effective skills explicitly configured with preload enabled.
+
+    D3: the hub-pushed resource baseline (per-owner group policy)
+    filters out skills the owner's policies deny before preload.
+    """
+    try:
+        from ...app.resource_baseline import filter_ids
+    except Exception:  # noqa: BLE001 - optional runtime-plane gate
+        filter_ids = None  # type: ignore[assignment]
+
+    effective = list(effective_skills)
+    if filter_ids is not None:
+        effective = filter_ids("skill", effective)
     entries = read_skill_manifest(workspace_dir).get("skills", {})
     selected: list[str] = []
-    for name in effective_skills:
+    for name in effective:
         entry = normalize_skill_manifest_entry(entries.get(name))
         if entry.get("preload") is True:
             selected.append(name)

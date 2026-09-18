@@ -1,0 +1,26 @@
+# Prometheus scrape job for the QwenPaw hub /api/hub/metrics endpoint.
+#
+# The endpoint sits behind `require_user` (F4): plain
+# `prometheus.io/scrape` annotations cannot authenticate. Instead the
+# hub provisions a dedicated low-privilege metrics account and this
+# job carries its API token.
+#
+# One-time setup (admin):
+#   1. Create a metrics user (admin console or bootstrap CLI).
+#   2. Issue an API token for it and store it as a Secret:
+#        kubectl -n monitoring create secret generic \
+#          qwenpaw-hub-metrics-token \
+#          --from-literal=token=<api-token>
+#   3. Mount that secret into the Prometheus pod (bearerTokenFile
+#      path below) — see your Prometheus chart's extraSecrets.
+#
+# Alert rules live next to this file in qwenpaw-alerts.yaml.
+- job_name: qwenpaw-hub
+  scrape_interval: 60s
+  metrics_path: /api/hub/metrics
+  bearer_token_file: /etc/prometheus/secrets/qwenpaw-hub-metrics-token/token
+  static_configs:
+    - targets:
+        - qwenpaw-hub.<hub-namespace>.svc:80
+      labels:
+        service: qwenpaw-hub

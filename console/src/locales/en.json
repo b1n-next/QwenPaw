@@ -3934,6 +3934,7 @@
       "audit": "Audit log",
       "settings": "System settings",
       "usage": "Usage",
+      "governance": "Governance",
       "agents": "Agent hall",
       "prompts": "Prompt library",
       "keys": "Key pool"

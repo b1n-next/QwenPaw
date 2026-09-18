@@ -1,0 +1,78 @@
+{{- if .Values.networkPolicy.enabled }}
+# Default-deny ingress to the hub; only the console ingress
+# controller / explicitly whitelisted namespaces and CIDRs may
+# connect. Egress stays open by default below except DNS and the
+# runtime namespace — tighten per environment as needed.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qwenpaw-hub-ingress
+  labels:
+    app.kubernetes.io/name: qwenpaw-hub
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: qwenpaw-hub
+  policyTypes:
+    - Ingress
+  ingress:
+    # same-namespace traffic (canary probe, admin tooling pods)
+    - from:
+        - podSelector: {}
+    {{- range .Values.networkPolicy.allowedNamespaces }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ . | quote }}
+    {{- end }}
+    {{- range .Values.networkPolicy.allowedCIDRs }}
+    - from:
+        - ipBlock:
+            cidr: {{ . | quote }}
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: qwenpaw-hub-egress
+  labels:
+    app.kubernetes.io/name: qwenpaw-hub
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: qwenpaw-hub
+  policyTypes:
+    - Egress
+  egress:
+    # DNS (for runtime Service names and the K8s API)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # runtime pods (proxy + provisioner)
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.runtimes.namespace | quote }}
+    # Kubernetes API (runtime provisioning)
+    - to:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.kubeApiCIDR | quote }}
+      ports:
+        - protocol: TCP
+          port: 443
+    # OIDC provider / model providers live in the intranet; open by
+    # CIDR list so the policy stays explicit.
+    {{- range .Values.networkPolicy.egressCIDRs }}
+    - to:
+        - ipBlock:
+            cidr: {{ . | quote }}
+    {{- end }}
+{{- end }}

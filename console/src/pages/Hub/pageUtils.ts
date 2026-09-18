@@ -11,6 +11,7 @@ export type Section =
   | "audit"
   | "prompts"
   | "keys"
+  | "governance"
   | "settings";
 
 export interface PromptFormValues {

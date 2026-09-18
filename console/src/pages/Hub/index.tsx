@@ -17,6 +17,9 @@ import {
   Tabs,
 } from "antd";
 import type { FormInstance } from "antd";
+import Invitations from "./governance/Invitations";
+import OrganizationBudget from "./governance/OrganizationBudget";
+import OrganizationModels from "./governance/OrganizationModels";
 import {
   Activity,
   BarChart3,
@@ -46,6 +49,7 @@ import {
   Settings2,
   ShieldAlert,
   ShieldBan,
+  ShieldCheck,
   Sun,
   Trash2,
   UserPlus,
@@ -768,6 +772,11 @@ export default function HubPage() {
             id: "usage" as const,
             label: t("hub.navigation.usage"),
             icon: BarChart3,
+          },
+          {
+            id: "governance" as const,
+            label: t("hub.navigation.governance"),
+            icon: ShieldCheck,
           },
           {
             id: "audit" as const,
@@ -1678,6 +1687,29 @@ export default function HubPage() {
                           )}
                         </tbody>
                       </table>
+                    </div>
+                  </DataPanel>
+                </section>
+              )}
+              {section === "governance" && me?.role === "admin" && (
+                <section>
+                  <PageHeader
+                    eyebrow={t("hub.governance.eyebrow", {
+                      defaultValue: "Admin",
+                    })}
+                    title={t("hub.governance.title", {
+                      defaultValue: "Governance",
+                    })}
+                    description={t("hub.governance.description", {
+                      defaultValue:
+                        "Managed models, budgets and invitations (absorbed from the upstream hub console).",
+                    })}
+                  />
+                  <DataPanel search="" onSearch={() => {}} searchPlaceholder="">
+                    <div className={styles.governanceGrid}>
+                      <OrganizationModels />
+                      <OrganizationBudget />
+                      <Invitations />
                     </div>
                   </DataPanel>
                 </section>

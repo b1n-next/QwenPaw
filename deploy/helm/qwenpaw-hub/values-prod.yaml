@@ -29,6 +29,30 @@ resources:
     cpu: "4"
     memory: 4Gi
 
+# --- production hardening on ---
+# PDB comment above now matches an actual template (hub-pdb.yaml).
+podDisruptionBudget:
+  enabled: true
+
+probes:
+  startup:
+    enabled: true
+  liveness:
+    enabled: true
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+# Enable once the ingress controller namespace and admin CIDRs are
+# settled for this cluster (see networkPolicy block in values.yaml):
+# networkPolicy:
+#   enabled: true
+#   allowedNamespaces: [ingress-nginx]
+#   allowedCIDRs: [10.0.0.0/8]
+
 # Deployment-strategy metadata: consumed by the GitOps layer and
 # runbook-canary-upgrade.md (the chart templates themselves do not
 # render these keys).

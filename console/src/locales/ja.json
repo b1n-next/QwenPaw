@@ -3211,6 +3211,7 @@
       "audit": "監査ログ",
       "settings": "システム設定",
       "usage": "使用量",
+      "governance": "ガバナンス",
       "agents": "エージェントホール",
       "prompts": "プロンプト資産庫",
       "keys": "キープール"

@@ -119,6 +119,18 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/agents/react_agent.py`（追加） | EP-2-23 `_execute_tool_call` 漏斗内插 toolhooks 三挂点分发（pre/post/failure + trace_id，约 35 行，函数局部 import 无顶层依赖） | Ph2 | EP-2-23 |
 | `src/qwenpaw/hub/control_app.py`（追加） | EP-2-24 prompt 资产库路由（member 只读已批准版 + admin 提案/审批）与 key 池路由（admin 增列/启停 + member lease 轮询） | Ph2 | EP-2-24 |
 
+| `src/qwenpaw/hub/model_service/gateway.py`（追加） | E5 消费面：`ModelGateway.call` 链式重试（fallbacks_for/on_fallback 注入点、seen-set 防环、`X-QwenPaw-Fallback` 响应头、`_complete` extra_headers；limiter 构造 store-aware 供无目录单测） | Ph2 | E5 消费面 |
+| `src/qwenpaw/hub/control_app.py`（追加） | E5 消费接线（gateway 注入 fallbacks_for=组策略链热读 + on_fallback=指标）+ D2 模板实例化门（`agent_template:` 策略 403+审计）+ D2/D3 凭据面 `QWENPAW_RESOURCE_BASELINE_JSON` 注入（`_owner_resource_baseline_env`）+ A4 OIDC secret env→vault 一次性导入并清 env + `_build_oidc_client` 三源解析 + `app.state.credential_vault` 挂载 | Ph2 | E5/D2/D3/A4 批 |
+| `src/qwenpaw/app/_app.py`（追加） | D2/D3 runtime 侧启动挂载 `apply_resource_baseline_from_env`（模型 bootstrap 旁，+7） | Ph2 | D2/D3 批 |
+| `src/qwenpaw/config/utils.py`（追加） | D3 `get_available_channels` 末段 baseline 交集过滤（fail-open 包裹，重排 enabled/disabled 分支为 selected 变量） | Ph2 | D2/D3 批 |
+| `src/qwenpaw/agents/skill_system/registry.py`（追加） | D3 `select_preload_skills` 前置 `filter_ids("skill", ...)` 过滤（可选 import fail-open） | Ph2 | D2/D3 批 |
+| `deploy/helm/qwenpaw-hub/templates/hub-{pdb,ingress,networkpolicy}.yaml`（新文件 ×3） | K8s 补件：PDB（单副本显式 minAvailable 0 / 多副本 N-1）、Ingress（可选 TLS，secretName 必填校验）、NetworkPolicy ×2（ingress 默认拒+放行面 / egress DNS+runtimes+API） | Ph2 | K8s 补件 |
+| `deploy/helm/qwenpaw-hub/templates/hub-deployment.yaml`（追加） | K8s 加固：automountServiceAccountToken 显式 true、podSecurityContext、>1 副本反亲和、startup/liveness 探针、containerSecurityContext（drop ALL/禁提权/RO rootfs）、/tmp emptyDir + PVC subPath 三挂载（RO rootfs 门控） | Ph2 | K8s 补件 |
+| `deploy/helm/qwenpaw-hub/values.yaml` + `values-prod.yaml`（追加） | K8s 加固开关与 prod 档默认（PDB/探针/securityContext/ingress/networkPolicy 全段） | Ph2 | K8s 补件 |
+| `deploy/prometheus/hub-scrape-job.yaml`（新文件） | metrics 抓取凭证样例（bearer_token_file Secret + 注解不可用说明 + 部署步骤） | Ph2 | K8s 补件 |
+| `tests/integration/test_hub_control_app_module.py`（追加 1 行） | 上游 #7779 `_runtime_payload` 增 capability 后 FakeRecord 缺 `metadata`（merge 遗留基线红，非 fork 回归）——补 `metadata = {}` | Ph2 | E5/D2/D3/A4 批 |
+| `console/src/pages/Hub/index.tsx`（fork 文件，吸收登记） | 上游 #7779 组件吸收：治理 section（OrganizationModels/OrganizationBudget/Invitations）+ 导航项 + governanceGrid 样式 | Ph2 | B8 吸收 |
+
 **已废弃条目**（v1 表内、实际未走该路线，清理记录）：
 - ~~runtime usage 上报 hook~~——EP-1-4 改拉取式（hub 侧 UsageCollector），
   runtime 零 patch（07 §7 偏差说明）；

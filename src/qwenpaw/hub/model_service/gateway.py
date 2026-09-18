@@ -31,7 +31,10 @@ class ModelGateway:
         self.catalog = catalog
         self.budgets = budgets
         self.transport = transport
-        self.limiter = SharedLimiter(catalog.store)
+        # fork E5 tests construct without a backing store; production
+        # always passes one and gets the shared limiter as before.
+        store = getattr(catalog, "store", None)
+        self.limiter = SharedLimiter(store) if store is not None else None
 
     def recover(self):
         """Wait out attempts that might still be running after a restart."""
@@ -46,9 +49,10 @@ class ModelGateway:
 
     async def _open(self, attempt, model, connection, payload):
         stack = attempt.stack
-        await stack.enter_async_context(
-            self.limiter.acquire(model, connection),
-        )
+        if self.limiter is not None:
+            await stack.enter_async_context(
+                self.limiter.acquire(model, connection),
+            )
         client = await stack.enter_async_context(
             httpx.AsyncClient(
                 transport=self.transport,
@@ -80,42 +84,109 @@ class ModelGateway:
             )
         return response
 
-    async def call(self, identity, body, *, admin_test=False):
+    async def call(  # pylint: disable=too-many-branches
+        self,
+        identity,
+        body,
+        *,
+        admin_test=False,
+    ):
         """Reserve once and transfer resource ownership to the response."""
-        attempt = GatewayRequest(self.budgets, self.catalog)
-        try:
-            _, model, connection, cap = await attempt.reserve(
-                identity,
-                body,
-                admin_test=admin_test,
-            )
-            response = await self._open(
-                attempt,
-                model,
-                connection,
-                upstream_payload(body, model, cap, connection),
-            )
-        except BaseException as exc:
-            await attempt.close(error="upstream_failed")
-            if isinstance(exc, (HTTPException, asyncio.CancelledError)):
-                raise
-            raise HTTPException(
-                502,
-                f"hub_upstream_error:{attempt.request_id}",
-            ) from None
+        # E5 failover (fork): on upstream failure walk the admin-defined
+        # fallback chain before surfacing 502. Each hop is a full
+        # reserve+open so budgets meter per model actually used; a
+        # seen-set guards against cross-model cycles (A->B->A).
+        chain = []
+        if self.fallbacks_for is not None:
+            requested = str(body.get("model") or "")
+            try:
+                chain = list(self.fallbacks_for(requested) or [])
+            except Exception:  # noqa: BLE001 - fail-open to direct path
+                chain = []
+        attempts: list[tuple[GatewayRequest, object, str]] = []
+        candidates = [None]
+        seen = {str(body.get("model") or "")}
+        for model_id in chain:
+            if model_id and model_id not in seen:
+                seen.add(model_id)
+                candidates.append(model_id)
+        last_error: HTTPException | None = None
+        used_model = None
+        response = None
+        attempt = None
+        for index, fallback_model in enumerate(candidates):
+            attempt = GatewayRequest(self.budgets, self.catalog)
+            try:
+                payload = dict(body)
+                if fallback_model is not None:
+                    payload["model"] = fallback_model
+                _, model, connection, cap = await attempt.reserve(
+                    identity,
+                    payload,
+                    admin_test=admin_test,
+                )
+                opened = await self._open(
+                    attempt,
+                    model,
+                    connection,
+                    upstream_payload(payload, model, cap, connection),
+                )
+            except BaseException as exc:  # noqa: BLE001 - try next hop
+                await attempt.close(error="upstream_failed")
+                last_error = (
+                    exc
+                    if isinstance(exc, HTTPException)
+                    else HTTPException(
+                        502,
+                        f"hub_upstream_error:{attempt.request_id}",
+                    )
+                )
+                if isinstance(exc, asyncio.CancelledError):
+                    raise
+                continue
+            attempts.append((attempt, opened, model))
+            used_model = str(model.get("upstream_model") or model)
+            response = opened
+            if index > 0 and self.on_fallback is not None:
+                try:
+                    self.on_fallback(
+                        str(body.get("model") or ""),
+                        used_model,
+                        attempt.request_id,
+                    )
+                except Exception:  # noqa: BLE001 - audit must not break
+                    pass
+            break
+        if response is None:
+            raise last_error or HTTPException(502, "hub_upstream_error")
+        attempt, response, _ = attempts[0]
+        fallback_header = {}
+        if used_model is not None and str(
+            body.get("model") or "",
+        ) != str(used_model):
+            fallback_header[
+                "X-QwenPaw-Fallback"
+            ] = f"{body.get('model')}->{used_model}"
+        reported_model = str(used_model or body.get("model") or "")
         if body.get("stream", False):
             return GatewayStreamingResponse(
-                self._stream(response, attempt, body["model"]),
+                self._stream(response, attempt, reported_model),
                 attempt,
                 media_type="text/event-stream",
                 headers={
                     "X-Request-ID": attempt.request_id,
                     "Cache-Control": "no-store",
+                    **fallback_header,
                 },
             )
-        return await self._complete(response, attempt, body["model"])
+        return await self._complete(
+            response,
+            attempt,
+            reported_model,
+            extra_headers=fallback_header,
+        )
 
-    async def _complete(self, response, attempt, model_id):
+    async def _complete(self, response, attempt, model_id, extra_headers=None):
         actual = None
         error = "response_incomplete"
         try:
@@ -131,7 +202,10 @@ class ModelGateway:
             error = None
             return JSONResponse(
                 result,
-                headers={"X-Request-ID": attempt.request_id},
+                headers={
+                    "X-Request-ID": attempt.request_id,
+                    **(extra_headers or {}),
+                },
             )
         except Exception:
             raise HTTPException(

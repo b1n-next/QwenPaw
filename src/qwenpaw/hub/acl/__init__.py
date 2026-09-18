@@ -13,6 +13,10 @@ from __future__ import annotations
 from .engine import AclEngine, Decision
 from .rules import DEFAULT_RULES, RuleSpec
 from .console_map import permissions_payload
+from .resource_policies import (
+    allowed_resource_ids,
+    resource_baseline,
+)
 
 __all__ = [
     "AclEngine",
@@ -20,4 +24,6 @@ __all__ = [
     "DEFAULT_RULES",
     "RuleSpec",
     "permissions_payload",
+    "allowed_resource_ids",
+    "resource_baseline",
 ]

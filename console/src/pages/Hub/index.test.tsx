@@ -87,6 +87,23 @@ describe("HubPage", () => {
     vi.mocked(hubApi.listAuditEvents).mockResolvedValue(page());
   });
 
+  it("shows the admin governance section with upstream panels", async () => {
+    renderHubPage();
+
+    const nav = await screen.findByText("hub.navigation.governance");
+    fireEvent.click(nav);
+    // upstream-absorbed panels mount inside the governance section:
+    // invitations renders its heading once mounted (static), while
+    // the budget panel shows its error card because the governance
+    // API layer is not mocked in this harness.
+    expect(
+      await screen.findByText("hub.governance.invitations.title"),
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
+    });
+  });
+
   it("loads the real operations overview for administrators", async () => {
     renderHubPage();
 

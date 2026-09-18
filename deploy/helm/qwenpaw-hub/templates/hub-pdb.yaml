@@ -1,0 +1,23 @@
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: qwenpaw-hub
+  labels:
+    app.kubernetes.io/name: qwenpaw-hub
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  {{- if gt (int .Values.hub.replicas) 1 }}
+  minAvailable: {{ sub (int .Values.hub.replicas) 1 }}
+  {{- else }}
+  # Single replica: a PDB can only ever allow voluntary disruptions
+  # (minAvailable: 0) — it exists so `kubectl drain` prints an explicit
+  # "disruption budget allows 0" instead of silently killing the only
+  # writer. Availability comes from the canary flow (runbook §canary),
+  # not from replicas.
+  minAvailable: 0
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: qwenpaw-hub
+{{- end }}

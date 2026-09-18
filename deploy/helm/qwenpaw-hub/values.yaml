@@ -76,3 +76,62 @@ resources:
 
 nodeSelector: {}
 tolerations: []
+
+# --- Production hardening (K8s checklist, 02 matrix G6/audit §4) ---
+
+podDisruptionBudget:
+  # With a single replica this renders minAvailable: 0 — it exists so
+  # `kubectl drain` surfaces an explicit budget instead of silently
+  # evicting the only writer. Raise replicas > 1 (state externalized)
+  # and the template switches to replicas-1 automatically.
+  enabled: false
+
+podAntiAffinity:
+  # Only effective above one replica; kept as a switch so multi-replica
+  # futures do not need a chart change.
+  enabled: false
+
+probes:
+  startup:
+    # Absorbs cold-PVC migrations before liveness counts.
+    enabled: true
+    periodSeconds: 5
+    failureThreshold: 60
+  liveness:
+    enabled: true
+    initialDelaySeconds: 20
+    periodSeconds: 20
+    failureThreshold: 3
+
+# Pod-level context. The official image currently runs as root;
+# enable runAsNonRoot only after the image carries a numeric USER.
+podSecurityContext: {}
+  # runAsNonRoot: true
+  # runAsUser: 1000
+  # fsGroup: 1000
+
+containerSecurityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop: ["ALL"]
+
+ingress:
+  enabled: false
+  className: nginx
+  # Intranet FQDN routed to the hub service.
+  host: hub.corp.local
+  tls:
+    enabled: false
+    # Pre-created TLS Secret (cert-manager or ops-managed).
+    secretName: ""
+
+networkPolicy:
+  # Default-deny ingress; explicit egress (DNS, runtime ns, K8s API,
+  # listed CIDRs). Keep off until the namespace topology is settled.
+  enabled: false
+  allowedNamespaces: [] # e.g. [ingress-nginx]
+  allowedCIDRs: [] # admin/intranet ranges, e.g. [10.0.0.0/8]
+  kubeApiCIDR: 10.96.0.1/32
+  egressCIDRs: [] # OIDC/model provider endpoints
+

@@ -45,6 +45,7 @@ from ..utils.oauth_callback import HUB_OAUTH_CALLBACK_URL_HEADER
 from .access_security import HubAccessSecurity
 from .acl import AclEngine
 from .acl.console_map import effective_permissions
+from .acl.resource_policies import allowed_resource_ids, resource_baseline
 from .capability import (
     CapabilityRequirement,
     RuntimeCapability,
@@ -372,18 +373,35 @@ def _oidc_redirect_uri(request: Request) -> str:
     return f"{base}/api/hub/auth/oidc/callback"
 
 
-def _build_oidc_client(hub_config: Any) -> OidcClient | None:
-    """Construct the OIDC client from current settings (or None)."""
+def _build_oidc_client(
+    hub_config: Any,
+    vault: Any = None,
+) -> OidcClient | None:
+    """Construct the OIDC client from current settings (or None).
+
+    Secret resolution order (A4): explicit hub.yaml value (compat) →
+    encrypted vault entry imported from the provisioner env → empty.
+    """
     if hub_config is None:
         return None
     oidc_config = getattr(hub_config.control_plane, "oidc", None)
     if oidc_config is None or not oidc_config.enabled:
         return None
+    client_secret = oidc_config.client_secret
+    if not client_secret and vault is not None:
+        client_secret = (
+            vault.get(
+                tenant_id="__qwenpaw_hub_system__",
+                scope="control",
+                name="QWENPAW_HUB_OIDC_CLIENT_SECRET",
+            )
+            or ""
+        )
     return OidcClient(
         OidcSettings(
             issuer=oidc_config.issuer,
             client_id=oidc_config.client_id,
-            client_secret=oidc_config.client_secret,
+            client_secret=client_secret,
             username_claim=oidc_config.username_claim,
             groups_claim=oidc_config.groups_claim,
             display_name_claim=oidc_config.display_name_claim,
@@ -436,6 +454,25 @@ def create_hub_app(  # pylint: disable=too-many-statements
     model_networks: dict[str, RuntimeModelNetwork] = {}
     original_credentials = runtime_service.credential_provider
 
+    def _owner_resource_baseline_env(owner_user_id: str) -> dict[str, str]:
+        """D2/D3: per-owner allow-list env (skills/MCP/channels).
+
+        Computed from the owner's group policies on every (re)start so
+        admin edits hot-apply on the next drift rebuild.
+        """
+        groups = app.state.group_store.group_names_for(owner_user_id)
+        policies = app.state.group_store.policies_for(
+            user_id=owner_user_id,
+            groups=groups,
+            role="user",
+        )
+        resources = resource_baseline(policies)
+        if not resources:
+            return {}
+        return {
+            "QWENPAW_RESOURCE_BASELINE_JSON": json.dumps(resources),
+        }
+
     def managed_credentials(record):
         values = dict(original_credentials(record))
         network = model_networks[record.provisioner]
@@ -443,6 +480,8 @@ def create_hub_app(  # pylint: disable=too-many-statements
         values["QWENPAW_HUB_MODEL_TOKEN"] = governance_catalog.issue_token(
             record,
         )
+        if getattr(record, "owner_user_id", None):
+            values.update(_owner_resource_baseline_env(record.owner_user_id))
         return values
 
     runtime_service.credential_provider = managed_credentials
@@ -519,6 +558,22 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.state.auth_service = hub_auth
     app.state.hub_config = effective_config
     app.state.config_store = config_store
+    app.state.credential_vault = credential_vault
+    # A4 follow-up: if the provisioner injected the OIDC client
+    # secret via environment (helm Secret → env), import it once into
+    # the encrypted vault and clear the process env so the plaintext
+    # value only ever exists for the microseconds of this import.
+    _oidc_secret_env = "QWENPAW_HUB_OIDC_CLIENT_SECRET"
+    _oidc_secret_value = os.environ.get(_oidc_secret_env, "")
+    if _oidc_secret_value:
+        credential_vault.put(
+            tenant_id="__qwenpaw_hub_system__",
+            scope="control",
+            name="QWENPAW_HUB_OIDC_CLIENT_SECRET",
+            value=_oidc_secret_value,
+            trusted=True,
+        )
+        os.environ.pop(_oidc_secret_env, None)
     app.state.operations = operations
     app.state.access_security = access_security
     app.state.docker_pulls = docker_pulls
@@ -536,7 +591,10 @@ def create_hub_app(  # pylint: disable=too-many-statements
     # EP-2-4: hand-rolled Prometheus registry (07 §4)
     app.state.metrics = HubMetrics()
     # EP-2-2: OIDC SSO client (rebuilt when admin updates settings)
-    app.state.oidc_client = _build_oidc_client(hub_config)
+    app.state.oidc_client = _build_oidc_client(
+        hub_config,
+        vault=credential_vault,
+    )
     # E6: per-user rate/concurrency caps (hot-reloadable overlay)
     app.state.rate_limiter = RateLimiter(
         runtime_service.root_dir / "ratelimit.json",
@@ -545,6 +603,37 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.state.model_extensions = HubExtensionStore(
         operations.database_path,
     )
+
+    # E5 consumption side: the model gateway walks the admin-defined
+    # chain when the requested model's upstream fails. Read fresh per
+    # call so admin edits hot-apply; failures fail open to direct.
+    def _fallback_chain_for(model_id: str) -> list[str]:
+        document = app.state.model_extensions.get(
+            resource_type="model",
+            resource_id=model_id,
+            namespace="governance",
+            key="fallbacks",
+        )
+        if not document:
+            return []
+        value = document.get("value") or document.get("fallbacks")
+        chain = (value or {}).get("fallbacks", [])
+        return [str(item) for item in chain]
+
+    model_gateway.fallbacks_for = _fallback_chain_for
+
+    def _fallback_metric(original: str, used: str, _rid: str) -> None:
+        try:
+            app.state.metrics.inc(
+                "qwenpaw_hub_model_fallback_total",
+                requested=original,
+                served=used,
+            )
+        except Exception:  # noqa: BLE001 - observability must not raise
+            pass
+
+    model_gateway.on_fallback = _fallback_metric
+
     # G2: runtime scheduling requirements live as a hub extension
     app.state.capability_requirement = (
         lambda: CapabilityRequirement.from_document(None)
@@ -2109,6 +2198,35 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 },
             )
         graph = (template.get("manifest") or {}).get("graph")
+        # D2: agent-level access gate — group policies can restrict
+        # which users/groups may instantiate which templates via the
+        # ``agent_template:<id>`` name (deny beats allow; admins pass).
+        if user.role != "admin":
+            groups = app.state.group_store.group_names_for(user.user_id)
+            policies = app.state.group_store.policies_for(
+                user_id=user.user_id,
+                groups=groups,
+                role=user.role,
+            )
+            allowed_all, ids = allowed_resource_ids(
+                policies,
+                "agent_template",
+            )
+            if not allowed_all and template_id not in ids:
+                await record_audit(
+                    user,
+                    "template.instantiate_denied",
+                    "template",
+                    template_id,
+                    {"reason": "resource_policy"},
+                )
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "code": "TEMPLATE_FORBIDDEN",
+                        "message": "Resource policy denies this template",
+                    },
+                )
         pushed = False
         if graph:
             pushed = await _push_graph_to_runtime(user, graph)

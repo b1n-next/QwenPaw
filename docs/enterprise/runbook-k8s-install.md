@@ -90,7 +90,24 @@ helm rollback qwenpaw
 单副本 hub 升级 = Recreate 重建（秒级中断窗口）；hub PVC 与 runtime PVC
 均不受升级影响。
 
-## 6. 故障排查
+## 6. 生产加固件（K8s 补件票）
+
+默认关闭、`values-prod.yaml` 开启（或逐项 `--set`）：
+
+| 件 | 开关 | 说明 |
+|---|---|---|
+| PDB | `podDisruptionBudget.enabled` | 单副本=显式 minAvailable 0（drain 可执行且打印预算）；>1 副本=N-1 保写者 |
+| 反亲和 | `podAntiAffinity.enabled`（需 replicas>1） | hostname 反亲和打散 |
+| 探针 | `probes.startup/liveness.enabled` | startup 兜底 5min 预算 + liveness `/` http |
+| 容器加固 | `containerSecurityContext` | drop ALL / 禁提权 / `readOnlyRootFilesystem: true`（prod）+ /tmp emptyDir + working{,.secret,.backups} PVC subPath |
+| NetworkPolicy | `networkPolicy.enabled` | 入站默认拒+同 ns+放行名单；出站 DNS/runtimes/API/自定义 CIDR |
+| Ingress/TLS | `ingress.enabled`（+`tls.secretName` 必填） | Prefix → qwenpaw-hub Service |
+
+**metrics 抓取凭证**：`/api/hub/metrics` 需登录态，注解式抓取不可用 ——
+见 `deploy/prometheus/hub-scrape-job.yaml`（bearer_token_file + Secret
+创建步骤，kind 实测 200）。
+
+## 7. 故障排查
 
 | 症状 | 定位 |
 |---|---|

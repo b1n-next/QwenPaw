@@ -95,6 +95,7 @@ def test_runtime_payload_assembly() -> None:
         host = "127.0.0.1"
         port = 6199
         provisioner = "local"
+        metadata = {}
 
         def to_dict(self) -> dict:
             return {"id": "rt-1", "state": "running"}

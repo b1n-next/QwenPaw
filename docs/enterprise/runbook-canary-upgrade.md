@@ -103,3 +103,36 @@ runtime Pod（无状态 + PVC 工作区），漂移自愈。
 - [x] 环境分层 values 三档 + 渲染验证（I2）
 - [x] 金丝雀五步流程手册 + kind 全链路演练记录（A7）
 - [x] 冒烟门脚本化（5 关，双环境实测 SMOKE-PASS）
+
+## 5. 升级停机窗口（Recreate 单副本的诚实账）
+
+`strategy: Recreate` + `replicas: 1`（sqlite 单写者，06 §3）意味着
+**每次 helm upgrade 滚动 = 控制面短暂停机**。不粉饰、可量化：
+
+**窗口构成（kind 实测，prod 参考值）**：
+
+| 阶段 | 耗时（参考） | 说明 |
+|---|---|---|
+| 旧 Pod terminate | 5–15s | 优雅关闭（in-flight 代理请求排空） |
+| 新 Pod schedule + 拉镜像 | 5–30s（镜像已在 node 上则省） | IfNotPresent + 预热节点 |
+| initContainer bootstrap | 2–5s | 幂等，已有 admin 时即刻退出 |
+| hub 启动到 readiness | 10–30s | sqlite 迁移 + 目录装载；startupProbe 兜底 5min 预算 |
+| **合计典型窗口** | **~30–80s** | runtime Pod 不受影响（已启动的继续跑） |
+
+**缓解措施（按优先序）**：
+
+1. **金丝雀先行**（§2–§3）：新版本先在 canary Deployment 冒烟，
+   主窗口内只剩"已验证二进制"的切换，把"发现问题的停机"变成
+   "计划内切换"。
+2. **镜像预热**：升级前 `kind load` / 内网 registry 预拉，砍掉
+   最大方差项（外网拉镜像 30s–数分钟）。
+3. **低峰窗口**（values-prod `backup.schedule` 同款低峰）执行；
+   backup 脚本先行，保证窗口内最坏情况可回滚恢复。
+4. **客户端体验**：窗口内登录/代理报 502/503；runtime 侧会话
+   在 hub 恢复后自动续接（runtime 不重启）。
+5. **PDB 显式化**（`podDisruptionBudget.enabled: true`，prod 默认开）：
+   `kubectl drain` 会打印明确的 0/1 预算提示而非静默杀唯一写者。
+
+**不承诺零停机**：单写者架构下零停机 = 双写热备（sqlite 不支持）或
+外置状态存储（Postgres 化），已在 02 矩阵登记为 Phase 3+ 议题
+（状态外置后 `hub.replicas>1` + PDB 自动切换 minAvailable=N-1）。

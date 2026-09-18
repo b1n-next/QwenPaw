@@ -400,6 +400,8 @@ def get_available_channels() -> Tuple[str, ...]:
     * QWENPAW_DISABLED_CHANNELS — blacklist (all channels *except* these).
     * If both are set, QWENPAW_ENABLED_CHANNELS takes precedence.
     * If neither is set, all discovered channels are returned.
+    * D3: the hub-pushed resource baseline (per-owner group policy)
+      applies as a final intersection on top of either mode.
     """
     from ..app.channels.registry import get_channel_registry
 
@@ -409,17 +411,29 @@ def get_available_channels() -> Tuple[str, ...]:
     raw_enabled = EnvVarLoader.get_str("QWENPAW_ENABLED_CHANNELS", "").strip()
     if raw_enabled:
         enabled = {ch.strip() for ch in raw_enabled.split(",") if ch.strip()}
-        return tuple(k for k in all_keys if k in enabled) or all_keys
+        selected = tuple(k for k in all_keys if k in enabled) or all_keys
+    else:
+        raw_disabled = EnvVarLoader.get_str(
+            "QWENPAW_DISABLED_CHANNELS",
+            "",
+        ).strip()
+        if raw_disabled:
+            disabled = {
+                ch.strip() for ch in raw_disabled.split(",") if ch.strip()
+            }
+            selected = tuple(k for k in all_keys if k not in disabled) or (
+                all_keys
+            )
+        else:
+            selected = all_keys
 
-    raw_disabled = EnvVarLoader.get_str(
-        "QWENPAW_DISABLED_CHANNELS",
-        "",
-    ).strip()
-    if raw_disabled:
-        disabled = {ch.strip() for ch in raw_disabled.split(",") if ch.strip()}
-        return tuple(k for k in all_keys if k not in disabled) or all_keys
+    # D3: hub resource baseline intersection (no-op when unrestricted)
+    try:
+        from ..app.resource_baseline import filter_ids
 
-    return all_keys
+        return tuple(filter_ids("channel", selected))
+    except Exception:  # noqa: BLE001 - baseline must not break discovery
+        return selected
 
 
 def is_running_in_container() -> bool:

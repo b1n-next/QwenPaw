@@ -12,10 +12,10 @@
 | A1 | 内网可信环境部署（不出公网） | USR | ✅（现状即支持） | P0 | — | — |
 | A2 | Helm Chart：Hub Deployment + per-tenant Pod | HUB | ✅（`deploy/helm/qwenpaw-hub/`：deployment/pvc/service/rbac/configmap + bootstrap_admin initContainer + NOTES；kind 验收过） | P1 | Ph1 | **高**（官方在考虑 K8s） |
 | A3 | per-tenant PVC（RWO 即可，per-tenant 模型下无需 RWX） | AUD | ✅（`provisioners/k8s/manifest.py` PVC builder + stop 保 PVC 会话延续，06 §7.1 kind 实测） | P1 | Ph1 | 高 |
-| A4 | A4 | Secret 集成（K8s Secret 起步，Vault/KMS 可选） | ✅（闭环 EP-2-13 归置承诺：`hub-secret.yaml` 新模板（admin 凭据 + 可选 OIDC client_secret 入 Secret 资源）；Deployment env/init args 全部 `secretKeyRef`/`$(VAR)` 引用（**spec 零明文**，grep 实证 0）；`hub.secretProvider.enabled` 开关（默认 off 兼容旧流，staging/prod 档默认 on）；顺手修真 bug：bootstrap init 缺 `--root` 参数（镜像 argparse 必需，CrashLoopBackOff 实证）；kind 实弹：helm upgrade → rollout → Secret 投递冒烟 SMOKE-PASS。Vault/KMS 升级位留待需要时） | ✅ | Ph2（已落） | Vault/KMS 可选升级 |
+| A4 | A4 | Secret 集成（K8s Secret 起步，Vault/KMS 可选） | ✅（闭环 EP-2-13 归置承诺：`hub-secret.yaml` 新模板（admin 凭据 + 可选 OIDC client_secret 入 Secret 资源）；**OIDC secret 已入 vault**：`QWENPAW_HUB_OIDC_CLIENT_SECRET` env 启动时一次性导入加密 vault 并即刻清 env，`_build_oidc_client` 三源解析（yaml 显式值 → vault → 空）；Deployment env/init args 全部 `secretKeyRef`/`$(VAR)` 引用（**spec 零明文**，grep 实证 0）；`hub.secretProvider.enabled` 开关（默认 off 兼容旧流，staging/prod 档默认 on）；顺手修真 bug：bootstrap init 缺 `--root` 参数（镜像 argparse 必需，CrashLoopBackOff 实证）；kind 实弹：helm upgrade → rollout → Secret 投递冒烟 SMOKE-PASS。Vault/KMS 升级位留待需要时） | ✅ | Ph2（已落） | Vault/KMS 可选升级 |
 | A5 | 多机调度（K8s 原生调度即可满足） | HUB | ✅（随 G1 达成：k8s provisioner 起 per-tenant Pod 跨节点调度；多副本 hub 仍属 A6 状态外置前提） | P2 | Ph1 | 高 |
 | A6 | 弹性扩缩容（Hub 层 HPA；runtime per-tenant 不扩副本） | HUB | ❌ | P2 | Ph2 | 高 |
-| A7 | A7 | 升级策略（hub 滚动升级 + runtime 重建；金丝雀/蓝绿） | ✅（EP-2-10 金丝雀：sqlite 单写者约束下采用**隔离状态金丝雀**——emptyDir 草稿副本 + `hub-smoke.sh` 五关冒烟门 + JSON patch 选择器切流；kind 全链路实测含回退（merge patch 不删 selector key 的踩坑已固化为手册警示）；runtime 升级走 registry 期望态重建） | ✅ | Ph2（已落） | — |
+| A7 | A7 | 升级策略（hub 滚动升级 + runtime 重建；金丝雀/蓝绿） | ✅（EP-2-10 金丝雀：sqlite 单写者约束下采用**隔离状态金丝雀**——emptyDir 草稿副本 + `hub-smoke.sh` 五关冒烟门 + JSON patch 选择器切流；kind 全链路实测含回退（merge patch 不删 selector key 的踩坑已固化为手册警示）；runtime 升级走 registry 期望态重建）；**停机窗口已明示**：runbook-canary §5 量化 Recreate 单副本窗口（~30-80s 典型）+ 五级缓解（金丝雀先行/镜像预热/低峰+备份兜底/PDB 显式预算/零停机=Phase3+ 状态外置议题）| ✅ | Ph2（已落） | — |
 | A8 | A8 | 备份容灾（Velero/PVC 快照 + sqlite 备份手册化） | ✅（EP-2-5 `1a41…`：`runbook-backup-restore.md` 双层手册——SQLite 在线 `.backup` 脚本 `deploy/scripts/backup-hub-sqlite.sh`（WAL 一致快照+SHA256SUMS+轮转）+ Velero 卷级步骤；**L1 恢复演练实测闭环**（破坏→恢复→integrity ok→行数/vault 对账→轮转 8→3），L2 待生产首跑补记） | ✅ | Ph2（已落） | — |
 | A9 | 定时任务幂等/去重 | GLM | 🟡（per-tenant 单副本天然无重复；共享化后才需要分布式锁） | P3 | Ph3 | 低 |
 | A10 | 会话粘性 | GLM | 🟡（per-tenant 模型下 hub 代理天然路由到唯一 runtime；共享化后才需要） | P3 | Ph3 | 低 |
@@ -33,6 +33,7 @@
 | B5 | 按租户/组定制菜单白名单（而非全局两档） | USR 扩展 | ✅（`acl/console_map.py` 组/用户 `menu:<group>` 策略消费，菜单载荷按策略过滤；`test_menu_policies.py` 7 用例） | P2 | Ph2（已落） | 低 |
 | B6 | B6 | 直连 runtime 场景的受限 profile（`QWENPAW_CONSOLE_PROFILE`） | ✅（EP-2-9：runtime 环境变量 `QWENPAW_CONSOLE_PROFILE=restricted` 启用 `/api/console/profile`（复用 hub user 档 payload，shape 同 `/hub/me/permissions`）；console 降级链升级为 permissions 404 → 探测 profile → 才全量；未设置/`full` 行为与上游完全一致） | ✅ | Ph2（已落） | — |
 | B7 | 移动端/瘦客户端仅对话视图 | #7318 社区 | ❌ | P3 | backlog | 中 |
+| B8 | Hub 控制台吸收上游重构（治理/邀请/用量面板 UI） | 上游 #7779 | ✅（吸收接面：fork Hub 页新增治理 section（托管模型 OrganizationModels + 组织预算 OrganizationBudget + 邀请 Invitations，上游 #7779 组件接入 fork 版导航/面板骨架）；locale 7 语言；测试 14 例（含 governance 冒烟）；fork 页既有用量表格保留） | P2 | Ph2（已落） | 中 |
 
 ## C. 身份与组织
 
@@ -52,8 +53,8 @@
 | ID | 需求 | 来源 | 状态 | 优先级 | 阶段 | 撞车 |
 |---|---|---|---|---|---|---|
 | D1 | 角色→控制台能力（=B1/B2，先行切片） | USR | ✅（随 B1/B2 交付） | P0 | Ph0 | 低 |
-| D2 | 按用户/组控制 Agent 访问 | HUB | ❌ | P1 | Ph2 | **高** |
-| D3 | 按用户/组控制 Skill / MCP / Channel 访问 | HUB | ❌ | P1 | Ph2 | 高 |
+| D2 | 按用户/组控制 Agent 访问 | HUB | ✅（Agent=Hub 模板：实例化端点接 `agent_template:<id>` 组策略门（deny 优先，403+审计 `template.instantiate_denied`）；`acl/resource_policies.py` + 测试 9 例） | P1 | Ph2 | **高** |
+| D3 | 按用户/组控制 Skill / MCP / Channel 访问 | HUB | ✅（hub 侧：`skill:/mcp:/channel:` 组策略 → 每属主 `QWENPAW_RESOURCE_BASELINE_JSON` 白名单（凭据面注入，热更）；runtime 侧：`app/resource_baseline.py` 解析 + channels 注册表交集 + 技能预载过滤 + `resource_allowed()` 门） | P1 | Ph2 | 高 |
 | D4 | D4 | 策略引擎最小实现（静态半边 = 有序规则表 + overlay 已随 Ph0 落地；组级扩展（groups/policies 表求值）仍 Ph2，见 05 §7） | ✅（动态+静态全落：`AclEngine.decide` 前置 policies 求值——user>group>role、同路径 deny 优先、fail-closed 默认表兜底；`menu:*/agent:*/model:*` 资源类型已建模、代理层不消费） | ✅ | Ph2（已落） | — |
 | D5 | Agent/Skill 上架审批流 | GLM | ❌（市场有安装，无审批） | P2 | Ph2 | 中 |
 | D6 | 多租户共享 Agent/Skill 商店（组织级发布/分享） | #7318 社区(rerbin) | ❌ | P3 | backlog | 中 |
@@ -66,7 +67,7 @@
 | E2 | 用户只见批准的模型目录/别名，不见凭据与 Endpoint | HUB/USR | ✅（服务端强制：代理 GET /api/models 目录过滤 + 密钥永不回显 `api_key_set`；@c0f5174a） | P0 | Ph1 | 高 |
 | E3 | 首启 bootstrap：新租户 runtime 自动拿到可用默认模型 | HUB | ✅（`QWENPAW_MODEL_BOOTSTRAP_JSON` env + re-sync 钩子，04 §7；真机 E2E 过） | P0 | Ph1 | 高 |
 | E4 | E4 | 默认模型与按用途路由（编码→强模型，闲聊→轻模型） | ✅（模型路由策略：`model:<id>`/`model:*` 策略在成员激活 `PUT /api/models/active` 时代理内生效——catalog 门之后二次收口；deny 优先（对齐引擎/B5）；无策略沿用 catalog 判定；403 `MODEL_FORBIDDEN_BY_POLICY` 带目标模型） | ✅ | Ph2（已落） | — |
-| E5 | 故障切换/fallback 链 | HUB | 🟡（配置面已落：fallback 链存储+admin CRUD+审计；**消费面未接**——网关/代理按链故障切换留待应用线接线，届时升 ✅） | P2 | Ph2（半边） | 高 |
+| E5 | 故障切换/fallback 链 | HUB | ✅（消费面已接：`ModelGateway.call` 按 admin 定义链逐跳重试（每跳全量 reserve+open 记账），seen-set 防跨模型环，成功响应带 `X-QwenPaw-Fallback` 头 + `qwenpaw_hub_model_fallback_total` 指标；链配置热读（admin PUT 即生效）；测试 `test_e5_failover.py` 4 例） | P2 | Ph2 | 高 |
 | E6 | 限流与并发控制 | HUB | ✅（`ratelimit.py` 令牌桶+并发槽；代理门链 429+Retry-After+`ratelimit.exceeded` 审计+`qwenpaw_hub_rate_limited_total` 指标，finally 释放槽位） | P2 | Ph2（已落） | 高 |
 | E7 | E7 | 额度与成本控制（预算/熔断，与 F 区配额联动） | ✅（成本核算：单价表存模型扩展（`input/output_per_mtok`+currency，admin PUT 入审计）；`GET /admin/usage/costs` 按模型计价（MTok 单价 × usage 汇总）+ 按组汇总（tenant→组映射，无组落 `(ungrouped)`）+ 多币种合计 + `unpriced_models` 明示；读取入审计） | ✅ | Ph2（已落） | — |
 | E8 | Key 轮换机制 | GLM | 🟡（vault 有 secret 管理，轮换流程缺） | P2 | Ph2 | 中 |
@@ -140,6 +141,19 @@
 | K2 | 团队公共知识库与写入审批（rerbin/Marlin-Phone 讨论） | 社区 |
 | K3 | 审批规则智能生成（funnygeeker） | 社区 |
 | K4 | Hub 功能不拖累个人版体积（xiaohushi512） | 社区 |
+
+## M. 市场能力（应用/技能/插件；详见 24 号档）
+
+> 调研结论：市场服务端闭源（platform.agentscope.io），无源码可
+> 私有化；插件 CDN 目录链路与生成器开源、可自托管。
+
+| ID | 需求 | 来源 | 状态（证据） |
+|---|---|---|---|
+| M1 | 插件清单格式与生成器（自产条目） | 24 §2② | 🟡 开源（`scripts/pack/*`、`plugins/*/plugin.json`） |
+| M2 | 插件安装/下载（CDN 链路自托管） | 24 §2② | 🟡 客户端开源；`PLUGIN_DOWNLOAD_CDN` 硬编码待配置化 |
+| M3 | 应用/插件市场服务端（搜索/账号/发布） | 24 §2① | ❌ 官方闭源无源码；内网可仿 EP-2-19 模板市场自建 |
+| M4 | 技能市场 provider 接入 | 24 §2③ | 🟡 4 provider；platform/clawhub 闭源、modelscope 可自托管 |
+| M5 | 市场供应链安全（sha256/签名/缓存） | 24 §5 | ❌ 安装路径无摘要校验，内网源启用前必须补 |
 
 ---
 

@@ -475,6 +475,12 @@ async def lifespan(  # pylint: disable=too-many-statements,too-many-branches
             from .model_bootstrap import apply_model_bootstrap
 
             await apply_model_bootstrap(provider_manager)
+            # D2/D3: hub-pushed per-owner resource allow-list (skills /
+            # MCP servers / channels) — parsed once at startup; the
+            # skill preload and channel registry filters consult it.
+            from .resource_baseline import apply_resource_baseline_from_env
+
+            apply_resource_baseline_from_env()
             provider_manager.start_local_model_resume(local_model_manager)
             startup_provider_ids = provider_manager.startup_sync_provider_ids()
             asyncio.create_task(

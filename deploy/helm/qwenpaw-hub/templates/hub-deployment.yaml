@@ -18,6 +18,23 @@ spec:
         app.kubernetes.io/name: qwenpaw-hub
     spec:
       serviceAccountName: {{ .Values.serviceAccount.name }}
+      automountServiceAccountToken: true
+      {{- /* required: the K8s runtime provisioner talks to the API */}}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if and .Values.podAntiAffinity.enabled (gt (int .Values.hub.replicas) 1) }}
+      affinity:
+        podAntiAffinity:
+          # Only meaningful above one replica; with a single writer the
+          # scheduler constraint would just block scheduling.
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: qwenpaw-hub
+              topologyKey: kubernetes.io/hostname
+      {{- end }}
       initContainers:
         # EP-1-8: public bind refuses to start before an enabled admin
         # exists; create the first admin idempotently on the hub PVC.
@@ -147,6 +164,22 @@ spec:
             - name: hub-config
               mountPath: /etc/qwenpaw
               readOnly: true
+            {{- if and .Values.containerSecurityContext .Values.containerSecurityContext.readOnlyRootFilesystem }}
+            # The image's working dirs (QWENPAW_WORKING_DIR et al.)
+            # default to /app/working*; with a read-only root they move
+            # onto the hub-data PVC via subPath so state survives.
+            - name: hub-data
+              subPath: working
+              mountPath: /app/working
+            - name: hub-data
+              subPath: working.secret
+              mountPath: /app/working.secret
+            - name: hub-data
+              subPath: working.backups
+              mountPath: /app/working.backups
+            - name: tmp
+              mountPath: /tmp
+            {{- end }}
           readinessProbe:
             # /api/hub/healthz requires a session; the console index is
             # the unauthenticated liveness surface.
@@ -155,6 +188,32 @@ spec:
               port: http
             initialDelaySeconds: 5
             periodSeconds: 10
+          {{- if .Values.probes.startup.enabled }}
+          startupProbe:
+            # Covers sqlite migration / catalog bootstrap on cold PVCs
+            # before liveness starts counting.
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          {{- end }}
+          {{- if .Values.probes.liveness.enabled }}
+          livenessProbe:
+            # Same surface as readiness: the hub has no cheaper
+            # unauthenticated endpoint; a wedged event loop stops
+            # serving the index too.
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          {{- end }}
+          {{- with .Values.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       volumes:
@@ -164,3 +223,10 @@ spec:
         - name: hub-config
           configMap:
             name: qwenpaw-hub-config
+        {{- if and .Values.containerSecurityContext .Values.containerSecurityContext.readOnlyRootFilesystem }}
+        # Writable /tmp for a read-only root filesystem (python temp
+        # files, sqlite WAL sidecars never land here — they stay on the
+        # hub-data PVC).
+        - name: tmp
+          emptyDir: {}
+        {{- end }}
