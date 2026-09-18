@@ -7,12 +7,18 @@ from pydantic import BaseModel
 
 from ...constant import EnvVarLoader
 from ..auth import (
+    add_personal_token,
     authenticate,
+    create_token,
     has_registered_users,
     is_auth_enabled,
+    list_personal_tokens,
+    normalize_scopes,
     register_user,
     revoke_all_tokens,
     revoke_token,
+    remove_personal_token,
+    token_scopes,
     update_credentials,
     verify_token,
     resolve_client_ip,
@@ -322,4 +328,117 @@ async def revoke_all_sessions(request: Request):
     return {
         "message": "All tokens have been revoked. Please login again.",
         "revoked": True,
+    }
+
+
+# ---------------------------------------------------------------------------
+# C7: fine-grained personal access tokens (scoped PATs)
+# ---------------------------------------------------------------------------
+
+
+class PersonalTokenRequest(BaseModel):
+    """PAT creation body."""
+
+    name: str = ""
+    scopes: list[str] = []
+    expiry_seconds: int | None = None
+
+
+def _caller_token(request: Request) -> str:
+    auth_header = request.headers.get("Authorization", "")
+    return auth_header[7:] if auth_header.startswith("Bearer ") else ""
+
+
+@router.get("/tokens")
+async def list_tokens(request: Request):
+    """List the caller's PAT metadata (token bodies never stored)."""
+    token = _caller_token(request)
+    if not token or verify_token(token) is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    caller_scopes = token_scopes(token)
+    if caller_scopes is not None and "*" not in caller_scopes:
+        raise HTTPException(
+            status_code=403,
+            detail="Session-scoped tokens cannot manage PATs",
+        )
+    user = verify_token(token)
+    entries = [
+        entry for entry in list_personal_tokens() if entry.get("user") == user
+    ]
+    return {"tokens": entries}
+
+
+@router.post("/tokens")
+async def create_personal_token(
+    request: Request,
+    body: PersonalTokenRequest,
+):
+    """Issue a scoped PAT for the caller (C7).
+
+    Scopes: ``<group>[:read|write]`` per auth._SCOPE_GROUPS; an empty
+    list issues a full-privilege PAT (use sparingly).
+    """
+    token = _caller_token(request)
+    if not token or verify_token(token) is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    caller_scopes = token_scopes(token)
+    if caller_scopes is not None and "*" not in caller_scopes:
+        raise HTTPException(
+            status_code=403,
+            detail="Scoped tokens cannot mint further tokens",
+        )
+    try:
+        scopes = normalize_scopes(body.scopes)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    user = verify_token(token)
+    if user is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    issued = create_token(
+        user,
+        expiry_seconds=body.expiry_seconds,
+        scopes=scopes or None,
+    )
+    import base64 as _base64
+    import json as _json
+    import time as _time
+
+    payload = _json.loads(_base64.urlsafe_b64decode(issued.split(".")[0]))
+    record = {
+        "jti": payload.get("jti"),
+        "user": user,
+        "name": body.name or "unnamed",
+        "scopes": scopes,
+        "created_at": _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime()),
+        "expires_at": payload.get("exp"),
+    }
+    add_personal_token(record)
+    # The token body is returned exactly once
+    return {"token": issued, **record}
+
+
+@router.delete("/tokens/{jti}")
+async def delete_personal_token(jti: str, request: Request):
+    """Revoke a PAT by jti (blacklist + metadata drop)."""
+    token = _caller_token(request)
+    if not token or verify_token(token) is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    caller_scopes = token_scopes(token)
+    if caller_scopes is not None and "*" not in caller_scopes:
+        raise HTTPException(
+            status_code=403,
+            detail="Scoped tokens cannot manage PATs",
+        )
+    user = verify_token(token)
+    owned = [
+        entry
+        for entry in list_personal_tokens()
+        if entry.get("jti") == jti and entry.get("user") == user
+    ]
+    if not owned:
+        raise HTTPException(status_code=404, detail="Token not found")
+    remove_personal_token(jti)
+    return {
+        "message": "Token metadata removed; revoke the token "
+        "body via /revoke-token if still live.",
     }

@@ -3484,6 +3484,44 @@ def create_hub_app(  # pylint: disable=too-many-statements
         )
         return {"success": ok, "message": message}
 
+    @app.get("/api/hub/admin/runtimes/{runtime_id}/health")
+    async def admin_runtime_health(
+        runtime_id: str,
+        _admin: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Config-level runtime health detail (F8).
+
+        K8s runtimes: pod phase / restarts / scheduled requests+limits
+        / node (no metrics-server needed). Live usage stays on the
+        Prometheus plane (EP-2-4). Other provisioners report
+        ``supported: false`` with the observed state only.
+        """
+        records = await run_in_threadpool(runtime_service.list)
+        record = next(
+            (r for r in records if r.runtime_id == runtime_id),
+            None,
+        )
+        if record is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "RUNTIME_NOT_FOUND"},
+            )
+        base: dict[str, object] = {
+            "runtime_id": runtime_id,
+            "state": str(getattr(record.state, "value", record.state)),
+            "provisioner": record.provisioner,
+            "owner_user_id": record.owner_user_id,
+        }
+        provisioner = runtime_service.provisioners.get(record.provisioner)
+        pod_health = getattr(provisioner, "pod_health", None)
+        if pod_health is None:
+            base["supported"] = False
+            return base
+        detail = await run_in_threadpool(pod_health, record)
+        base["supported"] = True
+        base["pod"] = detail or {"present": False}
+        return base
+
     @app.get("/api/hub/admin/runtimes/logs")
     async def admin_runtime_logs_index(
         _admin: HubUser = Depends(require_admin),

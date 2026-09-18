@@ -134,7 +134,11 @@ def _get_jwt_secret() -> str:
     return secret
 
 
-def create_token(username: str, expiry_seconds: Optional[int] = None) -> str:
+def create_token(
+    username: str,
+    expiry_seconds: Optional[int] = None,
+    scopes: Optional[list[str]] = None,
+) -> str:
     """Create an HMAC-signed token: ``base64(payload).signature``.
 
     Args:
@@ -142,6 +146,9 @@ def create_token(username: str, expiry_seconds: Optional[int] = None) -> str:
         expiry_seconds: Custom expiry time in seconds.
             Use -1 or 0 for permanent tokens.
             Defaults to TOKEN_EXPIRY_SECONDS (7 days).
+        scopes: Optional fine-grained scope list (C7), e.g.
+            ``["agents:read", "files"]``. Empty/None means a
+            full-privilege session token (backward compatible).
     """
     import base64
 
@@ -157,14 +164,16 @@ def create_token(username: str, expiry_seconds: Optional[int] = None) -> str:
     secret = _get_jwt_secret()
     # Generate unique token ID (jti) for revocation support
     token_id = secrets.token_hex(16)
-    payload = json.dumps(
-        {
-            "sub": username,
-            "exp": int(time.time()) + expiry_seconds,
-            "iat": int(time.time()),
-            "jti": token_id,  # JWT ID for individual revocation
-        },
-    )
+    body: dict[str, object] = {
+        "sub": username,
+        "exp": int(time.time()) + expiry_seconds,
+        "iat": int(time.time()),
+        "jti": token_id,  # JWT ID for individual revocation
+    }
+    normalized = normalize_scopes(scopes)
+    if normalized:
+        body["scp"] = normalized
+    payload = json.dumps(body)
     payload_b64 = base64.urlsafe_b64encode(payload.encode()).decode()
     sig = hmac.new(
         secret.encode(),
@@ -262,6 +271,117 @@ def _save_auth_data(data: dict) -> None:
     with open(AUTH_FILE, "w", encoding="utf-8") as f:
         json.dump(encrypted_data, f, indent=2, ensure_ascii=False)
     _chmod_best_effort(AUTH_FILE, 0o600)
+
+
+# ---------------------------------------------------------------------------
+# Fine-grained token scopes (C7: scoped PATs)
+# ---------------------------------------------------------------------------
+
+# API-group prefix table. A scope is ``<group>[:<level>]`` where level
+# is ``read`` or ``write`` (absent = both). Group ``*`` grants all.
+_SCOPE_GROUPS: dict[str, tuple[str, ...]] = {
+    "chat": ("/api/chat", "/api/conversations"),
+    "agents": ("/api/agents", "/api/agent-status", "/api/fork"),
+    "files": ("/api/files",),
+    "config": ("/api/config", "/api/envs"),
+    "tools": ("/api/tools", "/api/mcp"),
+    "knowledge": ("/api/knowledge", "/api/vector"),
+}
+_SCOPE_LEVELS = ("read", "write")
+
+
+def normalize_scopes(scopes: Optional[list[str]]) -> list[str]:
+    """Validate and normalize a scope list; raise ValueError if invalid."""
+    normalized: list[str] = []
+    for raw in scopes or []:
+        parts = str(raw).strip().lower().split(":", 1)
+        group = parts[0]
+        level = parts[1] if len(parts) > 1 else ""
+        if group == "*":
+            normalized.append("*")
+            continue
+        if group not in _SCOPE_GROUPS:
+            raise ValueError(f"unknown scope group: {group}")
+        if level and level not in _SCOPE_LEVELS:
+            raise ValueError(f"unknown scope level: {level}")
+        normalized.append(f"{group}:{level}" if level else group)
+    return normalized
+
+
+def token_scopes(token: str) -> Optional[list[str]]:
+    """Return the scope list carried by a token (None = full session)."""
+    import base64
+
+    try:
+        parts = token.split(".", 1)
+        if len(parts) != 2:
+            return None
+        payload = json.loads(base64.urlsafe_b64decode(parts[0]))
+        scopes = payload.get("scp")
+        if scopes is None:
+            return None
+        if isinstance(scopes, list):
+            return [str(item) for item in scopes]
+    except (json.JSONDecodeError, ValueError, TypeError):
+        return None
+    return None
+
+
+def request_allowed_by_scopes(
+    scopes: list[str],
+    method: str,
+    path: str,
+) -> bool:
+    """Check a (method, path) against a scope list."""
+    if "*" in scopes:
+        return True
+    wants_write = method.upper() not in ("GET", "HEAD", "OPTIONS")
+    for scope in scopes:
+        group, _, level = scope.partition(":")
+        if group == "*":
+            return True
+        prefixes = _SCOPE_GROUPS.get(group)
+        if not prefixes:
+            continue
+        if not path.startswith(prefixes):
+            continue
+        if level == "read" and wants_write:
+            continue
+        return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Personal access tokens (C7 metadata; secrets themselves never stored)
+# ---------------------------------------------------------------------------
+
+PAT_META_FIELDS = "personal_tokens"
+
+
+def list_personal_tokens() -> list[dict]:
+    """List PAT metadata records (no token bodies)."""
+    return list(_load_auth_data().get(PAT_META_FIELDS) or [])
+
+
+def add_personal_token(record: dict) -> None:
+    """Persist one PAT metadata record."""
+    data = _load_auth_data()
+    entries = list(data.get(PAT_META_FIELDS) or [])
+    entries.append(record)
+    data[PAT_META_FIELDS] = entries
+    _save_auth_data(data)
+
+
+def remove_personal_token(jti: str) -> bool:
+    """Drop PAT metadata by jti (token itself must be revoked too)."""
+    data = _load_auth_data()
+    entries = list(data.get(PAT_META_FIELDS) or [])
+    kept = [e for e in entries if e.get("jti") != jti]
+    if len(kept) == len(entries):
+        return False
+    data[PAT_META_FIELDS] = kept
+    _save_auth_data(data)
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -725,6 +845,19 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return Response(
                 content='{"detail":"Invalid or expired token"}',
                 status_code=401,
+                media_type="application/json",
+            )
+
+        # C7: scoped PATs only reach their API groups
+        scopes = token_scopes(token)
+        if scopes and not request_allowed_by_scopes(
+            scopes,
+            request.method,
+            request.url.path,
+        ):
+            return Response(
+                content='{"detail":"Token scope does not allow this"}',
+                status_code=403,
                 media_type="application/json",
             )
 

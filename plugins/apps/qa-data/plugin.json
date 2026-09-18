@@ -1,0 +1,42 @@
+{
+  "id": "qa-data",
+  "name": "Qa Data",
+  "version": "0.1.0",
+  "description": "Ask business questions over the intranet database in natural language and get governed read-only SQL with traceable table results.",
+  "description_i18n": {
+    "zh-CN": "内网问数：自然语言提问，治理后的只读 SQL 与可追溯的表格结果。",
+    "en-US": "Natural-language Q&A over the enterprise database with governed read-only SQL and table results."
+  },
+  "author": "QwenPaw Team",
+  "type": "app",
+  "entry": {
+    "backend": "backend/main.py",
+    "frontend": "ui/index.js"
+  },
+  "qwenpaw_version": {
+    "min": "2.0.1"
+  },
+  "meta": {
+    "pawapp": {
+      "icon": "📊",
+      "category": "productivity",
+      "entry_page": "/apps/qa-data",
+      "launch_scope": "page"
+    },
+    "permissions": {
+      "chat": true,
+      "storage": true,
+      "network": ["loopback", "database"]
+    },
+    "settings": [
+      {
+        "key": "database_url",
+        "label": "数据库连接（SQLAlchemy URL，M1 单源）",
+        "type": "string",
+        "env": "QADATA_DATABASE_URL",
+        "default": "sqlite:////tmp/qa-data-demo.sqlite",
+        "required": false
+      }
+    ]
+  }
+}

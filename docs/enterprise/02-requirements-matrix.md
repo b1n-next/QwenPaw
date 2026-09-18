@@ -17,8 +17,8 @@
 | A6 | 弹性扩缩容（Hub 层 HPA；runtime per-tenant 不扩副本） | HUB | ❌ | P2 | Ph2 | 高 |
 | A7 | A7 | 升级策略（hub 滚动升级 + runtime 重建；金丝雀/蓝绿） | ✅（EP-2-10 金丝雀：sqlite 单写者约束下采用**隔离状态金丝雀**——emptyDir 草稿副本 + `hub-smoke.sh` 五关冒烟门 + JSON patch 选择器切流；kind 全链路实测含回退（merge patch 不删 selector key 的踩坑已固化为手册警示）；runtime 升级走 registry 期望态重建）；**停机窗口已明示**：runbook-canary §5 量化 Recreate 单副本窗口（~30-80s 典型）+ 五级缓解（金丝雀先行/镜像预热/低峰+备份兜底/PDB 显式预算/零停机=Phase3+ 状态外置议题）| ✅ | Ph2（已落） | — |
 | A8 | A8 | 备份容灾（Velero/PVC 快照 + sqlite 备份手册化） | ✅（EP-2-5 `1a41…`：`runbook-backup-restore.md` 双层手册——SQLite 在线 `.backup` 脚本 `deploy/scripts/backup-hub-sqlite.sh`（WAL 一致快照+SHA256SUMS+轮转）+ Velero 卷级步骤；**L1 恢复演练实测闭环**（破坏→恢复→integrity ok→行数/vault 对账→轮转 8→3），L2 待生产首跑补记） | ✅ | Ph2（已落） | — |
-| A9 | 定时任务幂等/去重 | GLM | 🟡（per-tenant 单副本天然无重复；共享化后才需要分布式锁） | P3 | Ph3 | 低 |
-| A10 | 会话粘性 | GLM | 🟡（per-tenant 模型下 hub 代理天然路由到唯一 runtime；共享化后才需要） | P3 | Ph3 | 低 |
+| A9 | 定时任务幂等/去重 | GLM | ✅（**架构性满足**（per-tenant 单写者——runtime 每 Pod 单实例，cron 调度无并发副本；06 §3 单写者约束同源）；**重开条件**：runtime 共享化/多副本（届时需分布式锁，Ph3 议题）） | P3 | 架构满足 | 低 |
+| A10 | 会话粘性 | GLM | ✅（**架构性满足**（hub 代理按 owner_user_id 路由其唯一 runtime——`runtime_payloads` 每用户单记录；会话状态落 runtime 本地即天然粘滞）；**重开条件**：同上共享化） | P3 | 架构满足 | 低 |
 | A11 | 供应链安全（镜像签名验证、SBOM） | GLM | ❌ | P3 | backlog | 中 |
 | A12 | GPU 资源配额与亲和调度 | GLM | ❌ | P3 | backlog | 中 |
 
@@ -45,7 +45,7 @@
 | C4 | LDAP 直连 | GLM | ❌ | P2 | backlog | 中 |
 | C5 | SCIM 自动回收（离职联动） | GLM | ❌ | P3 | backlog | 中 |
 | C6 | 组织层级（租户→部门→团队四级） | GLM | ❌（扁平 group 起步） | P3 | backlog | 中 |
-| C7 | PAT 细粒度作用域（scoped token 只能调某 Agent/某 API 组） | GLM | 🟡（runtime 曾有 owner/collaborator/viewer 三级 token，#180 已实现基础层） | P2 | Ph2 | 中 |
+| C7 | PAT 细粒度作用域（scoped token 只能调某 Agent/某 API 组） | GLM | ✅（`app/auth.py` scope 体系：`<group>[:read\|write]` ×6 组（chat/agents/files/config/tools/knowledge）+ `*`；create_token 带 scp，AuthMiddleware 按组前缀+读写级强制（403）；PAT 端点 `GET/POST/DELETE /api/auth/tokens`（元数据存 auth.json，token 体只回显一次；scoped token 不可再铸 token）；jti 黑名单复用撤销链） | P2 | Ph2（已落） | 中 |
 | C8 | 委托/临时授权 | GLM | ❌ | P3 | backlog | 低 |
 
 ## D. RBAC 资源粒度
@@ -85,7 +85,7 @@
 | F5 | F5 | OpenTelemetry trace | ✅（W3C tracecontext：`trace.py` 增 `sanitize/traceparent` 解析（version-00 严格校验，畸形即弃）+ trace-id 回退映射；代理转发注入 `traceparent` 下游（runtime OTel SDK 可接）；`X-QwenPaw-Trace-Id` 贯穿保持。**OTLP 全家桶不引入**——零依赖原则下的显式取舍，hub 侧 trace 已全程贯穿） | ✅ | Ph2（已落） | — |
 | F6 | 审计事件结构化（who/what/when/allow-deny/reason，落 operations store 扩展表） | GLM/AUD | 🟡（`hub_audit_events` 五要素已落（actor/action/resource/outcome/correlation_id）；acl_denied 已有、quota 预留字段 ☐——**EP-1-5 2026-09-14 降级并入 EP-2-3 配额票**实施） | P1 | Ph1（残留）/Ph2（quota 字段） | 中 |
 | F7 | 运行时日志按租户留存与检索 | HUB | ✅（拉取式尾部留存：`hub/runtime_logs.py` RuntimeLogCollector 仿 EP-1-4（5min 拉 `/api/debug/backend-logs` 尾 500 行，internal token 通道），滚动保留 48 快照/runtime + sha256 去重；检索= `GET /api/hub/admin/runtimes/{id}/logs`（admin）；**边界诚实**：尾部窗口留存非日志管道（Loki/ELK 外置，07 §7）） | P2 | Ph2（已落） | 中 |
-| F8 | 健康状态面板（runtime 起停/资源，admin 页已有骨架） | HUB | 🟡（overview/runtimes 列表 + 起停随 hub 交付；**资源粒度深化 2026-09-14 归置 Ph2**——与 EP-2-4 metrics 指标源共用管线，无独立 Ph1 票故显式改期） | P1 | **Ph2** | 低 |
+| F8 | 健康状态面板（runtime 起停/资源，admin 页已有骨架） | HUB | ✅（`GET /api/hub/admin/runtimes/{id}/health`：K8s 读活 Pod——phase/restartCount/startedAt/**调度的 requests+limits**/node（零 metrics-server 依赖）；其他 provisioner `supported:false` 诚实降级；**实时用量走既有 Prometheus 面**（EP-2-4）不另建管线；列表/起停骨架随 hub 既有） | P1 | Ph2（已落） | 低 |
 | F9 | F9 | SIEM 对接/日志外送 | ✅（`hub/siem.py` SiemRelay：审计事件 JSONL 批量外送 webhook（batch_size/flush_interval/secret 头可配）；fire-and-forget 不阻塞请求路径，失败计数+last_error 可观测（`GET/PUT /admin/siem`）；H2 链不依赖 relay 存活） | ✅ | Ph2（已落） | — |
 
 ## G. 运行时与隔离
@@ -116,7 +116,7 @@
 |---|---|---|---|---|---|---|
 | I1 | fork 工程化：分支/基线 tag/CI 跑通上游测试 | USR | ✅（enterprise-ci.yml hub+console 两 job、fork-verify、baseline tag、docs/enterprise 全套；CI 三绿常态） | P0 | Ph0 | — |
 | I2 | I2 | 环境分层 dev/staging/prod（Helm values 分档） | ✅（EP-2-10：`values-{dev,staging,prod}.yaml` 三档——dev NodePort/低资源/注册开，staging 生产同形+日备，prod 高资源+18:00 日备+三冒烟门；渲染验证 ×14 资源） | ✅ | Ph2（已落） | — |
-| I3 | Agent/Skill/人格版本化与回滚 | GLM | 🟡（checkpoint/backup 已有基础） | P2 | Ph2 | 中 |
+| I3 | Agent/Skill/人格版本化与回滚 | GLM | ✅（**git 快照即版本线**：checkpoints 全集 API（create/preview-restore/apply-restore/gc/auto）覆盖 agents/ 目录（人格 PROFILE/SOUL + skills 资产随工作区树入快照，恢复即回滚）；**发布资产侧**模板市场 store revision 自动 bump + 审批流（EP-2-19）；**粒度诚实**：工作区/发布资产级，单 Agent 细粒度版本线留后续增强） | P2 | Ph2（已落） | 中 |
 | I4 | 发布流水线（开发→审核→灰度→全量） | GLM | ❌ | P3 | backlog | 低 |
 
 ## J. 问数应用（数据智能问答）
@@ -126,7 +126,7 @@
 | J1 | 通用问数：数据源维护（CRUD+连通测试+凭据入 vault） | USR | ❌（QwenPaw-Data 有参考实现） | P1 | Ph2 | 中（上游 app 演进中） |
 | J2 | schema 内省与缓存（库/表/列/注释） | USR | ❌ | P1 | Ph2 | 中 |
 | J3 | 语义层（表列业务描述/指标口径/维度/同义词/示例问答） | USR | ❌ | P1 | Ph2 | 中 |
-| J4 | 对话选源/选表提问 + SQL 透明展示 + 结果表格 | USR | 🟡（qwenpaw-data ChatWorkspace 可参照） | P1 | Ph2 | 中 |
+| J4 | 对话选源/选表提问 + SQL 透明展示 + 结果表格 | USR | 🟡（**M1 已落**：`plugins/apps/qa-data/` PawApp——选表提问（Ask 页）+ SQL 透明（```sql 块随答案返回）+ 结果表格渲染；sqlglot fail-closed 守卫（只读/单语句/强制 LIMIT≤500）+ 内省缓存检索；单测 10 例绿。**待 M1 金集 10 题人工判**（需真模型+业务库，08 §5）→ 后 M2 多源/M3 语义） | P1 | Ph2（M1 落） | 中 |
 | J5 | 只读 SQL 护栏（sqlglot 白名单、LIMIT/超时/行数） | USR/AUD | ❌ | P0（随 J1） | Ph2 | 低 |
 | J6 | schema 向量检索挑表（大库不全量入 prompt） | USR | ❌ | P2 | Ph2-3 | 中 |
 | J7 | NL2SQL 金集评测与回归 | AUD | ❌ | P1 | Ph2 | 低 |

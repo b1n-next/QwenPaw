@@ -133,6 +133,12 @@ git push -u origin feature/enterprise
 | `deploy/helm/qwenpaw-hub/templates/runtime-quota.yaml`（新文件） | G6 ns 级护栏：ResourceQuota（pods/cpu/mem/storage 聚合上限）+ LimitRange（default requests/limits 兜底，四键成对 fail 校验） | Ph1 | G6 批 |
 | `deploy/helm/qwenpaw-hub/values.yaml` + `values-prod.yaml`（追加） | G6 `runtimes.quota` 段（默认关）+ prod 示例 | Ph1 | G6 批 |
 | `src/qwenpaw/plugins/download_catalog.py`（追加 3 行） | M2 `PLUGIN_DOWNLOAD_CDN` 支持 `QWENPAW_PLUGIN_DOWNLOAD_CDN` env 覆盖（内网镜像） | Ph2 | M2 批 |
+| `src/qwenpaw/hub/provisioners/k8s/provisioner.py`（追加） | F8 `pod_health()`——读活 Pod（phase/restarts/requests+limits/node），零 metrics-server 依赖 | Ph2 | F8 批 |
+| `src/qwenpaw/hub/control_app.py`（追加） | F8 `GET /api/hub/admin/runtimes/{id}/health`（非 k8s provisioner 诚实降级 supported:false） | Ph2 | F8 批 |
+| `src/qwenpaw/app/auth.py`（追加） | C7 scope 体系：`_SCOPE_GROUPS`×6+`*`、`normalize_scopes`/`token_scopes`/`request_allowed_by_scopes`、PAT 元数据三函数；`create_token(scopes=)`；AuthMiddleware 403 强制 | Ph2 | C7 批 |
+| `src/qwenpaw/app/routers/auth.py`（追加） | C7 `GET/POST/DELETE /api/auth/tokens`（PAT 签发/列表/撤销；scoped token 不可再铸） | Ph2 | C7 批 |
+| `plugins/apps/qa-data/**`（新目录，9 文件） | J4/EP-2-6 M1：PawApp 问数（guard/introspect/main/ui/人格/requirements） | Ph2 | J4 批 |
+| `pyproject.toml`（test extra 追加 2 行） | qa-data 测试依赖 sqlglot/sqlalchemy | Ph2 | J4 批 |
 | `tests/integration/test_hub_control_app_module.py`（追加 1 行） | 上游 #7779 `_runtime_payload` 增 capability 后 FakeRecord 缺 `metadata`（merge 遗留基线红，非 fork 回归）——补 `metadata = {}` | Ph2 | E5/D2/D3/A4 批 |
 | `console/src/pages/Hub/index.tsx`（fork 文件，吸收登记） | 上游 #7779 组件吸收：治理 section（OrganizationModels/OrganizationBudget/Invitations）+ 导航项 + governanceGrid 样式 | Ph2 | B8 吸收 |
 

@@ -399,6 +399,53 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
             return replace(record, state=RuntimeState.FAILED)
         return replace(record, state=RuntimeState.STOPPED)
 
+    def pod_health(self, record: RuntimeRecord) -> dict[str, Any] | None:
+        """Config-level pod health for the admin panel (F8).
+
+        Reads the live Pod object: phase, restart count, start time,
+        and the container's requests/limits as scheduled. Live usage
+        (actual CPU/memory consumption) intentionally stays on the
+        Prometheus plane (EP-2-4) — this needs no metrics-server.
+        """
+
+        async def _read() -> dict[str, Any] | None:
+            client = self._make_client()
+            try:
+                try:
+                    pod = await client.get(
+                        self._namespace,
+                        "pods",
+                        pod_name(record),
+                    )
+                except K8sNotFoundError:
+                    return None
+                container_status = _runtime_container(
+                    pod.get("status", {}).get("containerStatuses", []),
+                )
+                container_spec = _runtime_container(
+                    pod.get("spec", {}).get("containers", []),
+                )
+                return {
+                    "phase": pod.get("status", {}).get("phase"),
+                    "restart_count": container_status.get(
+                        "restartCount",
+                    ),
+                    "started_at": (
+                        container_status.get("state", {})
+                        .get("running", {})
+                        .get("startedAt")
+                    ),
+                    "resources": container_spec.get("resources") or {},
+                    "node": pod.get("spec", {}).get("nodeName"),
+                }
+            finally:
+                await client.close()
+
+        try:
+            return _run(_read())
+        except K8sClientError:
+            return None
+
     def status(self, record: RuntimeRecord) -> RuntimeRecord:
         async def _phase() -> str | None:
             client = self._make_client()
@@ -427,6 +474,14 @@ class K8sRuntimeProvisioner(RuntimeProvisioner):
     def close(self) -> None:
         # Clients are one-shot per call; nothing persistent to release.
         self._client_factory = None
+
+
+def _runtime_container(items: Any) -> dict[str, Any]:
+    """First container named "runtime" from a Pod section ({} if none)."""
+    for item in items:
+        if isinstance(item, dict) and item.get("name") == "runtime":
+            return item
+    return {}
 
 
 _PHASE_TO_STATE: Mapping[str | None, RuntimeState] = {
