@@ -294,6 +294,7 @@ class QuotaEngine:
         snapshot: UsageSnapshot,
     ) -> Dict[str, Any]:
         """Ratios per dimension for admin display (one group)."""
+        self._reload_if_due()
         limits = self._group_limits(group)
         rows = []
         for dimension in _DIMENSIONS:
@@ -321,6 +322,7 @@ class QuotaEngine:
         snapshot: UsageSnapshot,
     ) -> Dict[str, Any]:
         """Ratios per dimension for admin display."""
+        self._reload_if_due()
         limits = self._limits_for(user_id)
         rows = []
         for dimension in _DIMENSIONS:
