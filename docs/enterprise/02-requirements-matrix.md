@@ -19,7 +19,7 @@
 | A8 | A8 | 备份容灾（Velero/PVC 快照 + sqlite 备份手册化） | ✅（EP-2-5 `1a41…`：`runbook-backup-restore.md` 双层手册——SQLite 在线 `.backup` 脚本 `deploy/scripts/backup-hub-sqlite.sh`（WAL 一致快照+SHA256SUMS+轮转）+ Velero 卷级步骤；**L1 恢复演练实测闭环**（破坏→恢复→integrity ok→行数/vault 对账→轮转 8→3），L2 待生产首跑补记） | ✅ | Ph2（已落） | — |
 | A9 | 定时任务幂等/去重 | GLM | ✅（**架构性满足**（per-tenant 单写者——runtime 每 Pod 单实例，cron 调度无并发副本；06 §3 单写者约束同源）；**重开条件**：runtime 共享化/多副本（届时需分布式锁，Ph3 议题）） | P3 | 架构满足 | 低 |
 | A10 | 会话粘性 | GLM | ✅（**架构性满足**（hub 代理按 owner_user_id 路由其唯一 runtime——`runtime_payloads` 每用户单记录；会话状态落 runtime 本地即天然粘滞）；**重开条件**：同上共享化） | P3 | 架构满足 | 低 |
-| A11 | 供应链安全（镜像签名验证、SBOM） | GLM | ❌ | P3 | backlog | 中 |
+| A11 | 供应链安全（镜像签名验证、SBOM） | GLM | 🟡（**指南已落 docs/enterprise/25**：SBOM 三制品命令（cyclonedx/syft）+ 依赖双锁定纪律 + digest 固定 + cosign 验证流程 + 落地检查单；**签名链路待内网 cosign 部署**（IT 侧）——文档面完成，工具面是外部依赖） | P3 | 部分已落 | 中 |
 | A12 | GPU 资源配额与亲和调度 | GLM | ❌ | P3 | backlog | 中 |
 
 ## B. 控制台与菜单权限（本仓库切入点）
@@ -46,7 +46,7 @@
 | C5 | SCIM 自动回收（离职联动） | GLM | ❌ | P3 | backlog | 中 |
 | C6 | 组织层级（租户→部门→团队四级） | GLM | ❌（扁平 group 起步） | P3 | backlog | 中 |
 | C7 | PAT 细粒度作用域（scoped token 只能调某 Agent/某 API 组） | GLM | ✅（`app/auth.py` scope 体系：`<group>[:read\|write]` ×6 组（chat/agents/files/config/tools/knowledge）+ `*`；create_token 带 scp，AuthMiddleware 按组前缀+读写级强制（403）；PAT 端点 `GET/POST/DELETE /api/auth/tokens`（元数据存 auth.json，token 体只回显一次；scoped token 不可再铸 token）；jti 黑名单复用撤销链） | P2 | Ph2（已落） | 中 |
-| C8 | 委托/临时授权 | GLM | ❌ | P3 | backlog | 低 |
+| C8 | 委托/临时授权 | GLM | ✅（policies 表加 `expires_at`（幂等 ALTER）：ISO-8601 窗口，过期即**评估面整体不可见**（fail-closed；无法解析的过期串同样拒绝）；`policies_for/list_policies` 双过滤；`POST /api/hub/admin/policies` 传 expires_at + 审计 `policy.created`；`POST .../policies/purge-expired` 物理清理；6 测试） | P3 | 已落 | 低 |
 
 ## D. RBAC 资源粒度
 
@@ -56,7 +56,7 @@
 | D2 | 按用户/组控制 Agent 访问 | HUB | ✅（Agent=Hub 模板：实例化端点接 `agent_template:<id>` 组策略门（deny 优先，403+审计 `template.instantiate_denied`）；`acl/resource_policies.py` + 测试 9 例） | P1 | Ph2 | **高** |
 | D3 | 按用户/组控制 Skill / MCP / Channel 访问 | HUB | ✅（hub 侧：`skill:/mcp:/channel:` 组策略 → 每属主 `QWENPAW_RESOURCE_BASELINE_JSON` 白名单（凭据面注入，热更）；runtime 侧：`app/resource_baseline.py` 解析 + channels 注册表交集 + 技能预载过滤 + `resource_allowed()` 门） | P1 | Ph2 | 高 |
 | D4 | D4 | 策略引擎最小实现（静态半边 = 有序规则表 + overlay 已随 Ph0 落地；组级扩展（groups/policies 表求值）仍 Ph2，见 05 §7） | ✅（动态+静态全落：`AclEngine.decide` 前置 policies 求值——user>group>role、同路径 deny 优先、fail-closed 默认表兜底；`menu:*/agent:*/model:*` 资源类型已建模、代理层不消费） | ✅ | Ph2（已落） | — |
-| D5 | Agent/Skill 上架审批流 | GLM | ❌（市场有安装，无审批） | P2 | Ph2 | 中 |
+| D5 | Agent/Skill 上架审批流 | GLM | ✅（`pending_review` 状态机：成员 `POST /api/hub/templates/submit` 提案（hall 不可见）→ 审查中/published 不可覆盖（409）→ admin `PATCH` 发布或回退 draft；`GET /api/hub/templates/mine` 本人提案、`GET /api/hub/admin/templates/pending` 审查队列；审计 `template.submitted`；6 测试） | P2 | 已落 | 中 |
 | D6 | 多租户共享 Agent/Skill 商店（组织级发布/分享） | #7318 社区(rerbin) | ❌ | P3 | backlog | 中 |
 
 ## E. 模型统一治理

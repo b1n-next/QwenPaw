@@ -13,7 +13,8 @@ import sqlite3
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, List, Tuple
+from datetime import datetime, timezone
+from typing import Iterable, List, Optional, Tuple
 
 from ..database import connect_hub_database, utc_now
 
@@ -29,6 +30,7 @@ class Policy:
     subject: str  # "user:<id>" | "group:<name>" | "role:<role>"
     resource: str  # "apigroup:<name>" | "menu:<name>" | ...
     effect: str  # "allow" | "deny"
+    expires_at: Optional[str] = None  # C8 delegation window
 
     @property
     def subject_kind(self) -> str:
@@ -45,6 +47,19 @@ def _subject(kind: str, value: str) -> str:
     if not value or ":" in value:
         raise ValueError(f"Invalid subject value: {value!r}")
     return f"{kind}:{value}"
+
+
+def _policy_expired(expires_at: Optional[str]) -> bool:
+    """True when a C8 delegation window has passed (fail-closed)."""
+    if not expires_at:
+        return False
+    try:
+        moment = datetime.fromisoformat(str(expires_at))
+    except ValueError:
+        return True  # unparseable expiry never grants
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment <= datetime.now(timezone.utc)
 
 
 def _validate_resource(resource: str) -> None:
@@ -166,8 +181,14 @@ class GroupPolicyStore:
         subject_value: str,
         resource: str,
         effect: str,
+        expires_at: Optional[str] = None,
     ) -> str:
-        """Insert one policy row; returns its generated id."""
+        """Insert one policy row; returns its generated id.
+
+        ``expires_at`` (C8, ISO-8601 with offset) scopes the grant to
+        a delegation window; once passed the policy stops matching
+        entirely (fail-closed: expired rows are invisible everywhere).
+        """
         if effect not in VALID_EFFECTS:
             raise ValueError(f"Invalid effect: {effect}")
         _validate_resource(resource)
@@ -175,11 +196,29 @@ class GroupPolicyStore:
         policy_id = uuid.uuid4().hex
         with self._connect() as connection:
             connection.execute(
-                "INSERT INTO policies(policy_id, subject, resource, effect, "
-                "created_at) VALUES (?, ?, ?, ?, ?)",
-                (policy_id, subject, resource, effect, utc_now()),
+                "INSERT INTO policies(policy_id, subject, resource, "
+                "effect, expires_at, created_at) "
+                "VALUES (?, ?, ?, ?, ?, ?)",
+                (
+                    policy_id,
+                    subject,
+                    resource,
+                    effect,
+                    expires_at,
+                    utc_now(),
+                ),
             )
         return policy_id
+
+    def purge_expired_policies(self) -> int:
+        """Delete already-expired policy rows (housekeeping)."""
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM policies WHERE expires_at IS NOT NULL "
+                "AND expires_at <= ?",
+                (utc_now(),),
+            )
+        return cursor.rowcount
 
     def delete_policy(self, policy_id: str) -> bool:
         with self._connect() as connection:
@@ -192,7 +231,7 @@ class GroupPolicyStore:
     def list_policies(self) -> List[Policy]:
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT policy_id, subject, resource, effect "
+                "SELECT policy_id, subject, resource, effect, expires_at "
                 "FROM policies ORDER BY subject, resource",
             ).fetchall()
         return [
@@ -201,8 +240,10 @@ class GroupPolicyStore:
                 subject=row["subject"],
                 resource=row["resource"],
                 effect=row["effect"],
+                expires_at=row["expires_at"],
             )
             for row in rows
+            if not _policy_expired(row["expires_at"])
         ]
 
     def policies_for(
@@ -220,7 +261,7 @@ class GroupPolicyStore:
         with self._connect() as connection:
             rows = connection.execute(
                 f"""
-                SELECT policy_id, subject, resource, effect
+                SELECT policy_id, subject, resource, effect, expires_at
                 FROM policies WHERE subject IN ({placeholders})
                 """,
                 tuple(subjects),
@@ -232,8 +273,10 @@ class GroupPolicyStore:
                 subject=row["subject"],
                 resource=row["resource"],
                 effect=row["effect"],
+                expires_at=row["expires_at"],
             )
             for row in rows
+            if not _policy_expired(row["expires_at"])
         }
         return tuple(
             sorted(

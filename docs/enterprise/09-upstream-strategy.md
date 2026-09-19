@@ -153,6 +153,10 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/hub/database.py`（追加） | F6 审计表 `quota_dimension/quota_used/quota_limit` 三列（DDL+幂等 ALTER） | Ph2 | F6 批 |
 | `src/qwenpaw/hub/operations.py`（追加） | F6 `record()` quota 三参 + `list_events` quota_dimension 过滤 + `_event_from_row` 回显 | Ph2 | F6 批 |
 | `src/qwenpaw/hub/control_app.py`（追加） | F6 `record_audit` quota 透传 + 两处 quota 调用点升列 + 审计端点过滤参数 | Ph2 | F6 批 |
+| `src/qwenpaw/hub/database.py`（追加） | C8 policies `expires_at` 列（DDL+幂等 ALTER `_ensure_policy_expiry_column`） | Ph2 | D5/C8 批 |
+| `src/qwenpaw/hub/acl/groups.py`（追加） | C8 `_policy_expired` fail-closed 判定 + create/list/policies_for 过滤 + `purge_expired_policies` | Ph2 | D5/C8 批 |
+| `src/qwenpaw/hub/templates/_store.py`（追加） | D5 `_ALLOWED_STATUS` 增 `pending_review` | Ph2 | D5/C8 批 |
+| `src/qwenpaw/hub/control_app.py`（追加） | D5 成员 submit/mine + admin pending 队列；C8 policy expires_at 透传 + purge 端点 + 审计 | Ph2 | D5/C8 批 |
 | `tests/integration/test_hub_control_app_module.py`（追加 1 行） | 上游 #7779 `_runtime_payload` 增 capability 后 FakeRecord 缺 `metadata`（merge 遗留基线红，非 fork 回归）——补 `metadata = {}` | Ph2 | E5/D2/D3/A4 批 |
 | `console/src/pages/Hub/index.tsx`（fork 文件，吸收登记） | 上游 #7779 组件吸收：治理 section（OrganizationModels/OrganizationBudget/Invitations）+ 导航项 + governanceGrid 样式 | Ph2 | B8 吸收 |
 

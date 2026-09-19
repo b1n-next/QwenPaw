@@ -42,6 +42,7 @@ def initialize_hub_database(database_path: Path) -> None:
         existing = _existing_hub_tables(connection)
         if existing and not _is_current_generation(connection):
             _migrate_v1_audit_trace(connection)
+        _ensure_policy_expiry_column(connection)
         _ensure_audit_chain_columns(connection)
         _ensure_settings_columns(connection)
         _validate_existing_columns(connection)
@@ -182,6 +183,18 @@ def audit_chain_hash(
     digest.update((prev_hash or "").encode("utf-8"))
     digest.update(payload.encode("utf-8"))
     return digest.hexdigest()
+
+
+def _ensure_policy_expiry_column(connection: sqlite3.Connection) -> None:
+    """C8: add nullable expires_at to older policy stores (idempotent)."""
+    tables = _existing_hub_tables(connection)
+    if "policies" not in tables:
+        return
+    columns = _table_columns(connection, "policies")
+    if "expires_at" not in columns:
+        connection.execute(
+            "ALTER TABLE policies ADD COLUMN expires_at TEXT",
+        )
 
 
 def _ensure_audit_chain_columns(
@@ -545,6 +558,7 @@ CREATE TABLE IF NOT EXISTS policies (
     subject TEXT NOT NULL,
     resource TEXT NOT NULL,
     effect TEXT NOT NULL CHECK(effect IN ('allow', 'deny')),
+    expires_at TEXT,
     created_at TEXT NOT NULL
 );
 

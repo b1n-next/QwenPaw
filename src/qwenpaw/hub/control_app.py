@@ -2440,6 +2440,107 @@ def create_hub_app(  # pylint: disable=too-many-statements
             "updated_at": record.updated_at,
         }
 
+    @app.post("/api/hub/templates/submit")
+    async def member_submit_template(
+        request: Request,
+        user: HubUser = Depends(require_user),
+    ) -> dict[str, object]:
+        """D5: a member proposes a template for review.
+
+        Creates/updates the row at ``pending_review``; while a
+        proposal is open the same member cannot overwrite it, and it
+        stays invisible to the hall until an admin publishes.
+        """
+        body = await request.json()
+        template_id = str(body.get("template_id") or "").strip()
+        manifest = body.get("manifest")
+        if not template_id or manifest is None:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "INVALID_SUBMISSION",
+                    "message": "template_id and manifest are required",
+                },
+            )
+        store_templates = app.state.template_store
+        existing = await run_in_threadpool(
+            store_templates.get_template,
+            template_id,
+        )
+        if existing is not None and existing.get("status") == "pending_review":
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "REVIEW_IN_PROGRESS",
+                    "message": "This proposal is awaiting review.",
+                },
+            )
+        if existing is not None and existing.get("status") == "published":
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "PUBLISHED_IMMUTABLE",
+                    "message": (
+                        "Published templates cannot be overwritten; "
+                        "ask an admin to offine it first."
+                    ),
+                },
+            )
+        try:
+            template = await run_in_threadpool(
+                store_templates.upsert_template,
+                template_id,
+                manifest,
+                created_by=user.username,
+                status="pending_review",
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": "INVALID_TEMPLATE", "message": str(exc)},
+            ) from None
+        await record_audit(
+            user,
+            "template.submitted",
+            "template",
+            template_id,
+            {"revision": template.get("revision")},
+        )
+        return {"template": template}
+
+    @app.get("/api/hub/templates/mine")
+    async def member_my_templates(
+        user: HubUser = Depends(require_user),
+    ) -> dict[str, object]:
+        """D5: the caller's own proposals (any status)."""
+        templates = await run_in_threadpool(
+            app.state.template_store.list_templates,
+            published_only=False,
+        )
+        mine = [
+            item
+            for item in templates
+            if item.get("created_by") == user.username
+        ]
+        return {"templates": mine}
+
+    @app.get("/api/hub/admin/templates/pending")
+    async def admin_pending_templates(
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """D5 review queue: everything awaiting a decision."""
+        templates = await run_in_threadpool(
+            app.state.template_store.list_templates,
+            published_only=False,
+        )
+        return {
+            "templates": [
+                item
+                for item in templates
+                if item.get("status") == "pending_review"
+            ],
+        }
+
     @app.get("/api/hub/templates")
     async def list_market_templates(
         _user: HubUser = Depends(require_user),
@@ -3517,6 +3618,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
                     "subject": policy.subject,
                     "resource": policy.resource,
                     "effect": policy.effect,
+                    "expires_at": policy.expires_at,
                 }
                 for policy in await run_in_threadpool(
                     app.state.group_store.list_policies,
@@ -3537,10 +3639,44 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 subject_value=str(payload.get("subject_value") or ""),
                 resource=str(payload.get("resource") or ""),
                 effect=str(payload.get("effect") or ""),
+                expires_at=(
+                    str(payload.get("expires_at"))
+                    if payload.get("expires_at")
+                    else None
+                ),
             )
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
+        await record_audit(
+            _user,
+            "policy.created",
+            "policy",
+            policy_id,
+            {
+                "subject": payload.get("subject_kind"),
+                "resource": payload.get("resource"),
+                "effect": payload.get("effect"),
+                "expires_at": payload.get("expires_at"),
+            },
+        )
         return {"policy_id": policy_id}
+
+    @app.post("/api/hub/admin/policies/purge-expired")
+    async def admin_purge_expired_policies(
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """C8 housekeeping: physically delete expired rows."""
+        removed = await run_in_threadpool(
+            app.state.group_store.purge_expired_policies,
+        )
+        await record_audit(
+            _user,
+            "policy.expired_purged",
+            "policy",
+            "*",
+            {"removed": removed},
+        )
+        return {"removed": removed}
 
     @app.delete("/api/hub/admin/policies/{policy_id}")
     async def admin_delete_policy(

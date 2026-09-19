@@ -14,7 +14,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-_ALLOWED_STATUS = frozenset({"draft", "published", "offline"})
+_ALLOWED_STATUS = frozenset(
+    {"draft", "pending_review", "published", "offline"},
+)
 _MANIFEST_KEYS = ("name", "description", "prompt", "graph", "skills")
 
 
