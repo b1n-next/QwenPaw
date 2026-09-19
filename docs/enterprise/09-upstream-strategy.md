@@ -139,6 +139,11 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/app/routers/auth.py`（追加） | C7 `GET/POST/DELETE /api/auth/tokens`（PAT 签发/列表/撤销；scoped token 不可再铸） | Ph2 | C7 批 |
 | `plugins/apps/qa-data/**`（新目录，9 文件） | J4/EP-2-6 M1：PawApp 问数（guard/introspect/main/ui/人格/requirements） | Ph2 | J4 批 |
 | `pyproject.toml`（test extra 追加 2 行） | qa-data 测试依赖 sqlglot/sqlalchemy | Ph2 | J4 批 |
+| `src/qwenpaw/hub/auth.py`（合并语义：v2.2.2b3 同步） | 上游 `get_users()`（批量 HubUser）并入；fork `find_by_username`（OIDC JIT）保留——两法共存 | 合并 | 2026-09-19 merge origin/main（549a7f3c） |
+| `src/qwenpaw/hub/service.py`（合并语义） | 上游 `_start_locked` 幂等刷新（RUNNING 短路）并入；host 校验保留 fork `runtime_host_allowed`（EP-1-6 k8s DNS 后缀），上游 loopback-only 语义被企业面扩展取代 | 合并 | 同上 |
+| `src/qwenpaw/hub/control_app.py`（合并语义） | 上游 #7833 PawApp 会话四件套并入：入口 `ensure_personal_runtime + require_session_runtime` 门、请求头剥离 cookie/PAWAPP_SCOPE、下游 scope 转发、响应 `cache-control: private,no-store`；fork 治理插桩（trace/ACL/quota/rate/catalog 过滤）全保留且移到会话门之后 | 合并 | 同上 |
+| `.pre-commit-config.yaml`（合并） | 上游 trailing-whitespace `exclude_types: [diff]` + fork 扩展 exclude 并集 | 合并 | 同上 |
+| `console/src/pages/Hub/index.tsx`（合并） | 冲突两块取 fork 侧（模板市场+runtimes 吸收面）；上游 Select allowClear 改良弃（风格性）；冲突外上游新区（credentials 等）随自动合并保留 | 合并 | 同上 |
 | `tests/integration/test_hub_control_app_module.py`（追加 1 行） | 上游 #7779 `_runtime_payload` 增 capability 后 FakeRecord 缺 `metadata`（merge 遗留基线红，非 fork 回归）——补 `metadata = {}` | Ph2 | E5/D2/D3/A4 批 |
 | `console/src/pages/Hub/index.tsx`（fork 文件，吸收登记） | 上游 #7779 组件吸收：治理 section（OrganizationModels/OrganizationBudget/Invitations）+ 导航项 + governanceGrid 样式 | Ph2 | B8 吸收 |
 
