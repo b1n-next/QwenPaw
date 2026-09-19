@@ -144,6 +144,12 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/hub/control_app.py`（合并语义） | 上游 #7833 PawApp 会话四件套并入：入口 `ensure_personal_runtime + require_session_runtime` 门、请求头剥离 cookie/PAWAPP_SCOPE、下游 scope 转发、响应 `cache-control: private,no-store`；fork 治理插桩（trace/ACL/quota/rate/catalog 过滤）全保留且移到会话门之后 | 合并 | 同上 |
 | `.pre-commit-config.yaml`（合并） | 上游 trailing-whitespace `exclude_types: [diff]` + fork 扩展 exclude 并集 | 合并 | 同上 |
 | `console/src/pages/Hub/index.tsx`（合并） | 冲突两块取 fork 侧（模板市场+runtimes 吸收面）；上游 Select allowClear 改良弃（风格性）；冲突外上游新区（credentials 等）随自动合并保留 | 合并 | 同上 |
+| `src/qwenpaw/hub/quota/engine.py`（追加） | G3 组级配额：`groups:` 配置段 + `check_group/group_snapshot/group_status`（复用 30s 缓存键 `group:<name>`） | Ph2 | G3 批 |
+| `src/qwenpaw/hub/control_app.py`（追加） | G3 代理组门 + `_group_usage_snapshot_for` + `/admin/quota/groups`；E10 `by_agent` + `/admin/usage/costs/export`（CSV 逐行计价）；H5 GDPR export/erase 端点 | Ph2 | G3/E10/H5 批 |
+| `src/qwenpaw/hub/usage/store.py`（追加） | E10 `detail_rows()`（tenant×agent×provider×model 行级导出查询） | Ph2 | E10 批 |
+| `src/qwenpaw/hub/auth.py`（追加） | H5 `anonymize_user()`（软删+匿名化，审计行不动）+ `_utc_now_iso` | Ph2 | H5 批 |
+| `src/qwenpaw/hub/acl/groups.py`（追加） | G3 `member_ids(group_name)`（组→成员查询） | Ph2 | G3 批 |
+| `console/src/layouts/mobileChatOnly.ts` + `MainLayout/index.tsx`（追加/改） + `mobileChatOnly.test.ts`（新） | B7 窄屏仅对话（/chat+/inbox）重定向 gate | Ph2 | B7 批 |
 | `tests/integration/test_hub_control_app_module.py`（追加 1 行） | 上游 #7779 `_runtime_payload` 增 capability 后 FakeRecord 缺 `metadata`（merge 遗留基线红，非 fork 回归）——补 `metadata = {}` | Ph2 | E5/D2/D3/A4 批 |
 | `console/src/pages/Hub/index.tsx`（fork 文件，吸收登记） | 上游 #7779 组件吸收：治理 section（OrganizationModels/OrganizationBudget/Invitations）+ 导航项 + governanceGrid 样式 | Ph2 | B8 吸收 |
 

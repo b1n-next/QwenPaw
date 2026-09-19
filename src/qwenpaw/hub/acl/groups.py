@@ -143,6 +143,20 @@ class GroupPolicyStore:
             ).fetchall()
         return tuple(row["name"] for row in rows)
 
+    def member_ids(self, group_name: str) -> List[str]:
+        """User ids belonging to one group by name (G3 quota sums)."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT m.user_id FROM groups g
+                JOIN group_members m ON m.group_id = g.group_id
+                WHERE g.name = ?
+                ORDER BY m.user_id
+                """,
+                (group_name,),
+            ).fetchall()
+        return [str(row["user_id"]) for row in rows]
+
     # -------------------------------------------------- policies
 
     def create_policy(

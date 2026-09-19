@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { Layout, Spin } from "antd";
 import { Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -17,6 +17,10 @@ import { useRoutes } from "../../plugins/registry/hooks";
 import { Slot } from "../../plugins/registry/Slot";
 import { pickSelectedKey } from "./routeSelection";
 import { deniedPathsForRoutes, isPathDenied } from "../registry/permissions";
+import {
+  isMobileChatOnlyViewport,
+  isPathMobileAllowed,
+} from "../mobileChatOnly";
 
 import { HubModeContext } from "../../contexts/HubModeContext";
 
@@ -47,6 +51,22 @@ export default function MainLayout({ hubMode = false }: { hubMode?: boolean }) {
     [deniedRouteIds, routeIdToPath],
   );
   const pathDenied = isPathDenied(currentPath, deniedPaths);
+
+  // B7: mobile/thin clients get a chat-centric experience — everything
+  // except /chat and the approval inbox bounces there. Desktop is
+  // unaffected; this is focus UX, not access control.
+  const [mobileChatOnly, setMobileChatOnly] = useState(
+    isMobileChatOnlyViewport,
+  );
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const media = window.matchMedia("(max-width: 768px)");
+    const listener = () => setMobileChatOnly(media.matches);
+    listener();
+    media.addEventListener("change", listener);
+    return () => media.removeEventListener("change", listener);
+  }, []);
+  const mobileRestricted = mobileChatOnly && !isPathMobileAllowed(location.pathname);
 
   // Backend is the source of truth for Coding Mode state — refill the
   // in-memory store every time the selected agent changes.
@@ -93,7 +113,7 @@ export default function MainLayout({ hubMode = false }: { hubMode?: boolean }) {
                     />
                   }
                 >
-                  {pathDenied ? (
+                  {pathDenied || mobileRestricted ? (
                     <Navigate to="/chat" replace />
                   ) : (
                     <Routes>

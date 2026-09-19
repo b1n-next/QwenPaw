@@ -81,6 +81,13 @@ class _PreparedUser:
     created_at: str
 
 
+def _utc_now_iso() -> str:
+    """UTC timestamp for audit-ish columns."""
+    from datetime import datetime, timezone
+
+    return datetime.now(timezone.utc).isoformat()
+
+
 class HubAuthService:  # pylint: disable=too-many-public-methods
     """Persist users and issue versioned HMAC bearer tokens."""
 
@@ -486,6 +493,36 @@ class HubAuthService:  # pylint: disable=too-many-public-methods
                 (username,),
             ).fetchone()
         return self._user_from_row(row) if row is not None else None
+
+    def anonymize_user(
+        self,
+        user_id: str,
+        *,
+        actor_user_id: str | None = None,
+    ) -> bool:
+        """GDPR soft-delete (H5): mark deleted, scramble the username.
+
+        Audit rows stay untouched (append-only chain, H2); the
+        scrambled username breaks the linkage going forward.
+        """
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE hub_users SET
+                  deleted_at = ?,
+                  username = 'deleted-' || substr(user_id, 1, 8)
+                    || '-' || substr(hex(randomblob(4)), 1, 8),
+                  password_hash = '',
+                  password_salt = '',
+                  disabled = 1
+                WHERE user_id = ? AND deleted_at IS NULL
+                """,
+                (_utc_now_iso(), user_id),
+            )
+            if cursor.rowcount == 0:
+                return False
+        _ = actor_user_id
+        return True
 
     def get_users(self, user_ids: set[str]) -> dict[str, HubUser]:
         """Return active users for a batch of user identifiers."""

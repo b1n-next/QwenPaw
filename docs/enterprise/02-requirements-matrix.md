@@ -32,7 +32,7 @@
 | B4 | permissions 下发（**端点实现定名 `/api/hub/me/permissions`**，公开 version 端点不承载角色数据；四键 payload 含 model_readonly） | AUD | ✅（control_app.py + console_map.py） | P0 | Ph0 | 低 |
 | B5 | 按租户/组定制菜单白名单（而非全局两档） | USR 扩展 | ✅（`acl/console_map.py` 组/用户 `menu:<group>` 策略消费，菜单载荷按策略过滤；`test_menu_policies.py` 7 用例） | P2 | Ph2（已落） | 低 |
 | B6 | B6 | 直连 runtime 场景的受限 profile（`QWENPAW_CONSOLE_PROFILE`） | ✅（EP-2-9：runtime 环境变量 `QWENPAW_CONSOLE_PROFILE=restricted` 启用 `/api/console/profile`（复用 hub user 档 payload，shape 同 `/hub/me/permissions`）；console 降级链升级为 permissions 404 → 探测 profile → 才全量；未设置/`full` 行为与上游完全一致） | ✅ | Ph2（已落） | — |
-| B7 | 移动端/瘦客户端仅对话视图 | #7318 社区 | ❌ | P3 | backlog | 中 |
+| B7 | 移动端/瘦客户端仅对话视图 | #7318 社区 | ✅（两层：**既有**——上游 Sidebar ≤768px 折叠起始+状态持久化（`MOBILE_SIDEBAR_QUERY`）；**本批 B7 gate**——`mobileChatOnly.ts` 纯函数 + MainLayout 挂 `mobileRestricted` 重定向：窄屏仅 `/chat` 与 `/inbox`（审批待办移动可达），管理/配置/Hub 面一律回对话页——focus UX 非访问控制（hub ACL 仍是执行面）；3 逻辑测试） | P3 | 已落 | 中 |
 | B8 | Hub 控制台吸收上游重构（治理/邀请/用量面板 UI） | 上游 #7779 | ✅（吸收接面：fork Hub 页新增治理 section（托管模型 OrganizationModels + 组织预算 OrganizationBudget + 邀请 Invitations，上游 #7779 组件接入 fork 版导航/面板骨架）；locale 7 语言；测试 14 例（含 governance 冒烟）；fork 页既有用量表格保留） | P2 | Ph2（已落） | 中 |
 
 ## C. 身份与组织
@@ -72,7 +72,7 @@
 | E7 | E7 | 额度与成本控制（预算/熔断，与 F 区配额联动） | ✅（成本核算：单价表存模型扩展（`input/output_per_mtok`+currency，admin PUT 入审计）；`GET /admin/usage/costs` 按模型计价（MTok 单价 × usage 汇总）+ 按组汇总（tenant→组映射，无组落 `(ungrouped)`）+ 多币种合计 + `unpriced_models` 明示；读取入审计） | ✅ | Ph2（已落） | — |
 | E8 | Key 轮换机制 | GLM | ✅（双通道：① provider key `POST .../providers/{id}/rotate-key`——新 key preflight 探测（GET /models）通过才落库，失败 409 保旧 key（fail-closed）+ 审计；② runtime internal token `POST .../runtimes/{id}/rotate-token`——vault 新值+PREVIOUS 双值，graph 推送 401 时宽限回退旧值，runtime 重启即全切 + 审计；流程手册 runbook-key-rotation） | P2 | Ph2（已落） | 中 |
 | E9 | E9 | 模型→RBAC 交叉（不同组可见不同模型子集） | ✅（`GET /api/hub/models` 用户面目录：enabled 目录 × 调用者组/用户 `model:*` 策略过滤；**可见性≡可激活**（与 E4 同一 `_model_policies_allow` 判定，deny 优先），目录不显代理会拒的模型；admin 目录端点不受影响） | ✅ | Ph2（已落） | — |
-| E10 | 计费精度到对话/Agent 级 | GLM | ❌ | P3 | backlog | 中 |
+| E10 | 计费精度到对话/Agent 级 | GLM | 🟡（**Agent 级 ✅**：costs 端点 `by_agent`（usage_counters PK 含 agent_id 全链路）+ **CSV 计费导出** `GET /admin/usage/costs/export`——行级=tenant×agent×provider×model，**逐行精确计价**（无混合估算），组归属导出时解析，多币种逐行保留，审计 `usage.costs.export`；**对话级 ☐**：上游 runtime 记账（TokenUsageRecord）无 session 维度，需扩上游记账核心，留后续）；7 测试） | P3 | 部分已落 | 中 |
 
 ## F. 用量与可观测
 
@@ -80,7 +80,7 @@
 |---|---|---|---|---|---|---|
 | F1 | per-user token/成本统计 | HUB | ✅ token 维度（`usage/collector+store` + admin 用量页 by_user/by_model/by_date + 真机对账；**成本估算 ☐ Ph2** 依赖单价表，见 07 §7） | P1 | Ph1 | 高 |
 | F2 | 计量采集点（**架构偏差：拉取式**——hub 每 60s 拉 runtime `/api/token-usage/details`，零 runtime patch，代理层不解析 SSE 原则保持） | AUD | ✅（07 §7 偏差说明 + `usage_counters` 幂等快照表） | P1 | Ph1 | 中 |
-| F3 | 配额软硬双阈值（80% 告警 / 100% 熔断，hub 代理前置检查） | HUB/GLM | ✅（QuotaEngine 软/硬双阈值，代理前置 403 QUOTA_EXCEEDED；软阈值 X-QwenPaw-Quota-Warning 响应头+审计+指标；`/admin/quota` 管理；14 测试） | P1 | Ph2（已落） | 高 |
+| F3 | 配额软硬双阈值（80% 告警 / 100% 熔断，hub 代理前置检查） | HUB/GLM | ✅（QuotaEngine 软/硬双阈值，代理前置 403 QUOTA_EXCEEDED；软阈值 X-QwenPaw-Quota-Warning 响应头+审计+指标；`/admin/quota` 管理；14 测试） | P1 | Ph2（已落） | 高  **G3 批组级聚合并入（2026-09-19）**：QuotaEngine `groups:` 段 + `check_group/group_snapshot`（30s 缓存聚合组内全员日用量）+ 代理门在用户配额后追加组门（403 GROUP_QUOTA_EXCEEDED+审计 `quota.group_exceeded`）+ `/admin/quota/groups` 状态端点；7 测试见 test_g3_e10|
 | F4 | Prometheus 指标导出（hub `/metrics`） | GLM | ✅（`metrics.py` exposition + `GET /api/hub/metrics`（require_user）+ `deploy/prometheus/qwenpaw-alerts.yaml` 告警样例；9 测试） | P2 | Ph2（已落） | 中 |
 | F5 | F5 | OpenTelemetry trace | ✅（W3C tracecontext：`trace.py` 增 `sanitize/traceparent` 解析（version-00 严格校验，畸形即弃）+ trace-id 回退映射；代理转发注入 `traceparent` 下游（runtime OTel SDK 可接）；`X-QwenPaw-Trace-Id` 贯穿保持。**OTLP 全家桶不引入**——零依赖原则下的显式取舍，hub 侧 trace 已全程贯穿） | ✅ | Ph2（已落） | — |
 | F6 | 审计事件结构化（who/what/when/allow-deny/reason，落 operations store 扩展表） | GLM/AUD | 🟡（`hub_audit_events` 五要素已落（actor/action/resource/outcome/correlation_id）；acl_denied 已有、quota 预留字段 ☐——**EP-1-5 2026-09-14 降级并入 EP-2-3 配额票**实施） | P1 | Ph1（残留）/Ph2（quota 字段） | 中 |
@@ -108,7 +108,7 @@
 | H2 | H2 | 审计日志 append-only/防篡改 | ✅（无票据直落：`hub_audit_events` 加 `prev_hash/row_hash` 链式 SHA-256（全字段参与 canonical JSON）；`BEGIN IMMEDIATE` 内取头-算哈希-插入原子；存量行幂等补链；`verify_chain()` 全walk 报断链位置/原因；admin 端点 `/audit/verify` + `/audit/chain-head`（外部锚定用）。边界如实：链检测篡改/删行/重排，整库重算级攻击需配合 chain-head 外部锚定（备份手册已含离线副本建议）） | ✅ | Ph2（已落） | — |
 | H3 | H3 | 审计留存周期与导出接口 | ✅（无票据直落：`GET /audit/export` JSONL 流式导出（含 prev/row_hash 可离线校验）；`POST /audit/prune` **先归档后删**（JSONL 落 hub root + 被裁段尾哈希入 `audit_chain_archives` 锚点表 + 剩余链 fresh-genesis 重哈希续链）；`GET /audit/archives` 锚点清单；prune 自身入审计；留存节奏由运维 cron 驱动（默认不自动删）） | ✅ | Ph2（已落） | — |
 | H4 | 数据驻留（多地域不跨区） | GLM | ❌ | P3 | backlog | 低 |
-| H5 | 用户数据导出/删除（GDPR 式） | GLM | ❌ | P3 | backlog | 中 |
+| H5 | 用户数据导出/删除（GDPR 式） | GLM | ✅（`GET /admin/users/{id}/export`——JSON 捆绑 profile（无密钥）/组归属/用量汇总+范围说明；`DELETE /admin/users/{id}/data`——匿名化软删（username→deleted-*、凭据字段清空）+ 组成员剥离 + 租户凭据全删 + 审计 `user.data_erased`；**诚实边界**：审计行 append-only 保留（H2 链，无密钥，文档注明）；runtime 工作区文件非 hub 面数据（引导用 runtime backup 工具）；自删 422 拒绝；5 测试） | P3 | 已落 | 中 |
 
 ## I. 交付与环境管理
 

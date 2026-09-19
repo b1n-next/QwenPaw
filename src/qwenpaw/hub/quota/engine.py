@@ -214,6 +214,105 @@ class QuotaEngine:
             return worst_soft
         return QuotaDecision(allowed=True)
 
+    # -------------------------------------------------- groups (G3:
+    # aggregate quotas across a group's members, enforced after the
+    # per-user gate)
+
+    def _group_limits(self, group: str) -> Dict[str, Optional[int]]:
+        groups = self._config.get("groups", {})
+        override = groups.get(group, {}) if isinstance(groups, dict) else {}
+        if not isinstance(override, dict):
+            override = {}
+        limits: Dict[str, Optional[int]] = {}
+        for dimension in _DIMENSIONS:
+            raw = override.get(dimension)
+            try:
+                limits[dimension] = int(raw) if raw is not None else None
+            except (TypeError, ValueError):
+                limits[dimension] = None
+        return limits
+
+    def group_snapshot(
+        self,
+        group: str,
+        fetcher: Callable[[], UsageSnapshot],
+    ) -> UsageSnapshot:
+        """30s-cached aggregate snapshot for one group."""
+        key = f"group:{group}"
+        stamp = self._clock()
+        cached = self._cache.get(key)
+        if cached is not None and stamp - cached[0] < _CACHE_TTL_SECONDS:
+            return cached[1]
+        snapshot = fetcher()
+        with self._lock:
+            self._cache[key] = (stamp, snapshot)
+        return snapshot
+
+    def check_group(
+        self,
+        group: str,
+        snapshot: UsageSnapshot,
+    ) -> QuotaDecision:
+        """Evaluate one group's aggregate quota (hard/soft as users)."""
+        self._reload_if_due()
+        limits = self._group_limits(group)
+        soft = self._soft_ratio()
+        worst_soft: Optional[QuotaDecision] = None
+        for dimension in _DIMENSIONS:
+            limit = limits[dimension]
+            if not limit or limit <= 0:
+                continue
+            used = self._snapshot_value(snapshot, dimension)
+            ratio = used / limit
+            if ratio >= 1.0:
+                return QuotaDecision(
+                    allowed=False,
+                    dimension=dimension,
+                    used=used,
+                    limit=limit,
+                    ratio=ratio,
+                    soft_hit=True,
+                )
+            if ratio >= soft:
+                candidate = QuotaDecision(
+                    allowed=True,
+                    dimension=dimension,
+                    used=used,
+                    limit=limit,
+                    ratio=ratio,
+                    soft_hit=True,
+                )
+                if worst_soft is None or candidate.ratio > worst_soft.ratio:
+                    worst_soft = candidate
+        if worst_soft is not None:
+            return worst_soft
+        return QuotaDecision(allowed=True)
+
+    def group_status(
+        self,
+        group: str,
+        snapshot: UsageSnapshot,
+    ) -> Dict[str, Any]:
+        """Ratios per dimension for admin display (one group)."""
+        limits = self._group_limits(group)
+        rows = []
+        for dimension in _DIMENSIONS:
+            limit = limits[dimension]
+            used = self._snapshot_value(snapshot, dimension)
+            rows.append(
+                {
+                    "dimension": dimension,
+                    "used": used,
+                    "limit": limit,
+                    "ratio": (used / limit) if limit else None,
+                },
+            )
+        return {
+            "group": group,
+            "soft_threshold": self._soft_ratio(),
+            "dimensions": rows,
+        }
+
     # -------------------------------------------------- status
 
     def status(

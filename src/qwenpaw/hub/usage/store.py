@@ -71,6 +71,38 @@ class UsageStore:
                 """,
             )
 
+    def detail_rows(
+        self,
+        *,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Raw aggregated rows (tenant×agent×provider×model) for export.
+
+        E10 billing export: finer than `summary` group-bys — one row
+        per PK tuple in the range, newest last.
+        """
+        end_d = date.fromisoformat(end_date) if end_date else date.today()
+        start_d = (
+            date.fromisoformat(start_date)
+            if start_date
+            else end_d - timedelta(days=29)
+        )
+        if start_d > end_d:
+            return []
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT tenant_id, usage_date, provider_id, model, agent_id,
+                       prompt_tokens, completion_tokens, call_count
+                FROM usage_counters
+                WHERE usage_date BETWEEN ? AND ?
+                ORDER BY usage_date, tenant_id, agent_id, model
+                """,
+                (start_d.isoformat(), end_d.isoformat()),
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def upsert_rows(
         self,
         tenant_id: str,

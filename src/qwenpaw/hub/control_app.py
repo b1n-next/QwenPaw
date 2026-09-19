@@ -14,7 +14,7 @@ import sqlite3
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Callable
 from urllib.parse import quote, unquote
 
 import httpx
@@ -818,6 +818,50 @@ def create_hub_app(  # pylint: disable=too-many-statements
     def personal_tenant_id(user: HubUser) -> str:
         return f"personal-{user.user_id}"
 
+    def _group_usage_fetcher(
+        group: str,
+    ) -> Callable[[], UsageSnapshot]:
+        """Zero-arg snapshot fetcher bound to one group (mypy-friendly)."""
+
+        def _fetch() -> UsageSnapshot:
+            return _group_usage_snapshot_for(group)
+
+        return _fetch
+
+    def _group_usage_snapshot_for(group: str) -> UsageSnapshot:
+        """Today's aggregate usage across one group's members (G3).
+
+        Maps group -> member user ids, sums their personal tenants'
+        counters from one summary pass (same 30s cache window as the
+        per-user fetcher).
+        """
+        members = app.state.group_store.member_ids(group)
+        if not members:
+            return UsageSnapshot(tokens=0, requests=0)
+        today = (
+            datetime.datetime.now(
+                datetime.timezone.utc,
+            )
+            .date()
+            .isoformat()
+        )
+        summary = usage_store.summary(
+            start_date=today,
+            end_date=today,
+        )
+        tokens = 0
+        requests = 0
+        by_tenant = summary.get("by_user", {})
+        for user_id in members:
+            totals = by_tenant.get(f"personal-{user_id}")
+            if not totals:
+                continue
+            tokens += int(totals.get("prompt_tokens", 0)) + int(
+                totals.get("completion_tokens", 0),
+            )
+            requests += int(totals.get("call_count", 0))
+        return UsageSnapshot(tokens=tokens, requests=requests)
+
     def _usage_snapshot_for(user_id: str) -> UsageSnapshot:
         """Today's usage counters for one user from the usage store.
 
@@ -1497,6 +1541,177 @@ def create_hub_app(  # pylint: disable=too-many-statements
             {"role": user.role, "username": user.username},
         )
         return user.to_dict()
+
+    @app.get("/api/hub/admin/users/{user_id}/export")
+    async def admin_export_user_data(
+        user_id: str,
+        user: HubUser = Depends(require_admin),
+    ) -> Response:
+        """GDPR-style data export for one user (H5).
+
+        Aggregates the hub-plane personal data: profile (minus
+        secrets), group memberships, usage summaries. Runtime
+        workspace files live outside the hub plane and are exported
+        via the runtime's own backup tooling.
+        """
+        target = await run_in_threadpool(
+            app.state.auth_service.get_user,
+            user_id,
+        )
+        if target is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "USER_NOT_FOUND"},
+            )
+        groups = list(
+            await run_in_threadpool(
+                app.state.group_store.group_names_for,
+                user_id,
+            ),
+        )
+        usage_summary = await run_in_threadpool(
+            app.state.usage_store.summary,
+            tenant_id=f"personal-{user_id}",
+        )
+        payload = {
+            "exported_at": datetime.datetime.now(
+                datetime.timezone.utc,
+            ).isoformat(),
+            "user": {
+                "user_id": target.user_id,
+                "username": target.username,
+                "role": target.role,
+                "created_at": target.created_at,
+                "disabled": target.disabled,
+            },
+            "groups": groups,
+            "usage": {
+                "range": {
+                    "start": usage_summary.get("start_date"),
+                    "end": usage_summary.get("end_date"),
+                },
+                "total": usage_summary.get("total"),
+                "by_model": usage_summary.get("by_model"),
+                "by_agent": usage_summary.get("by_agent"),
+            },
+            "notes": [
+                "Audit events are append-only (H2) and retained; they "
+                "reference this user_id but carry no secrets.",
+                "Runtime workspace files are not hub-plane data; use "
+                "the runtime backup/export tooling for those.",
+            ],
+        }
+        await record_audit(
+            user,
+            "user.data_exported",
+            "user",
+            user_id,
+            {"groups": len(groups)},
+        )
+        stamp = datetime.datetime.now(
+            datetime.timezone.utc,
+        ).strftime("%Y%m%dT%H%M%SZ")
+        return Response(
+            content=json.dumps(payload, ensure_ascii=False, indent=2),
+            media_type="application/json",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="qwenpaw-user-{user_id}'
+                    f'-{stamp}.json"'
+                ),
+            },
+        )
+
+    @app.delete("/api/hub/admin/users/{user_id}/data")
+    async def admin_erase_user_data(
+        user_id: str,
+        user: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """GDPR-style erasure for one user (H5).
+
+        Soft-deletes + anonymizes the account, strips group
+        memberships and deletes the user's tenant credentials.
+        Audit rows remain (append-only, no secrets — documented).
+        The acting admin cannot erase themselves here.
+        """
+        if user_id == user.user_id:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "SELF_ERASE_FORBIDDEN",
+                    "message": "Admins cannot erase their own account.",
+                },
+            )
+        target = await run_in_threadpool(
+            app.state.auth_service.get_user,
+            user_id,
+        )
+        if target is None:
+            raise HTTPException(
+                status_code=404,
+                detail={"code": "USER_NOT_FOUND"},
+            )
+        groups = list(
+            await run_in_threadpool(
+                app.state.group_store.group_names_for,
+                user_id,
+            ),
+        )
+        for group_name in groups:
+            group = next(
+                (
+                    g
+                    for g in app.state.group_store.list_groups()
+                    if g.get("name") == group_name
+                ),
+                None,
+            )
+            if group:
+                await run_in_threadpool(
+                    app.state.group_store.remove_member,
+                    str(group.get("group_id")),
+                    user_id,
+                )
+        vault = app.state.credential_vault
+        tenant_creds = await run_in_threadpool(
+            vault.list_metadata,
+            tenant_id=f"personal-{user_id}",
+        )
+        for item in tenant_creds:
+            await run_in_threadpool(
+                vault.delete,
+                tenant_id=f"personal-{user_id}",
+                scope=str(item.get("scope") or ""),
+                name=str(item.get("name") or ""),
+            )
+        anonymized = await run_in_threadpool(
+            app.state.auth_service.anonymize_user,
+            user_id,
+            actor_user_id=user.user_id,
+        )
+        if not anonymized:
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "ALREADY_DELETED"},
+            )
+        await record_audit(
+            user,
+            "user.data_erased",
+            "user",
+            user_id,
+            {
+                "groups_removed": len(groups),
+                "credentials_deleted": len(tenant_creds),
+                "anonymized": True,
+            },
+        )
+        return {
+            "erased": True,
+            "user_id": user_id,
+            "groups_removed": len(groups),
+            "credentials_deleted": len(tenant_creds),
+            "audit_retained": True,
+        }
 
     @app.patch("/api/hub/admin/users/{user_id}")
     async def patch_user(
@@ -2776,6 +2991,22 @@ def create_hub_app(  # pylint: disable=too-many-statements
                     totals.get("completion_tokens", 0),
                 )
                 bucket["requests"] += int(totals.get("call_count", 0))
+        # E10: agent-level billing — same pricing, grouped by agent
+        by_agent: list[dict[str, Any]] = []
+        for row in summary.get("by_agent", []):
+            agent = str(row.get("agent_id") or "(unattributed)")
+            prompt = int(row.get("prompt_tokens", 0))
+            completion = int(row.get("completion_tokens", 0))
+            entry = {
+                "agent_id": agent,
+                "prompt_tokens": prompt,
+                "completion_tokens": completion,
+                "requests": int(row.get("call_count", 0)),
+            }
+            # model split unavailable per agent here; price with the
+            # blended model mix is intentionally NOT invented — agents
+            # get exact costs only via the export (per-row pricing).
+            by_agent.append(entry)
         await record_audit(
             user,
             "usage.costs.read",
@@ -2789,6 +3020,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 dict(group, group=name)
                 for name, group in sorted(group_costs.items())
             ],
+            "by_agent": by_agent,
             "totals": {
                 currency: round(cost, 4)
                 for currency, cost in currencies.items()
@@ -2796,6 +3028,116 @@ def create_hub_app(  # pylint: disable=too-many-statements
             "unpriced_models": sorted(unpriced),
             "range": {"start": start, "end": end},
         }
+
+    @app.get("/api/hub/admin/usage/costs/export")
+    async def admin_usage_costs_export(
+        user: HubUser = Depends(require_admin),
+        start: str | None = Query(default=None, max_length=10),
+        end: str | None = Query(default=None, max_length=10),
+    ) -> Response:
+        """Billing export: one CSV row per tenant×agent×provider×model.
+
+        E10: exact per-row pricing (no blended estimates), group
+        membership resolved at export time, currencies kept per-row
+        because the model price table may mix them.
+        """
+        import csv
+        import io
+
+        pricing = await run_in_threadpool(
+            app.state.model_extensions.list_by_type,
+            resource_type="model",
+            namespace="governance",
+            key="pricing",
+        )
+        rows = await run_in_threadpool(
+            app.state.usage_store.detail_rows,
+            start_date=start,
+            end_date=end,
+        )
+        group_cache: dict[str, list[str]] = {}
+
+        async def _groups_for(user_id: str) -> list[str]:
+            if user_id not in group_cache:
+                group_cache[user_id] = list(
+                    await run_in_threadpool(
+                        app.state.group_store.group_names_for,
+                        user_id,
+                    ),
+                )
+            return group_cache[user_id]
+
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(
+            [
+                "date",
+                "user_id",
+                "groups",
+                "agent_id",
+                "provider_id",
+                "model",
+                "prompt_tokens",
+                "completion_tokens",
+                "requests",
+                "cost",
+                "currency",
+            ],
+        )
+        for row in rows:
+            tenant = str(row.get("tenant_id") or "")
+            user_id = (
+                tenant[len("personal-") :]
+                if tenant.startswith("personal-")
+                else tenant
+            )
+            model = str(row.get("model") or "")
+            price = pricing.get(model)
+            prompt = int(row.get("prompt_tokens") or 0)
+            completion = int(row.get("completion_tokens") or 0)
+            cost = ""
+            currency = ""
+            if price is not None:
+                cost = round(
+                    prompt / 1_000_000 * float(price["input_per_mtok"])
+                    + completion / 1_000_000 * float(price["output_per_mtok"]),
+                    6,
+                )
+                currency = str(price.get("currency", "CNY"))
+            writer.writerow(
+                [
+                    row.get("usage_date"),
+                    user_id,
+                    ";".join(await _groups_for(user_id)) or "(ungrouped)",
+                    row.get("agent_id") or "(unattributed)",
+                    row.get("provider_id") or "",
+                    model,
+                    prompt,
+                    completion,
+                    int(row.get("call_count") or 0),
+                    cost,
+                    currency,
+                ],
+            )
+        await record_audit(
+            user,
+            "usage.costs.export",
+            "usage",
+            "costs-export",
+            {"start": start, "end": end, "rows": len(rows)},
+        )
+        stamp = datetime.datetime.now(
+            datetime.timezone.utc,
+        ).strftime("%Y%m%dT%H%M%SZ")
+        return Response(
+            content=buffer.getvalue(),
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": (
+                    f'attachment; filename="qwenpaw-costs-{stamp}.csv"'
+                ),
+            },
+        )
 
     @app.get("/api/hub/models")
     async def user_model_catalog(
@@ -3213,6 +3555,26 @@ def create_hub_app(  # pylint: disable=too-many-statements
             snapshot = _usage_snapshot_for(hub_user.user_id)
             rows.append(engine.status(hub_user.user_id, snapshot))
         return {"quota": rows}
+
+    @app.get("/api/hub/admin/quota/groups")
+    async def admin_quota_groups_status(
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, Any]:
+        """Group-aggregate quota ratios (G3)."""
+        engine: QuotaEngine = app.state.quota
+        rows = []
+        for group in await run_in_threadpool(
+            app.state.group_store.list_groups,
+        ):
+            name = str(group.get("name") or "")
+            if not name:
+                continue
+            snapshot = engine.group_snapshot(
+                name,
+                _group_usage_fetcher(name),
+            )
+            rows.append(engine.group_status(name, snapshot))
+        return {"groups": rows}
 
     @app.get("/api/hub/admin/policy/baseline")
     async def get_policy_baseline(
@@ -3885,6 +4247,56 @@ def create_hub_app(  # pylint: disable=too-many-statements
                     "limit": quota_decision.limit,
                 },
             )
+
+        # G3: aggregate group quota — the whole group shares one
+        # daily ceiling (checked after the per-user gate, cached 30s).
+        quota_engine_groups: QuotaEngine = app.state.quota
+        for group_name in user_groups:
+            group_snapshot = quota_engine_groups.group_snapshot(
+                group_name,
+                _group_usage_fetcher(group_name),
+            )
+            group_decision = quota_engine_groups.check_group(
+                group_name,
+                group_snapshot,
+            )
+            if not group_decision.allowed:
+                await record_audit(
+                    user,
+                    "quota.group_exceeded",
+                    "api",
+                    request.url.path,
+                    {
+                        "group": group_name,
+                        "dimension": group_decision.dimension,
+                        "used": group_decision.used,
+                        "limit": group_decision.limit,
+                        "method": request.method,
+                    },
+                    outcome="denied",
+                    remote_address=(
+                        request.client.host if request.client else None
+                    ),
+                )
+                app.state.metrics.inc(
+                    "qwenpaw_hub_requests_total",
+                    role=user.role,
+                    decision="denied_quota",
+                )
+                raise HTTPException(
+                    status_code=403,
+                    detail={
+                        "code": "GROUP_QUOTA_EXCEEDED",
+                        "message": (
+                            "This group's shared daily quota is "
+                            "exhausted; contact your administrator."
+                        ),
+                        "group": group_name,
+                        "dimension": group_decision.dimension,
+                        "used": group_decision.used,
+                        "limit": group_decision.limit,
+                    },
+                )
 
         # E6: rate/concurrency gate; released on every exit path.
         rate_decision = app.state.rate_limiter.check(user.user_id)
