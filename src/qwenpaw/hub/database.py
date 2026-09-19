@@ -197,6 +197,18 @@ def _ensure_audit_chain_columns(
     if "hub_audit_events" not in tables:
         return
     columns = _table_columns(connection, "hub_audit_events")
+    if "quota_dimension" not in columns:
+        connection.execute(
+            "ALTER TABLE hub_audit_events ADD COLUMN quota_dimension TEXT",
+        )
+    if "quota_used" not in columns:
+        connection.execute(
+            "ALTER TABLE hub_audit_events ADD COLUMN quota_used INTEGER",
+        )
+    if "quota_limit" not in columns:
+        connection.execute(
+            "ALTER TABLE hub_audit_events ADD COLUMN quota_limit INTEGER",
+        )
     if "prev_hash" not in columns:
         connection.execute(
             "ALTER TABLE hub_audit_events ADD COLUMN prev_hash TEXT",
@@ -496,6 +508,9 @@ CREATE TABLE IF NOT EXISTS hub_audit_events (
     trace_id TEXT,
     remote_address TEXT,
     detail_json TEXT NOT NULL CHECK(json_valid(detail_json)),
+    quota_dimension TEXT,
+    quota_used INTEGER,
+    quota_limit INTEGER,
     created_at TEXT NOT NULL,
     prev_hash TEXT,
     row_hash TEXT

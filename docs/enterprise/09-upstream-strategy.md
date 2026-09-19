@@ -150,6 +150,9 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/hub/auth.py`（追加） | H5 `anonymize_user()`（软删+匿名化，审计行不动）+ `_utc_now_iso` | Ph2 | H5 批 |
 | `src/qwenpaw/hub/acl/groups.py`（追加） | G3 `member_ids(group_name)`（组→成员查询） | Ph2 | G3 批 |
 | `console/src/layouts/mobileChatOnly.ts` + `MainLayout/index.tsx`（追加/改） + `mobileChatOnly.test.ts`（新） | B7 窄屏仅对话（/chat+/inbox）重定向 gate | Ph2 | B7 批 |
+| `src/qwenpaw/hub/database.py`（追加） | F6 审计表 `quota_dimension/quota_used/quota_limit` 三列（DDL+幂等 ALTER） | Ph2 | F6 批 |
+| `src/qwenpaw/hub/operations.py`（追加） | F6 `record()` quota 三参 + `list_events` quota_dimension 过滤 + `_event_from_row` 回显 | Ph2 | F6 批 |
+| `src/qwenpaw/hub/control_app.py`（追加） | F6 `record_audit` quota 透传 + 两处 quota 调用点升列 + 审计端点过滤参数 | Ph2 | F6 批 |
 | `tests/integration/test_hub_control_app_module.py`（追加 1 行） | 上游 #7779 `_runtime_payload` 增 capability 后 FakeRecord 缺 `metadata`（merge 遗留基线红，非 fork 回归）——补 `metadata = {}` | Ph2 | E5/D2/D3/A4 批 |
 | `console/src/pages/Hub/index.tsx`（fork 文件，吸收登记） | 上游 #7779 组件吸收：治理 section（OrganizationModels/OrganizationBudget/Invitations）+ 导航项 + governanceGrid 样式 | Ph2 | B8 吸收 |
 

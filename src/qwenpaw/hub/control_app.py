@@ -896,6 +896,9 @@ def create_hub_app(  # pylint: disable=too-many-statements
         *,
         outcome: str = "success",
         remote_address: str | None = None,
+        quota_dimension: str | None = None,
+        quota_used: int | None = None,
+        quota_limit: int | None = None,
     ) -> None:
         await run_in_threadpool(
             operations.record,
@@ -908,6 +911,9 @@ def create_hub_app(  # pylint: disable=too-many-statements
             trace_id=trace_id,
             outcome=outcome,
             remote_address=remote_address,
+            quota_dimension=quota_dimension,
+            quota_used=quota_used,
+            quota_limit=quota_limit,
         )
         # F9: mirror to the SIEM relay when configured (never blocks
         # or fails the request path — see SiemRelay.enqueue)
@@ -2401,6 +2407,12 @@ def create_hub_app(  # pylint: disable=too-many-statements
             max_length=32,
             description="EP-2-11: replay one cross-plane trace",
         ),
+        quota_dimension: str
+        | None = Query(
+            default=None,
+            max_length=32,
+            description="F6: filter quota-scoped audit columns",
+        ),
     ) -> dict[str, object]:
         events, total = await run_in_threadpool(
             operations.list_events,
@@ -2410,6 +2422,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
             action=action,
             outcome=outcome,
             trace_id=trace_id,
+            quota_dimension=quota_dimension,
         )
         return _page_payload(events, page, page_size, total)
 
@@ -4228,6 +4241,9 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 remote_address=(
                     request.client.host if request.client else None
                 ),
+                quota_dimension=quota_decision.dimension,
+                quota_used=quota_decision.used,
+                quota_limit=quota_decision.limit,
             )
             app.state.metrics.inc(
                 "qwenpaw_hub_requests_total",
@@ -4277,6 +4293,9 @@ def create_hub_app(  # pylint: disable=too-many-statements
                     remote_address=(
                         request.client.host if request.client else None
                     ),
+                    quota_dimension=group_decision.dimension,
+                    quota_used=group_decision.used,
+                    quota_limit=group_decision.limit,
                 )
                 app.state.metrics.inc(
                     "qwenpaw_hub_requests_total",

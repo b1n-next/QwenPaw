@@ -44,8 +44,16 @@ class HubOperationsStore:
         correlation_id: str | None = None,
         trace_id: str | None = None,
         remote_address: str | None = None,
+        quota_dimension: str | None = None,
+        quota_used: int | None = None,
+        quota_limit: int | None = None,
     ) -> None:
-        """Append one sanitized, hash-chained Hub management event."""
+        """Append one sanitized, hash-chained Hub management event.
+
+        The three ``quota_*`` fields (F6) lift the quota decision out
+        of the detail JSON into queryable columns for quota-scoped
+        audit filters; every other action leaves them NULL.
+        """
         event_id = uuid.uuid4().hex
         detail_json = json.dumps(
             detail or {},
@@ -74,6 +82,9 @@ class HubOperationsStore:
                     "correlation_id": correlation_id,
                     "trace_id": trace_id,
                     "remote_address": remote_address,
+                    "quota_dimension": quota_dimension,
+                    "quota_used": quota_used,
+                    "quota_limit": quota_limit,
                     "detail_json": detail_json,
                     "created_at": created_at,
                 },
@@ -84,8 +95,9 @@ class HubOperationsStore:
                     event_id, actor_user_id, actor_username, action,
                     resource_type, resource_id, outcome, request_id,
                     correlation_id, trace_id, remote_address,
+                    quota_dimension, quota_used, quota_limit,
                     detail_json, created_at, prev_hash, row_hash
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     event_id,
@@ -99,6 +111,9 @@ class HubOperationsStore:
                     correlation_id,
                     trace_id,
                     remote_address,
+                    quota_dimension,
+                    quota_used,
+                    quota_limit,
                     detail_json,
                     created_at,
                     prev_hash,
@@ -282,6 +297,7 @@ class HubOperationsStore:
         action: str | None = None,
         outcome: str | None = None,
         trace_id: str | None = None,
+        quota_dimension: str | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
         """Return one filtered audit page without secret data."""
         clauses: list[str] = []
@@ -301,6 +317,9 @@ class HubOperationsStore:
         if trace_id:
             clauses.append("trace_id = ?")
             parameters.append(trace_id)
+        if quota_dimension:
+            clauses.append("quota_dimension = ?")
+            parameters.append(quota_dimension)
         where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
         with self._connect() as connection:
             total_row = connection.execute(
@@ -348,6 +367,9 @@ class HubOperationsStore:
             "correlation_id": row["correlation_id"],
             "trace_id": row["trace_id"],
             "remote_address": row["remote_address"],
+            "quota_dimension": row["quota_dimension"],
+            "quota_used": row["quota_used"],
+            "quota_limit": row["quota_limit"],
             "detail": json.loads(str(row["detail_json"])),
             "created_at": str(row["created_at"]),
         }
