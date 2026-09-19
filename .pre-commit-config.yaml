@@ -25,6 +25,8 @@ repos:
         exclude: '(?x)(.*/skills/.*|^(src/)?scripts/|^e2e/|^src/e2e/)'
       - id: detect-private-key
       - id: trailing-whitespace
+        # Preserve unified-diff context markers and checksummed patch bytes.
+        exclude_types: [diff]
         exclude: '(?x)(.*/skills/.*|^(src/)?scripts/|^e2e/|^src/e2e/)'
   - repo: https://github.com/asottile/add-trailing-comma
     rev: v3.1.0
