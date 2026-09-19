@@ -14,13 +14,13 @@
 | A3 | per-tenant PVC（RWO 即可，per-tenant 模型下无需 RWX） | AUD | ✅（`provisioners/k8s/manifest.py` PVC builder + stop 保 PVC 会话延续，06 §7.1 kind 实测） | P1 | Ph1 | 高 |
 | A4 | A4 | Secret 集成（K8s Secret 起步，Vault/KMS 可选） | ✅（闭环 EP-2-13 归置承诺：`hub-secret.yaml` 新模板（admin 凭据 + 可选 OIDC client_secret 入 Secret 资源）；**OIDC secret 已入 vault**：`QWENPAW_HUB_OIDC_CLIENT_SECRET` env 启动时一次性导入加密 vault 并即刻清 env，`_build_oidc_client` 三源解析（yaml 显式值 → vault → 空）；Deployment env/init args 全部 `secretKeyRef`/`$(VAR)` 引用（**spec 零明文**，grep 实证 0）；`hub.secretProvider.enabled` 开关（默认 off 兼容旧流，staging/prod 档默认 on）；顺手修真 bug：bootstrap init 缺 `--root` 参数（镜像 argparse 必需，CrashLoopBackOff 实证）；kind 实弹：helm upgrade → rollout → Secret 投递冒烟 SMOKE-PASS。Vault/KMS 升级位留待需要时） | ✅ | Ph2（已落） | Vault/KMS 可选升级 |
 | A5 | 多机调度（K8s 原生调度即可满足） | HUB | ✅（随 G1 达成：k8s provisioner 起 per-tenant Pod 跨节点调度；多副本 hub 仍属 A6 状态外置前提） | P2 | Ph1 | 高 |
-| A6 | 弹性扩缩容（Hub 层 HPA；runtime per-tenant 不扩副本） | HUB | ❌ | P2 | Ph2 | 高 |
+| A6 | 弹性扩缩容（Hub 层 HPA；runtime per-tenant 不扩副本） | HUB | 🟡（26 §1：HPA 模板冻结（metrics 就绪）；**真堵点=SQLite 多副本**——控制面扩副本前必须外置 DB 或单写多读，runtime 侧维持惰性启停不扩副本 | P2 | 设计冻结 | 高 |
 | A7 | A7 | 升级策略（hub 滚动升级 + runtime 重建；金丝雀/蓝绿） | ✅（EP-2-10 金丝雀：sqlite 单写者约束下采用**隔离状态金丝雀**——emptyDir 草稿副本 + `hub-smoke.sh` 五关冒烟门 + JSON patch 选择器切流；kind 全链路实测含回退（merge patch 不删 selector key 的踩坑已固化为手册警示）；runtime 升级走 registry 期望态重建）；**停机窗口已明示**：runbook-canary §5 量化 Recreate 单副本窗口（~30-80s 典型）+ 五级缓解（金丝雀先行/镜像预热/低峰+备份兜底/PDB 显式预算/零停机=Phase3+ 状态外置议题）| ✅ | Ph2（已落） | — |
 | A8 | A8 | 备份容灾（Velero/PVC 快照 + sqlite 备份手册化） | ✅（EP-2-5 `1a41…`：`runbook-backup-restore.md` 双层手册——SQLite 在线 `.backup` 脚本 `deploy/scripts/backup-hub-sqlite.sh`（WAL 一致快照+SHA256SUMS+轮转）+ Velero 卷级步骤；**L1 恢复演练实测闭环**（破坏→恢复→integrity ok→行数/vault 对账→轮转 8→3），L2 待生产首跑补记） | ✅ | Ph2（已落） | — |
 | A9 | 定时任务幂等/去重 | GLM | ✅（**架构性满足**（per-tenant 单写者——runtime 每 Pod 单实例，cron 调度无并发副本；06 §3 单写者约束同源）；**重开条件**：runtime 共享化/多副本（届时需分布式锁，Ph3 议题）） | P3 | 架构满足 | 低 |
 | A10 | 会话粘性 | GLM | ✅（**架构性满足**（hub 代理按 owner_user_id 路由其唯一 runtime——`runtime_payloads` 每用户单记录；会话状态落 runtime 本地即天然粘滞）；**重开条件**：同上共享化） | P3 | 架构满足 | 低 |
 | A11 | 供应链安全（镜像签名验证、SBOM） | GLM | 🟡（**指南已落 docs/enterprise/25**：SBOM 三制品命令（cyclonedx/syft）+ 依赖双锁定纪律 + digest 固定 + cosign 验证流程 + 落地检查单；**签名链路待内网 cosign 部署**（IT 侧）——文档面完成，工具面是外部依赖） | P3 | 部分已落 | 中 |
-| A12 | GPU 资源配额与亲和调度 | GLM | ❌ | P3 | backlog | 中 |
+| A12 | GPU 资源配额与亲和调度 | GLM | 🟡（26 §2：nodeSelector/tolerations/ResourceQuota 模板冻结，agent 声明 gpu: required|preferred；hub 侧不重复限 GPU 数（K8s admission 负责）；堵点=内网 GPU 节点） | P3 | 模板冻结 | 中 |
 
 ## B. 控制台与菜单权限（本仓库切入点）
 
@@ -42,9 +42,9 @@
 | C1 | 多用户账号（注册/禁用/改密/登录限速） | USR/HUB | ✅（`hub/auth.py`：sqlite 用户表、角色、token 版本、锁定） | — | — | — |
 | C2 | C2 | 用户组（group + member 表，组级策略挂载点） | ✅（EP-2-1：`groups`+`group_members`+`policies` 三表迁移；`GroupPolicyStore` CRUD；admin API `/api/hub/admin/groups*` 与 `/policies*` 全套） | ✅ | Ph2（已落） | — |
 | C3 | C3 | OIDC SSO（企业 IdP：Keycloak/AD/Authing；JIT 建号；组映射） | ✅（EP-2-2：授权码流 + userinfo 后信道（免 JWT 验签依赖）；JIT 建号 + `source='oidc'` 组全量同步（IdP 移除即生效）；本地 disabled 拒登录；admin settings 配 issuer/client/claims；本地账密登录保留降级） | ✅ | Ph2（已落） | — |
-| C4 | LDAP 直连 | GLM | ❌ | P2 | backlog | 中 |
-| C5 | SCIM 自动回收（离职联动） | GLM | ❌ | P3 | backlog | 中 |
-| C6 | 组织层级（租户→部门→团队四级） | GLM | ❌（扁平 group 起步） | P3 | backlog | 中 |
+| C4 | LDAP 直连 | GLM | 🟡（**协议层+接线已落**：`hub/ldap_auth.py`——LdapSettings（ldap.json 热加载）+ search-then-bind 验证器（RFC4515 转义防注入、ldaps、超时 fail-closed）；登录端点本地口令失败后 LDAP 兜底→**未知用户名自动建户**（role=user，随机口令本地通道关闭）；ldap3 可选依赖（qwenpaw[ldap]）；**真目录服务器联调待内网**（单测 mock verify + 配置/转义单测 4 例） | P2 | 部分已落 | 中 |
+| C5 | SCIM 自动回收（离职联动） | GLM | ✅（`POST/DELETE /api/hub/scim/v2/Users/{username}`——IdP 推离职（active=false/DELETE）→ 完整 GDPR 抹除（组剥离+凭据删+匿名化，与 H5 共用 `_erase_user_internals`）+ 审计 `scim.user.deprovisioned`（合成 scim-idp actor）+ SIEM 镜像；bearer token 走 `<root>/scim_token`（0600 强制，宽权限拒绝启用，constant-time 比对）；未配置 503/错 token 401；`GET /admin/scim/status` 不回显 token；7 测试见身份批） | P3 | 已落 | 中 |
+| C6 | 组织层级（租户→部门→团队四级） | GLM | ✅（groups.parent_id（幂等 ALTER+FK）；create 可挂父+**防环/自父/深于 4 级拒绝**；`descendant_member_ids` 子树成员展开（G3 组配额自动含子团队）；`policies_for` 组链继承（叶子成员继承部门 policy）；list_groups 带 parent_id；7 测试见身份批） | P3 | 已落 | 中 |
 | C7 | PAT 细粒度作用域（scoped token 只能调某 Agent/某 API 组） | GLM | ✅（`app/auth.py` scope 体系：`<group>[:read\|write]` ×6 组（chat/agents/files/config/tools/knowledge）+ `*`；create_token 带 scp，AuthMiddleware 按组前缀+读写级强制（403）；PAT 端点 `GET/POST/DELETE /api/auth/tokens`（元数据存 auth.json，token 体只回显一次；scoped token 不可再铸 token）；jti 黑名单复用撤销链） | P2 | Ph2（已落） | 中 |
 | C8 | 委托/临时授权 | GLM | ✅（policies 表加 `expires_at`（幂等 ALTER）：ISO-8601 窗口，过期即**评估面整体不可见**（fail-closed；无法解析的过期串同样拒绝）；`policies_for/list_policies` 双过滤；`POST /api/hub/admin/policies` 传 expires_at + 审计 `policy.created`；`POST .../policies/purge-expired` 物理清理；6 测试） | P3 | 已落 | 低 |
 
@@ -96,7 +96,7 @@
 | G2 | G2 | 能力协商协议（requirement ⊆ capability 才调度；schema 借 `SandboxCapability`） | ✅（`hub/capability.py`：`RuntimeCapability`（version/sandbox[借 SandboxCapability 形状]/tools，metadata 往返）+ `CapabilityRequirement` + `negotiate()`（requirement ⊆ capability：**数值序**版本比较、沙箱必选、工具子集）；注册无门记录能力集（可观测），**start 端点协商调度**：不满足 → 409 `CAPABILITY_MISMATCH` + missing 明细 + 审计 failure；admin `GET/PUT /runtime-requirements` 热设要求（入审计）；runtime payload 透出 capabilities） | ✅ | Ph2（已落） | — |
 | G3 | 拒绝启动而非降级（fail-closed）+ 硬拒绝/软降级区分 | HUB/GLM | ✅（preflight fail-closed（Ph1）+ G2 协商门：requirement ⊄ capability → 409 CAPABILITY_MISMATCH + missing 明细 + 审计，硬拒绝语义全程无静默降级） | P1 | Ph1+Ph2（已落） | 中 |
 | G4 | gVisor/Kata/MicroVM 后端 | HUB | ✅（`SandboxMode.CONTAINER`：docker run/exec/rm，`platform_hints[container_runtime]` 直通 `--runtime`（gVisor/Kata 零代码切换），内存/pids 为真实 cgroup 限额；live 验收套真 daemon 证明隔离属性（2026-09-17，`aee532b8`/`5255f348`）） | ✅ | Ph3（已提前落） | — |
-| G5 | 远程 runtime 后端（跨机） | HUB | ❌ | P3 | backlog | 中 |
+| G5 | 远程 runtime 后端（跨机） | HUB | 🟡（26 §3：架构定型=远程跑 `qwenpaw agent --hub-url`（反向心跳注册，复用既有代理链路，改动面最小）优于 SSH provisioner；mTLS/agent token 入 vault；堵点=跨机网络+token 签发票） | P3 | 架构定型 | 中 |
 | G6 | per-tenant 运行时池与资源上限（Docker 已有 limits，K8s 用 quotas/limits） | HUB/GLM | ✅（三层齐备：① per-pod——chart `runtimes.resources` → `QWENPAW_HUB_K8S_{CPU,MEMORY}_{REQUEST,LIMIT}` env → provisioner configure → 容器 resources（既有）；② ns 级——`runtime-quota.yaml` 新模板：ResourceQuota（pods/cpu/memory/storage 聚合上限）+ LimitRange（兜底注入 default requests/limits，四键成对校验）；③ kind 实测：quota `pods: 0/8, requests.cpu: 0/8` 就位、LimitRange default 250m/512Mi~1/2Gi、hub healthz 200。per-tenant **差异化档位**留 Ph3（当前全局一档+ns 护栏，够企业起步）） | P1 | Ph1（已落） | 高 |
 | G7 | G7 | 常驻 Agent Pod + 按需沙箱 Job 两级执行（K8s 场景沙箱不逐调用启 Pod） | ✅（两级执行：常驻 agent Pod（现状不动）+ `sandbox_job_manifest()` 按需沙箱 Job——batch/v1，默认加固（non-root/drop ALL/禁提权/只读 rootfs+tmp emptyDir）、TTL 自清、activeDeadline 上限、backoff 0；provisioner `launch_sandbox_job` 派发；端点 `POST /runtimes/{id}/sandbox-jobs`（校验+审计+501 优雅降级）） | ✅ | Ph2（已落） | — |
 
@@ -104,10 +104,10 @@
 
 | ID | 需求 | 来源 | 状态 | 优先级 | 阶段 | 撞车 |
 |---|---|---|---|---|---|---|
-| H1 | 记忆/知识三档共享（个人私有 / 部门共享 / 租户公共） | #7318 社区(Marlin-Phone/ysf7762) | ❌（每 agent 记忆独立） | P2 | Ph2-3 | 中 |
+| H1 | 记忆/知识三档共享（个人私有 / 部门共享 / 租户公共） | #7318 社区(Marlin-Phone/ysf7762) | 🟡（26 §6：设计冻结——hub KnowledgeStore（scope=tenant 全员读/group 沿 C6 组树继承读）+ runtime 环境注入挂载；个人档=现状 agent 记忆；**建议与 J3 语义层合并实现**（同构存储）；工作量票非环境票） | P2 | 设计冻结 | 中 |
 | H2 | H2 | 审计日志 append-only/防篡改 | ✅（无票据直落：`hub_audit_events` 加 `prev_hash/row_hash` 链式 SHA-256（全字段参与 canonical JSON）；`BEGIN IMMEDIATE` 内取头-算哈希-插入原子；存量行幂等补链；`verify_chain()` 全walk 报断链位置/原因；admin 端点 `/audit/verify` + `/audit/chain-head`（外部锚定用）。边界如实：链检测篡改/删行/重排，整库重算级攻击需配合 chain-head 外部锚定（备份手册已含离线副本建议）） | ✅ | Ph2（已落） | — |
 | H3 | H3 | 审计留存周期与导出接口 | ✅（无票据直落：`GET /audit/export` JSONL 流式导出（含 prev/row_hash 可离线校验）；`POST /audit/prune` **先归档后删**（JSONL 落 hub root + 被裁段尾哈希入 `audit_chain_archives` 锚点表 + 剩余链 fresh-genesis 重哈希续链）；`GET /audit/archives` 锚点清单；prune 自身入审计；留存节奏由运维 cron 驱动（默认不自动删）） | ✅ | Ph2（已落） | — |
-| H4 | 数据驻留（多地域不跨区） | GLM | ❌ | P3 | backlog | 低 |
+| H4 | 数据驻留（多地域不跨区） | GLM | 🟡（26 §4：**零代码结论**——分域部署（每地域独立 hub，QWENPAW_HUB_DIR 分域），入口按地域分流，hub 间零同步即零跨区；堵点=网络侧入口路由） | P3 | 结论冻结 | 低 |
 | H5 | 用户数据导出/删除（GDPR 式） | GLM | ✅（`GET /admin/users/{id}/export`——JSON 捆绑 profile（无密钥）/组归属/用量汇总+范围说明；`DELETE /admin/users/{id}/data`——匿名化软删（username→deleted-*、凭据字段清空）+ 组成员剥离 + 租户凭据全删 + 审计 `user.data_erased`；**诚实边界**：审计行 append-only 保留（H2 链，无密钥，文档注明）；runtime 工作区文件非 hub 面数据（引导用 runtime backup 工具）；自删 422 拒绝；5 测试） | P3 | 已落 | 中 |
 
 ## I. 交付与环境管理
@@ -117,7 +117,7 @@
 | I1 | fork 工程化：分支/基线 tag/CI 跑通上游测试 | USR | ✅（enterprise-ci.yml hub+console 两 job、fork-verify、baseline tag、docs/enterprise 全套；CI 三绿常态） | P0 | Ph0 | — |
 | I2 | I2 | 环境分层 dev/staging/prod（Helm values 分档） | ✅（EP-2-10：`values-{dev,staging,prod}.yaml` 三档——dev NodePort/低资源/注册开，staging 生产同形+日备，prod 高资源+18:00 日备+三冒烟门；渲染验证 ×14 资源） | ✅ | Ph2（已落） | — |
 | I3 | Agent/Skill/人格版本化与回滚 | GLM | ✅（**git 快照即版本线**：checkpoints 全集 API（create/preview-restore/apply-restore/gc/auto）覆盖 agents/ 目录（人格 PROFILE/SOUL + skills 资产随工作区树入快照，恢复即回滚）；**发布资产侧**模板市场 store revision 自动 bump + 审批流（EP-2-19）；**粒度诚实**：工作区/发布资产级，单 Agent 细粒度版本线留后续增强） | P2 | Ph2（已落） | 中 |
-| I4 | 发布流水线（开发→审核→灰度→全量） | GLM | ❌ | P3 | backlog | 低 |
+| I4 | 发布流水线（开发→审核→灰度→全量） | GLM | 🟡（26 §5：四阶段门冻结——开发=三套全绿纪律（既有）、审核=D5 式人工门、灰度=canary runbook（既有）、全量=分批 rollout；堵点=内网 CI runner） | P3 | 阶段门冻结 | 低 |
 
 ## J. 问数应用（数据智能问答）
 

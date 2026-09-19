@@ -157,6 +157,10 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/hub/acl/groups.py`（追加） | C8 `_policy_expired` fail-closed 判定 + create/list/policies_for 过滤 + `purge_expired_policies` | Ph2 | D5/C8 批 |
 | `src/qwenpaw/hub/templates/_store.py`（追加） | D5 `_ALLOWED_STATUS` 增 `pending_review` | Ph2 | D5/C8 批 |
 | `src/qwenpaw/hub/control_app.py`（追加） | D5 成员 submit/mine + admin pending 队列；C8 policy expires_at 透传 + purge 端点 + 审计 | Ph2 | D5/C8 批 |
+| `src/qwenpaw/hub/ldap_auth.py`（新增） | C4 LDAP 直连：LdapSettings/LdapAuthenticator（可选 ldap3） | Ph2（新增文件） | C4/C5/C6 批 |
+| `src/qwenpaw/hub/database.py`（追加） | C6 groups `parent_id`（DDL+幂等 ALTER） | Ph2 | C4/C5/C6 批 |
+| `src/qwenpaw/hub/acl/groups.py`（追加） | C6 层级：parent+防环+`descendant_member_ids`+组链 policy 继承 | Ph2 | C4/C5/C6 批 |
+| `src/qwenpaw/hub/control_app.py`（追加） | C4 登录 LDAP 兜底+自动建户；C5 SCIM 端点+`_erase_user_internals` 抽取（H5 复用）；G3 配额改子树聚合 | Ph2 | C4/C5/C6 批 |
 | `tests/integration/test_hub_control_app_module.py`（追加 1 行） | 上游 #7779 `_runtime_payload` 增 capability 后 FakeRecord 缺 `metadata`（merge 遗留基线红，非 fork 回归）——补 `metadata = {}` | Ph2 | E5/D2/D3/A4 批 |
 | `console/src/pages/Hub/index.tsx`（fork 文件，吸收登记） | 上游 #7779 组件吸收：治理 section（OrganizationModels/OrganizationBudget/Invitations）+ 导航项 + governanceGrid 样式 | Ph2 | B8 吸收 |
 

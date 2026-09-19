@@ -49,6 +49,9 @@ def _subject(kind: str, value: str) -> str:
     return f"{kind}:{value}"
 
 
+_MAX_GROUP_DEPTH = 4
+
+
 def _policy_expired(expires_at: Optional[str]) -> bool:
     """True when a C8 delegation window has passed (fail-closed)."""
     if not expires_at:
@@ -78,25 +81,143 @@ class GroupPolicyStore:
 
     # -------------------------------------------------- groups
 
-    def create_group(self, name: str, *, source: str = "local") -> str:
-        """Create a group; returns its generated id."""
+    def create_group(
+        self,
+        name: str,
+        *,
+        source: str = "local",
+        parent_group_id: Optional[str] = None,
+    ) -> str:
+        """Create a group; returns its generated id.
+
+        ``parent_group_id`` (C6) nests it under one parent — up to
+        four levels (tenant→department→team→subteam); cycles and
+        self-parenting are rejected.
+        """
         if not name or len(name) > 128 or ":" in name:
             raise ValueError(f"Invalid group name: {name!r}")
-        group_id = uuid.uuid4().hex
         with self._connect() as connection:
+            if parent_group_id:
+                if parent_group_id == name:
+                    raise ValueError("group cannot parent itself")
+                depth = self._lineage_depth(
+                    connection,
+                    parent_group_id,
+                )
+                if depth is None:
+                    raise ValueError("parent group not found")
+                if depth + 1 >= _MAX_GROUP_DEPTH:
+                    raise ValueError(
+                        f"group nesting deeper than {_MAX_GROUP_DEPTH}",
+                    )
+            group_id = uuid.uuid4().hex
             connection.execute(
-                "INSERT INTO groups(group_id, name, source, created_at) "
-                "VALUES (?, ?, ?, ?)",
-                (group_id, name, source, utc_now()),
+                "INSERT INTO groups(group_id, name, source, parent_id, "
+                "created_at) VALUES (?, ?, ?, ?, ?)",
+                (group_id, name, source, parent_group_id, utc_now()),
             )
         return group_id
+
+    @staticmethod
+    def _lineage_depth(
+        connection: sqlite3.Connection,
+        group_id: str,
+    ) -> Optional[int]:
+        """Depth of one node in its chain (0 = root); None if absent
+        or if the chain is corrupt/cyclic."""
+        seen = set()
+        depth = 0
+        current = group_id
+        while current is not None:
+            if current in seen:
+                return None
+            seen.add(current)
+            row = connection.execute(
+                "SELECT parent_id FROM groups WHERE group_id = ?",
+                (current,),
+            ).fetchone()
+            if row is None:
+                return None
+            current = row["parent_id"]
+            depth += 1
+            if depth > _MAX_GROUP_DEPTH * 2:
+                return None
+        return depth - 1
+
+    def ancestor_group_ids(self, group_id: str) -> List[str]:
+        """Chain of ancestor ids (nearest first), cycle-safe."""
+        with self._connect() as connection:
+            chain: List[str] = []
+            seen = {group_id}
+            current_row = connection.execute(
+                "SELECT parent_id FROM groups WHERE group_id = ?",
+                (group_id,),
+            ).fetchone()
+            while current_row is not None:
+                parent = current_row["parent_id"]
+                if not parent or parent in seen:
+                    break
+                seen.add(parent)
+                chain.append(parent)
+                current_row = connection.execute(
+                    "SELECT parent_id FROM groups WHERE group_id = ?",
+                    (parent,),
+                ).fetchone()
+        return chain
+
+    def descendant_member_ids(self, group_name: str) -> List[str]:
+        """Members of one group AND all its descendants (C6 quotas,
+        department totals include sub-teams)."""
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT group_id, name FROM groups",
+            ).fetchall()
+        by_id = {str(row["group_id"]): str(row["name"]) for row in rows}
+        root_id = next(
+            (gid for gid, name in by_id.items() if name == group_name),
+            None,
+        )
+        if root_id is None:
+            return []
+        children: dict[str, List[str]] = {}
+        with self._connect() as connection:
+            for row in connection.execute(
+                "SELECT group_id, parent_id FROM groups "
+                "WHERE parent_id IS NOT NULL",
+            ).fetchall():
+                children.setdefault(str(row["parent_id"]), []).append(
+                    str(row["group_id"]),
+                )
+        subtree = [root_id]
+        frontier = [root_id]
+        seen = {root_id}
+        while frontier:
+            nxt: List[str] = []
+            for gid in frontier:
+                for child in children.get(gid, []):
+                    if child not in seen:
+                        seen.add(child)
+                        subtree.append(child)
+                        nxt.append(child)
+            frontier = nxt
+        members: List[str] = []
+        query_members = "SELECT user_id FROM group_members WHERE group_id = ?"
+        with self._connect() as connection:
+            for gid in subtree:
+                rows2 = connection.execute(
+                    query_members,
+                    (gid,),
+                ).fetchall()
+                members.extend(str(r["user_id"]) for r in rows2)
+        return sorted(set(members))
 
     def list_groups(self) -> List[dict]:
         """All groups with member counts."""
         with self._connect() as connection:
             rows = connection.execute(
                 """
-                SELECT g.group_id, g.name, g.source, g.created_at,
+                SELECT g.group_id, g.name, g.source, g.parent_id,
+                       g.created_at,
                        COUNT(m.user_id) AS member_count
                 FROM groups g
                 LEFT JOIN group_members m ON m.group_id = g.group_id
@@ -255,7 +376,30 @@ class GroupPolicyStore:
     ) -> Tuple[Policy, ...]:
         """Policies matching one subject (user > group > role order)."""
         subjects = [_subject("user", user_id)]
-        subjects.extend(_subject("group", name) for name in groups)
+        for name in groups:
+            subjects.append(_subject("group", name))
+            # C6: membership in a nested team also inherits the
+            # department/tenant policies up the chain.
+            row = None
+            with self._connect() as connection:
+                row = connection.execute(
+                    "SELECT group_id FROM groups WHERE name = ?",
+                    (name,),
+                ).fetchone()
+            if row is not None:
+                for ancestor_id in self.ancestor_group_ids(
+                    str(row["group_id"]),
+                ):
+                    anc = None
+                    with self._connect() as connection:
+                        anc = connection.execute(
+                            "SELECT name FROM groups WHERE group_id = ?",
+                            (ancestor_id,),
+                        ).fetchone()
+                    if anc is not None:
+                        subjects.append(
+                            _subject("group", str(anc["name"])),
+                        )
         subjects.append(_subject("role", role))
         placeholders = ",".join("?" for _ in subjects)
         with self._connect() as connection:

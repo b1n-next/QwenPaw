@@ -42,6 +42,7 @@ def initialize_hub_database(database_path: Path) -> None:
         existing = _existing_hub_tables(connection)
         if existing and not _is_current_generation(connection):
             _migrate_v1_audit_trace(connection)
+        _ensure_group_parent_column(connection)
         _ensure_policy_expiry_column(connection)
         _ensure_audit_chain_columns(connection)
         _ensure_settings_columns(connection)
@@ -183,6 +184,18 @@ def audit_chain_hash(
     digest.update((prev_hash or "").encode("utf-8"))
     digest.update(payload.encode("utf-8"))
     return digest.hexdigest()
+
+
+def _ensure_group_parent_column(connection: sqlite3.Connection) -> None:
+    """C6: add nullable parent_id to older group stores (idempotent)."""
+    tables = _existing_hub_tables(connection)
+    if "groups" not in tables:
+        return
+    columns = _table_columns(connection, "groups")
+    if "parent_id" not in columns:
+        connection.execute(
+            "ALTER TABLE groups ADD COLUMN parent_id TEXT",
+        )
 
 
 def _ensure_policy_expiry_column(connection: sqlite3.Connection) -> None:
@@ -543,7 +556,9 @@ CREATE TABLE IF NOT EXISTS groups (
     group_id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     source TEXT NOT NULL DEFAULT 'local',
-    created_at TEXT NOT NULL
+    parent_id TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(parent_id) REFERENCES groups(group_id)
 );
 
 CREATE TABLE IF NOT EXISTS group_members (

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import hmac
 import json
 import logging
 import os
@@ -48,6 +49,7 @@ from ..plugins.browser_access import PAWAPP_SCOPE_HEADER
 from .access_security import HubAccessSecurity
 from .acl import AclEngine
 from .acl.console_map import effective_permissions
+from .ldap_auth import load_ldap_authenticator
 from .acl.resource_policies import allowed_resource_ids, resource_baseline
 from .capability import (
     CapabilityRequirement,
@@ -421,6 +423,46 @@ def _build_oidc_client(
     )
 
 
+logger = logging.getLogger(__name__)
+
+
+def _ldap_provision_login(hub_auth: Any, username: str) -> Any:
+    """Find-or-create the LDAP-vouched member and mint a token.
+
+    Runs in a worker thread (sync sqlite); the random password is
+    never usable — local auth for this row stays closed.
+    """
+    existing = hub_auth.find_by_username(username)
+    if existing is not None:
+        if existing.disabled:
+            raise PermissionError("Account is disabled.")
+        return existing, hub_auth.create_token(existing)
+    created = hub_auth.create_user(
+        username=username,
+        password=secrets.token_urlsafe(32),
+        role="user",
+    )
+    return created, hub_auth.create_token(created)
+
+
+def _load_scim_token(path: Path) -> str | None:
+    """Read the ops-managed SCIM bearer token (C5), if deployed."""
+    try:
+        if not path.is_file():
+            return None
+        if path.stat().st_mode & 0o077:
+            logger.warning(
+                "SCIM token file %s is group/world accessible; "
+                "refusing to enable SCIM until chmod 600.",
+                path,
+            )
+            return None
+        token = path.read_text(encoding="utf-8").strip()
+        return token or None
+    except OSError:
+        return None
+
+
 def create_hub_app(  # pylint: disable=too-many-statements
     service: RuntimeService | None = None,
     auth_service: HubAuthService | None = None,
@@ -620,6 +662,15 @@ def create_hub_app(  # pylint: disable=too-many-statements
     app.state.quota = QuotaEngine(
         runtime_service.root_dir / "quota.json",
     )
+    # C5: SCIM deprovisioning bearer token, deployed as a file next
+    # to the vault key (0600) — no schema/UI surface, ops-managed.
+    app.state.ldap_authenticator = load_ldap_authenticator(
+        runtime_service.root_dir,
+    )
+    app.state.scim_token = _load_scim_token(
+        runtime_service.root_dir / "scim_token",
+    )
+
     # EP-2-4: hand-rolled Prometheus registry (07 §4)
     app.state.metrics = HubMetrics()
     # EP-2-2: OIDC SSO client (rebuilt when admin updates settings)
@@ -835,7 +886,7 @@ def create_hub_app(  # pylint: disable=too-many-statements
         counters from one summary pass (same 30s cache window as the
         per-user fetcher).
         """
-        members = app.state.group_store.member_ids(group)
+        members = app.state.group_store.descendant_member_ids(group)
         if not members:
             return UsageSnapshot(tokens=0, requests=0)
         today = (
@@ -1394,15 +1445,58 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 body.password,
             )
         except PermissionError as exc:
-            access_security.record_attempt("login", client_ip)
+            # C4: LDAP direct-bind fallback — the directory vouches
+            # for the password; role/limits stay hub-owned. Unknown
+            # usernames are auto-provisioned as regular members.
+            ldap_auth = app.state.ldap_authenticator
+            if ldap_auth is None:
+                access_security.record_attempt("login", client_ip)
+                await record_auth_event(
+                    "auth.login",
+                    body.username,
+                    client_ip,
+                    outcome="failure",
+                    reason=str(exc),
+                )
+                raise HTTPException(
+                    status_code=401,
+                    detail=str(exc),
+                ) from exc
+            verified = await run_in_threadpool(
+                ldap_auth.verify,
+                body.username,
+                body.password,
+            )
+            if not verified:
+                access_security.record_attempt("login", client_ip)
+                await record_auth_event(
+                    "auth.login",
+                    body.username,
+                    client_ip,
+                    outcome="failure",
+                    reason="local+ldap both rejected",
+                )
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid username or password.",
+                ) from exc
+            user, token = await run_in_threadpool(
+                _ldap_provision_login,
+                hub_auth,
+                body.username,
+            )
             await record_auth_event(
-                "auth.login",
+                "auth.login.ldap",
                 body.username,
                 client_ip,
-                outcome="failure",
-                reason=str(exc),
+                outcome="success",
+                user=user,
             )
-            raise HTTPException(status_code=401, detail=str(exc)) from exc
+            return {
+                "token": token,
+                "username": user.username,
+                "user": user.to_dict(),
+            }
         access_security.clear("login", client_ip)
         await record_auth_event(
             "auth.login",
@@ -1548,6 +1642,46 @@ def create_hub_app(  # pylint: disable=too-many-statements
         )
         return user.to_dict()
 
+    def _erase_user_internals(user_id: str) -> dict[str, int]:
+        """Shared GDPR/SCIM erasure: groups, vault, anonymize.
+
+        Caller validates existence/self-erase rules; audit stays with
+        the caller (different actor identities).
+        """
+        groups = list(
+            app.state.group_store.group_names_for(user_id),
+        )
+        for group_name in groups:
+            group = next(
+                (
+                    g
+                    for g in app.state.group_store.list_groups()
+                    if g.get("name") == group_name
+                ),
+                None,
+            )
+            if group:
+                app.state.group_store.remove_member(
+                    str(group.get("group_id")),
+                    user_id,
+                )
+        vault = app.state.credential_vault
+        tenant_creds = vault.list_metadata(
+            tenant_id=f"personal-{user_id}",
+        )
+        for item in tenant_creds:
+            vault.delete(
+                tenant_id=f"personal-{user_id}",
+                scope=str(item.get("scope") or ""),
+                name=str(item.get("name") or ""),
+            )
+        anonymized = app.state.auth_service.anonymize_user(user_id)
+        return {
+            "groups_removed": len(groups),
+            "credentials_deleted": len(tenant_creds),
+            "anonymized": int(bool(anonymized)),
+        }
+
     @app.get("/api/hub/admin/users/{user_id}/export")
     async def admin_export_user_data(
         user_id: str,
@@ -1657,45 +1791,11 @@ def create_hub_app(  # pylint: disable=too-many-statements
                 status_code=404,
                 detail={"code": "USER_NOT_FOUND"},
             )
-        groups = list(
-            await run_in_threadpool(
-                app.state.group_store.group_names_for,
-                user_id,
-            ),
-        )
-        for group_name in groups:
-            group = next(
-                (
-                    g
-                    for g in app.state.group_store.list_groups()
-                    if g.get("name") == group_name
-                ),
-                None,
-            )
-            if group:
-                await run_in_threadpool(
-                    app.state.group_store.remove_member,
-                    str(group.get("group_id")),
-                    user_id,
-                )
-        vault = app.state.credential_vault
-        tenant_creds = await run_in_threadpool(
-            vault.list_metadata,
-            tenant_id=f"personal-{user_id}",
-        )
-        for item in tenant_creds:
-            await run_in_threadpool(
-                vault.delete,
-                tenant_id=f"personal-{user_id}",
-                scope=str(item.get("scope") or ""),
-                name=str(item.get("name") or ""),
-            )
-        anonymized = await run_in_threadpool(
-            app.state.auth_service.anonymize_user,
+        erased = await run_in_threadpool(
+            _erase_user_internals,
             user_id,
-            actor_user_id=user.user_id,
         )
-        if not anonymized:
+        if not erased["anonymized"]:
             raise HTTPException(
                 status_code=409,
                 detail={"code": "ALREADY_DELETED"},
@@ -1706,18 +1806,138 @@ def create_hub_app(  # pylint: disable=too-many-statements
             "user",
             user_id,
             {
-                "groups_removed": len(groups),
-                "credentials_deleted": len(tenant_creds),
+                "groups_removed": erased["groups_removed"],
+                "credentials_deleted": erased["credentials_deleted"],
                 "anonymized": True,
             },
         )
         return {
             "erased": True,
             "user_id": user_id,
-            "groups_removed": len(groups),
-            "credentials_deleted": len(tenant_creds),
+            "groups_removed": erased["groups_removed"],
+            "credentials_deleted": erased["credentials_deleted"],
             "audit_retained": True,
         }
+
+    def _require_scim(request: Request) -> None:
+        """C5: constant-time bearer check against the deployed token."""
+        expected = app.state.scim_token
+        if not expected:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "code": "SCIM_NOT_CONFIGURED",
+                    "message": (
+                        "SCIM is not enabled; deploy <hub root>"
+                        "/scim_token (chmod 600)."
+                    ),
+                },
+            )
+        header = request.headers.get("authorization", "")
+        scheme, _, value = header.partition(" ")
+        if scheme.lower() != "bearer" or not value:
+            raise HTTPException(status_code=401, detail="bearer required")
+        if not hmac.compare_digest(value, expected):
+            raise HTTPException(status_code=401, detail="invalid token")
+
+    @app.get("/api/hub/admin/scim/status")
+    async def admin_scim_status(
+        _user: HubUser = Depends(require_admin),
+    ) -> dict[str, object]:
+        """Whether SCIM deprovisioning is armed (never echoes token)."""
+        return {"enabled": bool(app.state.scim_token)}
+
+    @app.post("/api/hub/scim/v2/Users/{username}")
+    async def scim_update_user(
+        username: str,
+        request: Request,
+    ) -> dict[str, object]:
+        """C5: IdP-driven deprovisioning (SCIM-style PATCH/DELETE).
+
+        IdPs push ``{"active": false}`` (or any non-true active) on
+        offboarding; the hub then runs the full GDPR erasure (groups,
+        credentials, anonymization) and records an audit event under
+        a synthetic scim actor.
+        """
+        _require_scim(request)
+        try:
+            body = await request.json()
+        except ValueError:
+            body = {}
+        payload = await _scim_apply(username, body)
+        return payload
+
+    async def _scim_apply(username: str, body: dict) -> dict:
+        active = body.get("active", False)
+        if active is True or active == "true":
+            return {
+                "schemas": [
+                    "urn:ietf:params:scim:schemas:core:2.0:User",
+                ],
+                "userName": username,
+                "active": True,
+                "note": "no-op; provisioning is managed locally",
+            }
+        target = await run_in_threadpool(
+            app.state.auth_service.find_by_username,
+            username,
+        )
+        if target is None:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "code": "USER_NOT_FOUND",
+                    "message": f"no live user {username!r}",
+                },
+            )
+        erased = await run_in_threadpool(
+            _erase_user_internals,
+            target.user_id,
+        )
+        await run_in_threadpool(
+            operations.record,
+            actor_user_id="scim",
+            actor_username="scim-idp",
+            action="scim.user.deprovisioned",
+            resource_type="user",
+            resource_id=target.user_id,
+            outcome="success",
+            detail={
+                "username": username,
+                **erased,
+            },
+        )
+        app.state.siem_relay.enqueue(
+            {
+                "action": "scim.user.deprovisioned",
+                "resource_type": "user",
+                "resource_id": target.user_id,
+                "username": username,
+            },
+        )
+        return {
+            "schemas": [
+                "urn:ietf:params:scim:schemas:core:2.0:User",
+            ],
+            "id": target.user_id,
+            "userName": username,
+            "active": False,
+            **erased,
+        }
+
+    @app.delete("/api/hub/scim/v2/Users/{username}")
+    async def scim_delete_user(
+        username: str,
+        request: Request,
+    ) -> Response:
+        """C5: DELETE is an alias of active=false for IdP variety."""
+        _require_scim(request)
+        payload = await _scim_apply(username, {"active": False})
+        return Response(
+            content=json.dumps(payload),
+            media_type="application/scim+json",
+            status_code=200,
+        )
 
     @app.patch("/api/hub/admin/users/{user_id}")
     async def patch_user(
