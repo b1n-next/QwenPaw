@@ -125,7 +125,7 @@ class LocalProcessRuntimeProvisioner(RuntimeProvisioner):
             )
         return RuntimeProvisionerAvailability(available=True)
 
-    def start(
+    def start(  # pylint: disable=too-many-statements
         self,
         record: RuntimeRecord,
         credentials: Mapping[str, str],
@@ -329,7 +329,7 @@ class LocalProcessRuntimeProvisioner(RuntimeProvisioner):
         self._launcher.shutdown(wait=True)
 
     @staticmethod
-    def runtime_environment(
+    def runtime_environment(  # pylint: disable=too-many-statements
         record: RuntimeRecord,
         credentials: Mapping[str, str],
     ) -> dict[str, str]:
