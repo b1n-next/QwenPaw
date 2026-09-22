@@ -19,6 +19,13 @@ from .database import (
 )
 
 
+def _rowid_expr(connection: Any) -> str:
+    """Dialect row-ordinal column: rowid (SQLite) / ctid (PG)."""
+    from .db_adapter import PgConnection
+
+    return "ctid" if isinstance(connection, PgConnection) else "rowid"
+
+
 class HubOperationsStore:
     """Persist audit events and collect inexpensive host metrics."""
 
@@ -63,10 +70,18 @@ class HubOperationsStore:
         created_at = utc_now()
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            head = connection.execute(
-                "SELECT row_hash FROM hub_audit_events "
-                "ORDER BY rowid DESC LIMIT 1",
-            ).fetchone()
+            from .db_adapter import PgConnection
+
+            if isinstance(connection, PgConnection):
+                head = connection.execute(
+                    "SELECT row_hash FROM hub_audit_events "
+                    "ORDER BY ctid DESC LIMIT 1",
+                ).fetchone()
+            else:
+                head = connection.execute(
+                    "SELECT row_hash FROM hub_audit_events "
+                    "ORDER BY rowid DESC LIMIT 1",
+                ).fetchone()
             prev_hash = head["row_hash"] if head is not None else None
             row_hash = audit_chain_hash(
                 prev_hash,
@@ -130,8 +145,9 @@ class HubOperationsStore:
         """
         with self._connect() as connection:
             rows = connection.execute(
-                "SELECT rowid AS ordinal, * FROM hub_audit_events "
-                "ORDER BY rowid",
+                f"SELECT {_rowid_expr(connection)} AS ordinal, "
+                "* FROM hub_audit_events "
+                f"ORDER BY {_rowid_expr(connection)}",
             ).fetchall()
         previous: str | None = None
         checked = 0
@@ -153,11 +169,13 @@ class HubOperationsStore:
                 }
             previous = row["row_hash"]
             checked += 1
-        head = rows[-1] if rows else None
+        head_hash: str | None = None
+        if rows:
+            head_hash = str(rows[-1]["row_hash"])
         return {
             "valid": True,
             "checked": checked,
-            "head_hash": head["row_hash"] if head is not None else None,
+            "head_hash": head_hash,
         }
 
     def iter_events(
@@ -178,7 +196,8 @@ class HubOperationsStore:
         where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
         with self._connect() as connection:
             rows = connection.execute(
-                f"SELECT * FROM hub_audit_events {where} ORDER BY rowid",
+                f"SELECT * FROM hub_audit_events {where} "
+                f"ORDER BY {_rowid_expr(connection)}",
                 tuple(params),
             ).fetchall()
         for row in rows:
@@ -205,8 +224,10 @@ class HubOperationsStore:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             rows = connection.execute(
-                "SELECT rowid AS ordinal, * FROM hub_audit_events "
-                "WHERE created_at < ? ORDER BY rowid",
+                f"SELECT {_rowid_expr(connection)} AS ordinal, "
+                "* FROM hub_audit_events "
+                f"WHERE created_at < ? "
+                f"ORDER BY {_rowid_expr(connection)}",
                 (cutoff,),
             ).fetchall()
             if not rows:
@@ -228,14 +249,15 @@ class HubOperationsStore:
             # remaining chain: fresh genesis (re-hash the new head —
             # its old digest chained to a predecessor now archived)
             survivor = connection.execute(
-                "SELECT rowid AS ordinal, * FROM hub_audit_events "
-                "ORDER BY rowid LIMIT 1",
+                f"SELECT {_rowid_expr(connection)} AS ordinal, "
+                "* FROM hub_audit_events "
+                f"ORDER BY {_rowid_expr(connection)} LIMIT 1",
             ).fetchone()
             if survivor is not None:
                 genesis_hash = audit_chain_hash(None, survivor)
                 connection.execute(
                     "UPDATE hub_audit_events SET prev_hash = NULL, "
-                    "row_hash = ? WHERE rowid = ?",
+                    f"row_hash = ? WHERE {_rowid_expr(connection)} = ?",
                     (genesis_hash, survivor["ordinal"]),
                 )
             archive_id = uuid.uuid4().hex
@@ -275,7 +297,8 @@ class HubOperationsStore:
         with self._connect() as connection:
             row = connection.execute(
                 "SELECT event_id, created_at, row_hash FROM "
-                "hub_audit_events ORDER BY rowid DESC LIMIT 1",
+                f"hub_audit_events ORDER BY "
+                f"{_rowid_expr(connection)} DESC LIMIT 1",
             ).fetchone()
         if row is None:
             return {"rows": 0, "head_hash": None}

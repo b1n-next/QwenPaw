@@ -29,6 +29,7 @@ class _UsageEvent(NamedTuple):
     cache_eligible_input_tokens: int = 0
     cache_observed: bool = False
     agent_id: str = ""
+    session_id: str = ""  # E10 C1: conversation dimension (optional)
 
 
 class TokenUsageBuffer:
@@ -234,6 +235,30 @@ def _apply_event(cache: dict, ev: _UsageEvent) -> None:
     entry["cache_observed_calls"] = entry.get("cache_observed_calls", 0)
     entry["cache_observed_calls"] += int(ev.cache_observed)
     entry["call_count"] += 1
+
+    # E10 C2: conversation-level side-car. Append-accumulate under
+    # cache["sessions"][session_id][date][agent\x1fprovider\x1fmodel];
+    # the daily aggregate above stays untouched (quota reads unaffected).
+    if ev.session_id:
+        session_bucket = cache.setdefault("sessions", {}).setdefault(
+            ev.session_id,
+            {},
+        )
+        session_day = session_bucket.setdefault(ev.date_str, {})
+        session_entry = session_day.setdefault(
+            composite_key,
+            {
+                "provider_id": ev.provider_id,
+                "model_name": ev.model_name,
+                "agent_id": ev.agent_id,
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "call_count": 0,
+            },
+        )
+        session_entry["prompt_tokens"] += ev.prompt_tokens
+        session_entry["completion_tokens"] += ev.completion_tokens
+        session_entry["call_count"] += 1
 
 
 __all__ = ["TokenUsageBuffer", "_UsageEvent"]

@@ -3771,13 +3771,22 @@ def create_hub_app(  # pylint: disable=too-many-statements
     ) -> dict[str, Any]:
         store: GroupPolicyStore = app.state.group_store
         name = str(payload.get("name") or "")
+        parent = payload.get("parent_group_id")
         try:
             group_id = await run_in_threadpool(
                 store.create_group,
                 name,
+                parent_group_id=(str(parent) if parent else None),
             )
         except ValueError as exc:
             raise HTTPException(400, str(exc)) from exc
+        await record_audit(
+            _user,
+            "group.created",
+            "group",
+            group_id,
+            {"name": name, "parent_group_id": parent},
+        )
         return {"group_id": group_id, "name": name}
 
     @app.delete("/api/hub/admin/groups/{group_id}")

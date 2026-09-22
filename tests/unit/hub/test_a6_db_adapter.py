@@ -44,7 +44,7 @@ def test_dialect_pipeline_postgres() -> None:
             "INSERT OR IGNORE INTO t(a) VALUES (?)",
             postgres=True,
         )
-        == "INSERT INTO t(a) ON CONFLICT DO NOTHING VALUES (%s)"
+        == "INSERT INTO t(a) VALUES (%s) ON CONFLICT DO NOTHING"
     )
     assert dialect_statement("PRAGMA journal_mode = WAL", postgres=True) == ""
     assert dialect_statement("BEGIN IMMEDIATE", postgres=True) == "BEGIN"

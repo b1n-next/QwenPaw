@@ -63,6 +63,13 @@ class TokenUsageRecord(TokenUsageStats):
             "Owning agent ID; null if the stored row predates agent tracking"
         ),
     )
+    session_id: Optional[str] = Field(
+        None,
+        description=(
+            "Owning session ID; present only on session-scoped "
+            "queries (E10 conversation-level accounting)"
+        ),
+    )
 
 
 class TokenUsageByModel(TokenUsageStats):
@@ -172,6 +179,15 @@ class TokenUsageManager:
 
         if at_date is None:
             at_date = date.today()
+        # E10 C3: attach the ambient conversation (if any) so the
+        # session side-car fills without touching call sites.
+        session_id = ""
+        try:
+            from ..app.agent_context import get_current_session_id
+
+            session_id = get_current_session_id() or ""
+        except Exception:  # pylint: disable=broad-except
+            session_id = ""
         self._buffer.enqueue(
             _UsageEvent(
                 provider_id=provider_id,
@@ -187,8 +203,46 @@ class TokenUsageManager:
                 cache_eligible_input_tokens=cache_eligible_input_tokens,
                 cache_observed=cache_observed,
                 agent_id=_usage_agent_id(),
+                session_id=session_id,
             ),
         )
+
+    async def usage_for_session(
+        self,
+        session_id: str,
+    ) -> list[TokenUsageRecord]:
+        """E10: conversation drill-down from the sessions side-car.
+
+        Returns agent×provider×model rows accumulated for one
+        conversation, newest date first.
+        """
+        data = await self._buffer.get_merged_data()
+        sessions = (data or {}).get("sessions", {})
+        session_days = sessions.get(session_id, {})
+        records: list[TokenUsageRecord] = []
+        for date_str in sorted(session_days, reverse=True):
+            for entry in session_days[date_str].values():
+                records.append(
+                    TokenUsageRecord(
+                        date=date_str,
+                        provider_id=str(entry.get("provider_id") or ""),
+                        model=str(entry.get("model_name") or ""),
+                        prompt_tokens=int(
+                            entry.get("prompt_tokens", 0),
+                        ),
+                        completion_tokens=int(
+                            entry.get("completion_tokens", 0),
+                        ),
+                        call_count=int(entry.get("call_count", 0)),
+                        agent_id=(
+                            str(entry.get("agent_id"))
+                            if entry.get("agent_id")
+                            else None
+                        ),
+                        session_id=session_id,
+                    ),
+                )
+        return records
 
     async def _query(
         self,

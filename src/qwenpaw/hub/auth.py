@@ -101,12 +101,27 @@ class HubAuthService:  # pylint: disable=too-many-public-methods
         self._registration_lock = threading.Lock()
         initialize_hub_database(database_path)
         with self._connect() as connection:
-            connection.execute(
-                "UPDATE hub_users SET profile_json = json_set("
-                "profile_json, '$.workspace_dir', ?) "
-                "WHERE json_type(profile_json, '$.workspace_dir') IS NULL",
-                (HubUserProfile().workspace_dir,),
-            )
+            from .db_adapter import PgConnection
+
+            if isinstance(connection, PgConnection):
+                connection.execute(
+                    "UPDATE hub_users SET profile_json = "
+                    "(profile_json::jsonb || "
+                    "jsonb_build_object('workspace_dir', ?::text)"
+                    ")::text "
+                    "WHERE jsonb_typeof("
+                    "profile_json::jsonb -> 'workspace_dir'"
+                    ") IS NULL",
+                    (HubUserProfile().workspace_dir,),
+                )
+            else:
+                connection.execute(
+                    "UPDATE hub_users SET profile_json = json_set("
+                    "profile_json, '$.workspace_dir', ?) "
+                    "WHERE json_type(profile_json, '$.workspace_dir')"
+                    " IS NULL",
+                    (HubUserProfile().workspace_dir,),
+                )
         self._token_secret = self.credential_vault.get_or_create_system_secret(
             "TOKEN_SIGNING_SECRET",
         ).encode("ascii")

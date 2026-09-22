@@ -48,6 +48,18 @@ def is_postgres_url(url: str) -> bool:
     return url.startswith(("postgresql://", "postgres://"))
 
 
+def escape_percent_literals(sql: str) -> str:
+    """Double literal ``%`` for psycopg's client-side binding.
+
+    Runs BEFORE ``?`` → ``%s`` translation so the placeholders we
+    synthesize stay single-percent.
+    """
+    # psycopg's client-side parser counts % everywhere — including
+    # inside SQL string literals — so escape unconditionally; the %s
+    # placeholders are synthesized AFTER this pass.
+    return sql.replace("%", "%%")
+
+
 def translate_placeholders(sql: str) -> str:
     """Rewrite ``?`` placeholders to ``%s`` for psycopg (PG path).
 
@@ -92,8 +104,59 @@ def rewrite_insert_or_ignore(sql: str) -> str:
         return sql
     return (
         f"INSERT INTO {match.group(1).strip()} "
-        f"ON CONFLICT DO NOTHING {match.group(2).strip()}"
+        f"{match.group(2).strip()} ON CONFLICT DO NOTHING"
     )
+
+
+_JSON_CHECK_RE = re.compile(
+    r"CHECK\s*\(\s*json_valid\s*\([^)]*\)\s*\)",
+    re.IGNORECASE,
+)
+
+
+_NOCASE_RE = re.compile(r"\s+COLLATE\s+NOCASE", re.IGNORECASE)
+
+
+_SQLITE_FN_MAP: list[tuple[re.Pattern[str], str]] = [
+    # SQLite SQL-embedded functions → PG spellings (28 §P1)
+    (re.compile(r"datetime\(\s*'now'\s*\)", re.IGNORECASE), "now()::text"),
+    (
+        re.compile(r"hex\(\s*randomblob\(\s*(\d+)\s*\)\s*\)", re.IGNORECASE),
+        r"encode(gen_random_bytes(\1), 'hex')",
+    ),
+    (re.compile(r"\bsubstr\b\s*\(", re.IGNORECASE), "substring("),
+]
+
+
+def _map_sqlite_functions(statement: str) -> str:
+    """Rewrite SQLite SQL functions to their PG equivalents."""
+    for pattern, replacement in _SQLITE_FN_MAP:
+        statement = pattern.sub(replacement, statement)
+    return statement
+
+
+def _strip_collate_nocase(statement: str) -> str:
+    """Drop SQLite's ``COLLATE NOCASE`` on PG.
+
+    Case-insensitive uniqueness moves to the app layer (writes
+    normalize via ``strip()``; lookups use ILIKE — 28 §P1 per-store).
+    """
+    return _NOCASE_RE.sub("", statement)
+
+
+def _strip_json_valid_checks(statement: str) -> str:
+    """Drop SQLite's ``CHECK(json_valid(col))`` on PG.
+
+    JSON validity is enforced by the writers (``json.dumps``); PG
+    deployments may tighten columns to ``jsonb`` later (28 §P1).
+    Commas before the removed CHECK are cleaned up so the DDL stays
+    parseable.
+    """
+    without = _JSON_CHECK_RE.sub("", statement)
+    # collapse ",  ," or ", )" leftovers from the removal
+    without = re.sub(r",\s*,", ",", without)
+    without = re.sub(r",\s*\)", ")", without)
+    return without
 
 
 def dialect_statement(sql: str, *, postgres: bool) -> str:
@@ -105,6 +168,10 @@ def dialect_statement(sql: str, *, postgres: bool) -> str:
         return ""
     if statement.strip().upper().startswith("BEGIN IMMEDIATE"):
         statement = "BEGIN"
+    statement = _strip_json_valid_checks(statement)
+    statement = _strip_collate_nocase(statement)
+    statement = _map_sqlite_functions(statement)
+    statement = escape_percent_literals(statement)
     return translate_placeholders(statement)
 
 
@@ -141,6 +208,43 @@ def split_script(script: str) -> list[str]:
     return statements
 
 
+class PgRow(tuple):
+    """A result row shaped like ``sqlite3.Row``.
+
+    Supports positional ``row[0]`` and named ``row["col"]`` access
+    plus ``keys()`` (so ``dict(row)`` keeps working) — every store
+    written against sqlite3 keeps running unchanged on PG.
+    """
+
+    def __new__(cls, values: list, columns: list[str]) -> "PgRow":
+        instance = super().__new__(cls, values)
+        instance.columns = columns
+        return instance
+
+    def __getitem__(self, item: Any) -> Any:
+        if isinstance(item, str):
+            try:
+                return tuple.__getitem__(
+                    self,
+                    self.columns.index(item),
+                )
+            except ValueError as exc:
+                raise KeyError(item) from exc
+        return tuple.__getitem__(self, item)
+
+    def keys(self) -> list[str]:
+        return list(self.columns)
+
+
+def _pg_row_factory(cursor: Any) -> Any:
+    columns = [d.name for d in cursor.description or []]
+
+    def make(values: list) -> PgRow:
+        return PgRow(values, columns)
+
+    return make
+
+
 class PgConnection:
     """A psycopg connection dressed as the sqlite3 surface the Hub
     stores rely on: ``execute()``, ``commit()``, ``rollback()``,
@@ -150,7 +254,7 @@ class PgConnection:
     def __init__(self, url: str) -> None:
         import psycopg  # optional extra: qwenpaw[postgres]
 
-        self._conn = psycopg.connect(url, row_factory=psycopg.rows.dict_row)
+        self._conn = psycopg.connect(url, row_factory=_pg_row_factory)
 
     # -- sqlite3-shaped API -----------------------------------------
 
@@ -249,6 +353,7 @@ def open_hub_connection(
 
 __all__ = [
     "DB_URL_ENV",
+    "escape_percent_literals",
     "PgConnection",
     "configured_db_url",
     "dialect_statement",

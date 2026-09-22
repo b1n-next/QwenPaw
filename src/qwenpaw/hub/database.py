@@ -26,7 +26,21 @@ def utc_now() -> str:
 
 
 def connect_hub_database(database_path: Path) -> sqlite3.Connection:
-    """Open a consistently configured Hub database connection."""
+    """Open a consistently configured Hub database connection.
+
+    A6 P1 (28 §P0): with ``QWENPAW_HUB_DB_URL`` pointing at Postgres
+    the adapter returns a PG connection instead — same ``?``
+    placeholders, same ``row["col"]`` access. The SQLite default is
+    byte-for-byte the legacy path.
+    """
+    from .db_adapter import configured_db_url, is_postgres_url
+
+    url = configured_db_url()
+    if url and is_postgres_url(url):
+        # Late import keeps psycopg optional (qwenpaw[postgres]).
+        from .db_adapter import PgConnection
+
+        return PgConnection(url)  # type: ignore[return-value]
     connection = sqlite3.connect(database_path, timeout=5)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
@@ -100,7 +114,17 @@ def ensure_tenant(
     )
 
 
-def _existing_hub_tables(connection: sqlite3.Connection) -> set[str]:
+def _existing_hub_tables(connection: Any) -> set[str]:
+    from .db_adapter import PgConnection
+
+    if isinstance(connection, PgConnection):
+        rows = connection.execute(
+            "SELECT table_name AS name FROM information_schema.tables "
+            "WHERE table_schema = 'public' AND "
+            "(table_name LIKE 'hub_%' OR table_name IN "
+            "('runtimes', 'tenant_credentials', 'schema_meta'))",
+        ).fetchall()
+        return {str(row["name"]) for row in rows}
     rows = connection.execute(
         "SELECT name FROM sqlite_master WHERE type = 'table' AND "
         "(name LIKE 'hub_%' OR name IN "
@@ -243,9 +267,20 @@ def _ensure_audit_chain_columns(
         connection.execute(
             "ALTER TABLE hub_audit_events ADD COLUMN row_hash TEXT",
         )
-    rows = connection.execute(
-        "SELECT rowid AS ordinal, * FROM hub_audit_events ORDER BY rowid",
-    ).fetchall()
+    from .db_adapter import PgConnection
+
+    if isinstance(connection, PgConnection):
+        # PG has no implicit rowid; ctid approximates insertion order
+        # for this one-shot legacy backfill (28 §P1).
+        query_backfill = (
+            "SELECT ctid AS ordinal, * FROM hub_audit_events ORDER BY ctid"
+        )
+        rows = connection.execute(query_backfill).fetchall()
+    else:
+        rows = connection.execute(
+            "SELECT rowid AS ordinal, * FROM hub_audit_events "
+            "ORDER BY rowid",
+        ).fetchall()
     previous: str | None = None
     updates: list[tuple[str, str | None, int]] = []
     for row in rows:
@@ -323,9 +358,18 @@ def _validate_schema(connection: sqlite3.Connection) -> None:
 
 
 def _table_columns(
-    connection: sqlite3.Connection,
+    connection: Any,
     table: str,
 ) -> set[str]:
+    from .db_adapter import PgConnection
+
+    if isinstance(connection, PgConnection):
+        rows = connection.execute(
+            "SELECT column_name AS name FROM information_schema.columns "
+            "WHERE table_schema = 'public' AND table_name = ?",
+            (table,),
+        ).fetchall()
+        return {str(row["name"]) for row in rows}
     rows = connection.execute(f"PRAGMA table_info({table})").fetchall()
     return {str(row["name"]) for row in rows}
 

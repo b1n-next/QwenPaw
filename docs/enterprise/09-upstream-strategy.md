@@ -162,6 +162,12 @@ git push -u origin feature/enterprise
 | `src/qwenpaw/hub/acl/groups.py`（追加） | C6 层级：parent+防环+`descendant_member_ids`+组链 policy 继承 | Ph2 | C4/C5/C6 批 |
 | `src/qwenpaw/hub/control_app.py`（追加） | C4 登录 LDAP 兜底+自动建户；C5 SCIM 端点+`_erase_user_internals` 抽取（H5 复用）；G3 配额改子树聚合 | Ph2 | C4/C5/C6 批 |
 | `src/qwenpaw/hub/db_adapter.py`（新增） | A6 P0：双方言连接适配层（QWENPAW_HUB_DB_URL 驱动分发，SQLite 默认零变化） | Ph2（新增文件） | A6 批 |
+| `src/qwenpaw/hub/db_adapter.py`（追加） | A6 P1：PgRow（sqlite3.Row 双索引兼容）/函数映射/单行转义扩展 | Ph2 | A6 批 |
+| `src/qwenpaw/hub/database.py`（追加） | A6 P1：connect 单点切换+自省/回填 ctid 方言 | Ph2 | A6 批 |
+| `src/qwenpaw/hub/operations.py`（追加） | A6 P1：rowid↔ctid 六处+head 类型化 | Ph2 | A6 批 |
+| `src/qwenpaw/hub/auth.py`（追加） | A6 P1：workspace_dir JSON1 双方言+cast | Ph2 | A6 批 |
+| `src/qwenpaw/hub/control_app.py`（追加） | C6 HTTP parent 透传+审计 | Ph2 | A6 批 |
+| `src/qwenpaw/token_usage/buffer.py`+`manager.py`（追加） | E10 C1-C3：session 维度事件+旁挂段+下钻查询 | Ph2（runtime 核心，最小增量） | E10 批 |
 | `tests/integration/test_hub_control_app_module.py`（追加 1 行） | 上游 #7779 `_runtime_payload` 增 capability 后 FakeRecord 缺 `metadata`（merge 遗留基线红，非 fork 回归）——补 `metadata = {}` | Ph2 | E5/D2/D3/A4 批 |
 | `console/src/pages/Hub/index.tsx`（fork 文件，吸收登记） | 上游 #7779 组件吸收：治理 section（OrganizationModels/OrganizationBudget/Invitations）+ 导航项 + governanceGrid 样式 | Ph2 | B8 吸收 |
 

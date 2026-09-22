@@ -791,6 +791,7 @@ class TestTokenUsageManagerCore:
                 "provider_id": "prov2",
                 "model": "model-from-key",
                 "agent_id": None,
+                "session_id": None,
             },
             {
                 "prompt_tokens": 7,
@@ -804,6 +805,7 @@ class TestTokenUsageManagerCore:
                 "provider_id": "ollama",
                 "model": "namespace:model:tag",
                 "agent_id": None,
+                "session_id": None,
             },
         ]
 
@@ -828,6 +830,7 @@ class TestTokenUsageManagerCore:
                 "provider_id": "prov2",
                 "model": "model-from-key",
                 "agent_id": None,
+                "session_id": None,
             },
         ]
 
