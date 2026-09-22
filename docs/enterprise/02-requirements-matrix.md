@@ -14,7 +14,7 @@
 | A3 | per-tenant PVC（RWO 即可，per-tenant 模型下无需 RWX） | AUD | ✅（`provisioners/k8s/manifest.py` PVC builder + stop 保 PVC 会话延续，06 §7.1 kind 实测） | P1 | Ph1 | 高 |
 | A4 | A4 | Secret 集成（K8s Secret 起步，Vault/KMS 可选） | ✅（闭环 EP-2-13 归置承诺：`hub-secret.yaml` 新模板（admin 凭据 + 可选 OIDC client_secret 入 Secret 资源）；**OIDC secret 已入 vault**：`QWENPAW_HUB_OIDC_CLIENT_SECRET` env 启动时一次性导入加密 vault 并即刻清 env，`_build_oidc_client` 三源解析（yaml 显式值 → vault → 空）；Deployment env/init args 全部 `secretKeyRef`/`$(VAR)` 引用（**spec 零明文**，grep 实证 0）；`hub.secretProvider.enabled` 开关（默认 off 兼容旧流，staging/prod 档默认 on）；顺手修真 bug：bootstrap init 缺 `--root` 参数（镜像 argparse 必需，CrashLoopBackOff 实证）；kind 实弹：helm upgrade → rollout → Secret 投递冒烟 SMOKE-PASS。Vault/KMS 升级位留待需要时） | ✅ | Ph2（已落） | Vault/KMS 可选升级 |
 | A5 | 多机调度（K8s 原生调度即可满足） | HUB | ✅（随 G1 达成：k8s provisioner 起 per-tenant Pod 跨节点调度；多副本 hub 仍属 A6 状态外置前提） | P2 | Ph1 | 高 |
-| A6 | 弹性扩缩容（Hub 层 HPA；runtime per-tenant 不扩副本） | HUB | 🟡（26 §1：HPA 模板冻结（metrics 就绪）；**真堵点=SQLite 多副本**——控制面扩副本前必须外置 DB 或单写多读，runtime 侧维持惰性启停不扩副本 | P2 | 设计冻结 | 高 |
+| A6 | 弹性扩缩容（Hub 层 HPA；runtime per-tenant 不扩副本） | HUB | 🟡（**2026-09-19 拍板：外置 Postgres**（否决单副本长期化）；28 号路线图三阶段——**P0 连接/方言抽象层已落**（`db_adapter.py`：`QWENPAW_HUB_DB_URL` 双驱动、占位符翻译、INSERT OR IGNORE 改写、PRAGMA 跳过、quote-aware 脚本分割；SQLite 默认路径零变化，9 测试）；P1 store 逐迁移（1 周）；P2 多副本+HPA（26 §1 模板）+ 搬迁脚本；前置=内网 PG 实例（≥14） | P2 | P0 已落 | 高 |
 | A7 | A7 | 升级策略（hub 滚动升级 + runtime 重建；金丝雀/蓝绿） | ✅（EP-2-10 金丝雀：sqlite 单写者约束下采用**隔离状态金丝雀**——emptyDir 草稿副本 + `hub-smoke.sh` 五关冒烟门 + JSON patch 选择器切流；kind 全链路实测含回退（merge patch 不删 selector key 的踩坑已固化为手册警示）；runtime 升级走 registry 期望态重建）；**停机窗口已明示**：runbook-canary §5 量化 Recreate 单副本窗口（~30-80s 典型）+ 五级缓解（金丝雀先行/镜像预热/低峰+备份兜底/PDB 显式预算/零停机=Phase3+ 状态外置议题）| ✅ | Ph2（已落） | — |
 | A8 | A8 | 备份容灾（Velero/PVC 快照 + sqlite 备份手册化） | ✅（EP-2-5 `1a41…`：`runbook-backup-restore.md` 双层手册——SQLite 在线 `.backup` 脚本 `deploy/scripts/backup-hub-sqlite.sh`（WAL 一致快照+SHA256SUMS+轮转）+ Velero 卷级步骤；**L1 恢复演练实测闭环**（破坏→恢复→integrity ok→行数/vault 对账→轮转 8→3），L2 待生产首跑补记） | ✅ | Ph2（已落） | — |
 | A9 | 定时任务幂等/去重 | GLM | ✅（**架构性满足**（per-tenant 单写者——runtime 每 Pod 单实例，cron 调度无并发副本；06 §3 单写者约束同源）；**重开条件**：runtime 共享化/多副本（届时需分布式锁，Ph3 议题）） | P3 | 架构满足 | 低 |
@@ -72,7 +72,7 @@
 | E7 | E7 | 额度与成本控制（预算/熔断，与 F 区配额联动） | ✅（成本核算：单价表存模型扩展（`input/output_per_mtok`+currency，admin PUT 入审计）；`GET /admin/usage/costs` 按模型计价（MTok 单价 × usage 汇总）+ 按组汇总（tenant→组映射，无组落 `(ungrouped)`）+ 多币种合计 + `unpriced_models` 明示；读取入审计） | ✅ | Ph2（已落） | — |
 | E8 | Key 轮换机制 | GLM | ✅（双通道：① provider key `POST .../providers/{id}/rotate-key`——新 key preflight 探测（GET /models）通过才落库，失败 409 保旧 key（fail-closed）+ 审计；② runtime internal token `POST .../runtimes/{id}/rotate-token`——vault 新值+PREVIOUS 双值，graph 推送 401 时宽限回退旧值，runtime 重启即全切 + 审计；流程手册 runbook-key-rotation） | P2 | Ph2（已落） | 中 |
 | E9 | E9 | 模型→RBAC 交叉（不同组可见不同模型子集） | ✅（`GET /api/hub/models` 用户面目录：enabled 目录 × 调用者组/用户 `model:*` 策略过滤；**可见性≡可激活**（与 E4 同一 `_model_policies_allow` 判定，deny 优先），目录不显代理会拒的模型；admin 目录端点不受影响） | ✅ | Ph2（已落） | — |
-| E10 | 计费精度到对话/Agent 级 | GLM | 🟡（**Agent 级 ✅**：costs 端点 `by_agent`（usage_counters PK 含 agent_id 全链路）+ **CSV 计费导出** `GET /admin/usage/costs/export`——行级=tenant×agent×provider×model，**逐行精确计价**（无混合估算），组归属导出时解析，多币种逐行保留，审计 `usage.costs.export`；**对话级 ☐→**评估稿已落（docs/enterprise/18）**：采集点已有 session_id（model_wrapper 分桶），存储/上报两段聚合丢弃；C1-C7 改造清单+旁挂明细表路线已列，待拍板）；7 测试） | P3 | 部分已落 | 中 |
+| E10 | 计费精度到对话/Agent 级 | GLM | 🟡（**Agent 级 ✅**：costs 端点 `by_agent`（usage_counters PK 含 agent_id 全链路）+ **CSV 计费导出** `GET /admin/usage/costs/export`——行级=tenant×agent×provider×model，**逐行精确计价**（无混合估算），组归属导出时解析，多币种逐行保留，审计 `usage.costs.export`；**对话级 ☐→**2026-09-19 拍板混合路线**：上游 issue 已起草（`upstream-issue-conversation-billing.md`，待用户过目提交）+ fork 侧只做 C1-C3（runtime 旁挂明细，白名单最小增量）；C4-C6 跨平面等上游；评估稿 docs/18）；7 测试） | P3 | 部分已落 | 中 |
 
 ## F. 用量与可观测
 
@@ -104,7 +104,7 @@
 
 | ID | 需求 | 来源 | 状态 | 优先级 | 阶段 | 撞车 |
 |---|---|---|---|---|---|---|
-| H1 | 记忆/知识三档共享（个人私有 / 部门共享 / 租户公共） | #7318 社区(Marlin-Phone/ysf7762) | 🟡（26 §6：设计冻结——hub KnowledgeStore（scope=tenant 全员读/group 沿 C6 组树继承读）+ runtime 环境注入挂载；个人档=现状 agent 记忆；**建议与 J3 语义层合并实现**（同构存储）；工作量票非环境票） | P2 | 设计冻结 | 中 |
+| H1 | 记忆/知识三档共享（个人私有 / 部门共享 / 租户公共） | #7318 社区(Marlin-Phone/ysf7762) | 🟡（**2026-09-19 拍板：与 J3 合并、两阶段**——阶段一 H1 语义（knowledge_entries 存储+scope 授权+runtime 注入，通用知识档先上）；阶段二 J3 消费（语义层条目 kind=semantic 挂同存储）；26 §6 设计冻结；排期在问数线 J1+J5+J9 之后 | P2 | 已拍板待排期 | 中 |
 | H2 | H2 | 审计日志 append-only/防篡改 | ✅（无票据直落：`hub_audit_events` 加 `prev_hash/row_hash` 链式 SHA-256（全字段参与 canonical JSON）；`BEGIN IMMEDIATE` 内取头-算哈希-插入原子；存量行幂等补链；`verify_chain()` 全walk 报断链位置/原因；admin 端点 `/audit/verify` + `/audit/chain-head`（外部锚定用）。边界如实：链检测篡改/删行/重排，整库重算级攻击需配合 chain-head 外部锚定（备份手册已含离线副本建议）） | ✅ | Ph2（已落） | — |
 | H3 | H3 | 审计留存周期与导出接口 | ✅（无票据直落：`GET /audit/export` JSONL 流式导出（含 prev/row_hash 可离线校验）；`POST /audit/prune` **先归档后删**（JSONL 落 hub root + 被裁段尾哈希入 `audit_chain_archives` 锚点表 + 剩余链 fresh-genesis 重哈希续链）；`GET /audit/archives` 锚点清单；prune 自身入审计；留存节奏由运维 cron 驱动（默认不自动删）） | ✅ | Ph2（已落） | — |
 | H4 | 数据驻留（多地域不跨区） | GLM | 🟡（26 §4：**零代码结论**——分域部署（每地域独立 hub，QWENPAW_HUB_DIR 分域），入口按地域分流，hub 间零同步即零跨区；堵点=网络侧入口路由） | P3 | 结论冻结 | 低 |
